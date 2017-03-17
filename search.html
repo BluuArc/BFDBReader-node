@@ -1,0 +1,38 @@
+<html>
+   <body>
+      <form action = "http://127.0.0.1:8081/search/options" method = "GET">
+        Blank fields will be ignored. Enter in the fields below the parameters you want to search for. <br>
+        Name/Guide ID/Unit ID: <input type = "text" name = "unit_name_id" title="string">  <br>
+        Rarity: <input type = "text" name = "rarity" title="integer 1-8">  <br>
+        Element: <select name="element" title="pick one"> 
+            <option>Fire</option>
+            <option>Water</option>
+            <option>Earth</option>
+            <option>Thunder</option>
+            <option>Light</option>
+            <option>Dark</option>
+            <option>Any</option>
+        </select><br>
+        Element: <select name="gender" title="pick one"> 
+            <option>Male</option>
+            <option>Female</option>
+            <option>Genderless</option>
+            <option>Any</option>
+        </select><br>
+        Move Speed: <input type="text" name="move_speed" title="integer"> <br>
+        LS Name/Description: <input type = "text" name = "ls_name" title="string"> <br>
+        LS Effects: <input type = "text" name = "ls_effect" title="string"> <br>
+        BB Name/Description: <input type = "text" name = "bb_name" title="string"> <br>
+        BB Effects: <input type = "text" name = "bb_effect" title="string"> <br>
+        SBB Name/Description: <input type = "text" name = "sbb_name" title="string"> <br>
+        SBB Effects: <input type = "text" name = "sbb_effect" title="string"> <br>
+        UBB Name/Description: <input type = "text" name = "ubb_name" title="string"> <br>
+        UBB Effects: <input type = "text" name = "ubb_effect" title="string"> <br>
+        ES Name/Description: <input type = "text" name = "es_name" title="string"> <br>
+        ES Effects: <input type = "text" name = "es_effect" title="string"> <br>
+        SP Name/Description: <input type = "text" name = "sp_name" title="string"> <br>
+        SP Effects: <input type = "text" name = "sp_effect" title="string"> <br>
+         <input type = "submit" value = "Submit">
+      </form>
+   </body>
+</html>
