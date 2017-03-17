@@ -1,4 +1,10 @@
 var fs = require('fs');
+var underscore = require('underscore');
+var compression = require('compression');
+var express = require('express'),
+    app = express();
+
+app.use(compression())
 
 //asynchronous file load, used for updating after database is built
 function asynchr_json_load(file, callbackFn){
