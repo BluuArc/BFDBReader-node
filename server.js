@@ -44,20 +44,28 @@ function asynchr_json_write(file, data){
 
 //add in anything in db_sub that is not in db_main
 function merge_databases(db_main, db_sub, server){
-    var local_obj = JSON.parse(JSON.stringify(db_main));
-    for(o in db_sub){ //iterate through everything in object
-        if(local_obj[o] != undefined){ //exists, so just add date add time
-            if(local_obj[o]["server"].indexOf(server) == -1){
-                local_obj[o]["server"].push(server);
-                local_obj[o]["db_add_time"].push(new Date().toUTCString());
+    var local_obj = JSON.parse(JSON.stringify(db_main)); //casting
+    for(unit in db_sub){ //iterate through everything in object
+        if(local_obj[unit] != undefined){ //exists, so just add date add time
+            if(local_obj[unit]["server"].indexOf(server) == -1){
+                local_obj[unit]["server"].push(server);
+                local_obj[unit]["db_add_time"].push(new Date().toUTCString());
             }
         }else{ //doesn't exist, so add it and date add time
-            local_obj[o] = db_sub[o];
-            local_obj[o].server = [server];
-            local_obj[o]["db_add_time"] = [new Date().toUTCString()];
+            local_obj[unit] = db_sub[unit];
+            local_obj[unit].server = [server];
+            local_obj[unit]["db_add_time"] = [new Date().toUTCString()];
         }
     }
     return local_obj;
+}
+
+//adds sp section in in the sub database to the main database
+function add_sp_to_db(db_main, db_sub){
+    // var local_obj = JSON.parse(JSON.stringify(db_main)); //casting
+    for(unit in db_sub){
+        db_main[unit]["skills"] = db_sub[unit]["skills"];
+    }
 }
 
 //load database from a file or files
@@ -65,17 +73,23 @@ function load_database(master_obj){
     master_obj["unit"] = {};
     //open unit
     try{
-        console.log("Loading master unit databases...");
+        console.log("Loading master unit database...");
         master_obj["unit"] = synchr_json_load('info-master.json');
     }catch(err){ 
         console.log("Master database not found. Loading individual unit databases...");
         var global = synchr_json_load('info-gl.json');
+        var global_sp = synchr_json_load('feskills-gl.json');
         var japan = synchr_json_load('info-jp.json');
+        var japan_sp = synchr_json_load('feskills-jp.json');
         var europe = synchr_json_load('info-eu.json');
-        console.log("Merging unit databases...")
+        //add sp skills to respective databases
+        add_sp_to_db(global,global_sp);
+        add_sp_to_db(japan,japan_sp);
+        console.log("Merging unit databases...");
         master_obj["unit"] = merge_databases(master_obj.unit, global, 'gl');
         master_obj["unit"] = merge_databases(master_obj.unit, europe, 'eu');
         master_obj["unit"] = merge_databases(master_obj.unit, japan, 'jp');
+        //TODO: Add creation of smaller JSON file of BFDBReader-node specific additions (e.g. add time and server)
         asynchr_json_write('info-master.json', JSON.stringify(master_obj["unit"]));
     }
 
@@ -98,24 +112,28 @@ app.get('/search', function(request,response){
     response.sendFile(__dirname + "/" + "search.html");
 });
 
+function safe_json_get(value){
+     return (value != undefined) ? value : "";
+}
+
 //get the corresponding unit value of a given query
-function get_query_value(field, query, unit){
+function get_query_value(queryField, unit){
     try{
-        switch(name){
+        switch(queryField){
             case 'unit_name_id': return unit["guide_id"] + ": " + unit["name"].toLowerCase() + " (" + unit["id"]+")";
             case 'rarity': return unit["rarity"].toString();
             case 'element': return unit["element"].toLowerCase();
             case 'gender': return unit["gender"].toLowerCase();
             case 'move_speed': return unit["movement"]["skill"]["move speed type"].toLowerCase();
-            case 'ls_name': return (unit["leader skill"]["name"] + "* - " + unit["leader skill"]["desc"]).toLowerCase();
+            case 'ls_name': return (unit["leader skill"]["name"] + " - " + unit["leader skill"]["desc"]).toLowerCase();
             case 'ls_effect': return JSON.stringify(unit["leader skill"]["effects"]);
-            case 'bb_name': return (unit["bb"]["name"] + "* - " + unit["bb"]["desc"]).toLowerCase();
-            case 'bb_effect': return JSON.stringify(unit["bb"]["effects"]);
-            case 'sbb_name': return (unit["sbb"]["name"] + "* - " + unit["sbb"]["desc"]).toLowerCase();
-            case 'sbb_effect': return JSON.stringify(unit["sbb"]["effects"]);
-            case 'ubb_name': return (unit["ubb"]["name"] + "* - " + unit["ubb"]["desc"]).toLowerCase();
-            case 'ubb_effect': return JSON.stringify(unit["ubb"]["effects"]);
-            case 'es_name': return (unit["extra skill"]["name"] + "* - " + unit["extra skill"]["desc"]).toLowerCase();
+            case 'bb_name': return (unit["bb"]["name"] + " - " + unit["bb"]["desc"]).toLowerCase();
+            case 'bb_effect': return JSON.stringify(unit["bb"]["levels"][9]["effects"]);
+            case 'sbb_name': return (unit["sbb"]["name"] + " - " + unit["sbb"]["desc"]).toLowerCase();
+            case 'sbb_effect': return JSON.stringify(unit["sbb"]["levels"][9]["effects"]);
+            case 'ubb_name': return (unit["ubb"]["name"] + " - " + unit["ubb"]["desc"]).toLowerCase();
+            case 'ubb_effect': return JSON.stringify(unit["ubb"]["levels"][9]["effects"]);
+            case 'es_name': return (unit["extra skill"]["name"] + " - " + unit["extra skill"]["desc"]).toLowerCase();
             case 'es_effect': return JSON.stringify(unit["extra skill"]["effects"]);
             case 'sp_name':
                 var result = "";
@@ -132,19 +150,26 @@ function get_query_value(field, query, unit){
             default: return "";
         }
     }catch(err){
-        console.log(err);
+        // console.log(err);
         return "";
     }
 }
 
 app.get('/search/options', function(request,response){
-    console.log(request.query);
+    // console.log(request.query);
     var query = request.query;
     for(q in query){
         var curQuery = query[q].toLowerCase();
-        // if  (curQuery == '' || (q == 'element' && curQuery == 'any') ||
-        //     (q == 'gender' && curQuery == 'any')
+        //wildcard queries
+        if  (curQuery == '' || (q == 'element' && curQuery == 'any') ||
+            (q == 'gender' && curQuery == 'any')){
+                continue;
+        }
+
+        var uValue = get_query_value(q, master_list.unit["10017"]);
+        console.log(q + ": " + uValue);
     }
+    // console.log("\n\n" + master_list.unit["10017"]);
     response.end("Received request");
 })
 
