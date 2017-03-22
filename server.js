@@ -155,6 +155,8 @@ function get_query_value(queryField, unit){
     }
 }
 
+//given a series of search options, list units with those qualities
+//TODO: finish this function
 app.get('/search/options', function(request,response){
     // console.log(request.query);
     var query = request.query;
@@ -171,6 +173,157 @@ app.get('/search/options', function(request,response){
     }
     // console.log("\n\n" + master_list.unit["10017"]);
     response.end("Received request");
+});
+
+//given a start and end range, list unit names in that range
+app.get('/list/units', function(request,response){
+    var query = request.query;
+    /*//expected format for query
+        query = {
+            type: "unit_id" || "guide_id",
+            list_type: "range" || "amount"
+            start: "10011" || "1" || null (defaults to one of the first two depending on type),
+            end: "-1" || some number || null (defaults to -1 to print all values); only for range,
+            count: "-1" || some number || null (refaults to -1 to print all values); only for amount
+        }
+    */
+    //build temporary list to sort through
+    var tempList = [];
+    var resultList = []; //to be returned
+    for(u in master_list.unit){
+        tempList.push(master_list.unit[u]["id"].toString());
+    }
+    try{
+        var start;
+        var isTraversing = false;
+        if(query.list_type == "range"){ //print units within a range [from start to end inclusive]
+            var end;
+            if(query.type == "unit_id"){
+                //no sort since it's sorted by ID by default
+
+                //set traversal options
+                if(query.start != undefined)
+                    start = parseInt(query.start.toString());
+                else
+                    start = "10011";
+
+                if(query.end != undefined)
+                    end = parseInt(query.end.toString());
+                else
+                    end = -1;
+
+                //traverse
+                for(u in tempList){
+                    if(parseInt(tempList[u]) >= start){ //start saving once we reach start position
+                        isTraversing = true;
+                    }
+                    if(isTraversing){//save unit name
+                        var unit = master_list.unit[tempList[u]];
+                        resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
+                    }
+                    if(end != -1 && parseInt(tempList[u]) >= end){ //stop once we reach our end position
+                        isTraversing = false;
+                        break;
+                    }
+                }//end traverse
+            }else if(query.type == "guide_id"){
+                tempList = underscore.sortBy(tempList, function (id) { 
+                    var unit = master_list.unit[id];
+                    return unit["guide_id"];
+                });
+                //set traversal options
+                if (query.start != undefined)
+                    start = parseInt(query.start.toString());
+                else
+                    start = 0;
+
+                if (query.end != undefined)
+                    end = parseInt(query.end.toString());
+                else
+                    end = -1;
+
+                //traverse
+                for (u in tempList) {
+                    var unit = master_list.unit[tempList[u]];
+                    if (unit["guide_id"] == start) { //start saving once we reach start position
+                        isTraversing = true;
+                    }
+                    if (end != -1 && unit["guide_id"] == (end+1)) { //stop once we reach our end position
+                        isTraversing = false;
+                        break;
+                    }
+                    if (isTraversing) {//save unit name
+                        resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
+                    }
+                }//end traverse
+            }else{
+                throw "Query Type " + query.type + " is not valid"; 
+            }
+            response.end(JSON.stringify(resultList));
+        }else if(query.list_type == "amount"){//print X amount of units
+            var count;
+            if (query.type == "unit_id") {
+                //no sort since it's sorted by ID by default
+
+                //set traversal options
+                if (query.start != undefined)
+                    start = parseInt(query.start.toString());
+                else
+                    start = "10011";
+
+                if (query.count != undefined)
+                    count = parseInt(query.count.toString());
+                else
+                    count = "-1";
+
+                //traverse
+                var c = 0;
+                for (u in tempList) {
+                    if (tempList[u] == start) { //start saving once we reach start position
+                        isTraversing = true;
+                    }
+                    if (c == count) { //stop once we reach our end position
+                        isTraversing = false;
+                        break;
+                    }
+                    if (isTraversing) {//save unit name
+                        var unit = master_list.unit[tempList[u]];
+                        resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
+                        c++;
+                    }
+                }//end traverse
+            } else if (query.type == "guide_id") {
+                tempList = underscore.sortBy(tempList, function (id) {
+                    var unit = master_list.unit[id];
+                    return unit["guide_id"];
+                });
+
+                //set traversal options
+                if (query.start != undefined)
+                    start = parseInt(query.start.toString());
+                else
+                    start = 0;
+
+                if (query.count != undefined)
+                    count = parseInt(query.count.toString());
+                else
+                    count = -1;
+
+                for (var c = start; c != (count+1) && c < tempList.length; ++c) {
+                    var unit = master_list.unit[tempList[c]];
+                    resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
+                }//end traverse
+            } else {
+                throw "Query Type " + query.type + " is not valid";
+            }
+            response.end(JSON.stringify(resultList));
+        }else{
+            throw "Query List Type " + query.list_type + " is not valid"; 
+        }
+    }catch(err){
+        console.log(err);
+        response.end(JSON.stringify([err])); //return an empty array
+    }
 })
 
 var server = app.listen(8081, '127.0.0.1', function(){
