@@ -1,9 +1,16 @@
+//for File management
 var fs = require('fs');
-var underscore = require('underscore');
+var request = require('request');
+
+var underscore = require('underscore'); //for search functions
+
+//for server setup 
 var compression = require('compression');
 var bodyParser = require('body-parser');
 var express = require('express'),
     app = express();
+
+//for command line
 var argv = require('yargs')
     .usage('Usage: $0 -p [integer] -i [string of IP address]')
     .default("p", 80)
@@ -48,9 +55,46 @@ function asynchr_json_load(file, callbackFn){
     });
 }
 
+//download a single file
+function asynchr_file_download(url, local_name, callbackFn){
+    //based on https://blog.xervo.io/node.js-tutorial-how-to-use-request-module 
+    var destination = fs.createWriteStream('./' + local_name);
+    request(url).pipe(destination).on('finish',function(){
+        // console.log("Finished downloading " + local_name + " from " + url);
+        // asynchr_json_load(local_name, callbackFn);
+        callbackFn();
+    });
+}
+
+//download multiple files before continuing
+function asynchr_files_download(list,callbackFn){
+    if(list == undefined || list.length == 0)
+        callbackFn();
+    else{
+        //based on https://blog.xervo.io/node.js-tutorial-how-to-use-request-module 
+        var cur_set = list.pop(); //list is an array of download jobs
+        var local_name = cur_set["local_name"];
+        var url = cur_set["url"];
+        console.log("Downloading " + url + " > " + local_name);
+        var destination = fs.createWriteStream('./' + local_name);
+        request(url).pipe(destination).on('finish', function () {
+            asynchr_files_download(list,callbackFn);
+        });
+    }
+}
+
 //synchronous file load, used for building initial database
-function synchr_json_load(file){
-    return JSON.parse(fs.readFileSync(__dirname + "/" + file, 'utf8'));
+function synchr_json_load(file, alternative_files){
+    try{
+        return JSON.parse(fs.readFileSync(__dirname + "/" + file, 'utf8'));
+    }catch(err){//error, try alternative files
+        if(alternative_files != undefined && alternative_files.length > 0){
+            var new_file = alternative_files.pop();
+            return synchr_json_load(new_file,alternative_files);
+        }else{//return an error if none of the files work
+            return JSON.parse(fs.readFileSync(__dirname + "/" + file, 'utf8'));
+        }
+    }
 }
 
 //used to save data
@@ -62,6 +106,15 @@ function asynchr_json_write(file, data){
         console.log("Saved " + file);
         return;
     });
+}
+
+function rename_file(cur_name,new_name){
+    try{
+        var data = fs.readFileSync(__dirname + "/" + cur_name, 'utf8');
+        fs.writeFileSync(__dirname + "/" + new_name, data ,'utf8');
+    }catch(err){
+        console.log(err);
+    }
 }
 
 //add in anything in db_sub that is not in db_main
@@ -94,16 +147,17 @@ function add_sp_to_db(db_main, db_sub){
 function load_database(master_obj){
     master_obj["unit"] = {};
     //open unit
-    try{
-        console.log("Loading master unit database...");
-        master_obj["unit"] = synchr_json_load('info-master.json');
-    }catch(err){ 
-        console.log("Master database not found. Loading individual unit databases...");
-        var global = synchr_json_load('info-gl.json');
-        var global_sp = synchr_json_load('feskills-gl.json');
-        var japan = synchr_json_load('info-jp.json');
-        var japan_sp = synchr_json_load('feskills-jp.json');
-        var europe = synchr_json_load('info-eu.json');
+    // try{
+    //     console.log("Loading master unit database...");
+    //     master_obj["unit"] = synchr_json_load('info-master.json');
+    // }catch(err){ 
+        // console.log("Master database not found. Loading individual unit databases...");
+        console.log("Loading individual unit databases...");
+        var global = synchr_json_load('info-gl.json', ['info-gl-old.json']);
+        var global_sp = synchr_json_load('feskills-gl.json', ['feskills-gl-old.json']);
+        var japan = synchr_json_load('info-jp.json', ['info-jp-old.json']);
+        var japan_sp = synchr_json_load('feskills-jp.json', ['feskills-jp-old.json']);
+        var europe = synchr_json_load('info-eu.json',['info-eu-old.json']);
         //add sp skills to respective databases
         add_sp_to_db(global,global_sp);
         add_sp_to_db(japan,japan_sp);
@@ -112,14 +166,98 @@ function load_database(master_obj){
         master_obj["unit"] = merge_databases(master_obj.unit, europe, 'eu');
         master_obj["unit"] = merge_databases(master_obj.unit, japan, 'jp');
         //TODO: Add creation of smaller JSON file of BFDBReader-node specific additions (e.g. add time and server)
-        asynchr_json_write('info-master.json', JSON.stringify(master_obj["unit"]));
-    }
+        // asynchr_json_write('info-master.json', JSON.stringify(master_obj["unit"]));
+    // }
+    console.log("Finished loading unit database");
 
     //open item
 }
 
+//reload database from remote
+function reload_database(callbackFn){
+    console.log("Preparing to reload database");
+    //save old files
+    console.log("Saving old files");
+    rename_file('info-gl.json', 'info-gl-old.json');
+    rename_file('info-jp.json', 'info-jp-old.json');
+    rename_file('info-eu.json', 'info-eu-old.json');
+    rename_file('feskills-gl.json', 'feskills-gl-old.json');
+    rename_file('feskills-jp.json', 'feskills-jp-old.json');
+    rename_file('items-gl.json', 'items-gl-old.json');
+    rename_file('items-jp.json', 'items-jp-old.json');
+    rename_file('items-eu.json', 'items-eu-old.json');
+    rename_file('evo_list-gl.json', 'evo_list-gl-old.json');
+    rename_file('evo_list-jp.json', 'evo_list-jp-old.json');
+    rename_file('evo_list-eu.json', 'evo_list-eu-old.json');
+
+    //download files from remote servers and load database when finished
+    console.log("Downloading new files");
+    var main_url = 'https://raw.githubusercontent.com/Deathmax/bravefrontier_data/master';
+    var list = [
+        {
+            url: main_url + '/info.json',
+            local_name: 'info-gl.json'
+        },
+        {
+            url: main_url + '/feskills.json',
+            local_name: 'feskills-gl.json'
+        },
+        {
+            url: main_url + '/items.json',
+            local_name: 'items-gl.json'
+        },
+        {
+            url: main_url + '/evo_list.json',
+            local_name: 'evo_list-gl.json'
+        },
+        {
+            url: main_url + '/jp/info.json',
+            local_name: 'info-jp.json'
+        },
+        {
+            url: main_url + '/jp/feskills.json',
+            local_name: 'feskills-jp.json'
+        },
+        {
+            url: main_url + '/jp/items.json',
+            local_name: 'items-jp.json'
+        },
+        {
+            url: main_url + '/jp/evo_list.json',
+            local_name: 'evo_list-jp.json'
+        },
+        {
+            url: main_url + '/eu/info.json',
+            local_name: 'info-eu.json'
+        },
+        {
+            url: main_url + '/eu/items.json',
+            local_name: 'items-eu.json'
+        },
+        {
+            url: main_url + '/eu/evo_list.json',
+            local_name: 'evo_list-eu.json'
+        },
+    ];
+    asynchr_files_download(list,function(){
+        load_database(master_list);
+        try{
+            callbackFn();
+        }catch(err){
+            console.log(err);
+        }
+    });
+}
+
 app.get('/', function(request, response){
     response.end("<h1>Hello World</h1>");
+});
+
+app.get('/reload', function(request,response){
+    response.send("Reloading database...<br>");
+    reload_database(function(){
+        response.end("Finished reloading database");
+    })
 });
 
 app.get('/unit/:id', function(request, response){
@@ -200,6 +338,7 @@ app.get('/search/options', function(request,response){
 //given a start and end range, list unit names in that range
 app.get('/list/units', function(request,response){
     var query = request.query;
+    // console.log(query);
     /*//expected format for query
         query = {
             type: "unit_id" || "guide_id",
@@ -257,7 +396,7 @@ app.get('/list/units', function(request,response){
                 if (query.start != undefined)
                     start = parseInt(query.start.toString());
                 else
-                    start = 0;
+                    start = 1;
 
                 if (query.end != undefined)
                     end = parseInt(query.end.toString());
@@ -270,12 +409,13 @@ app.get('/list/units', function(request,response){
                     if (unit["guide_id"] == start) { //start saving once we reach start position
                         isTraversing = true;
                     }
-                    if (end != -1 && unit["guide_id"] == (end+1)) { //stop once we reach our end position
-                        isTraversing = false;
-                        break;
-                    }
                     if (isTraversing) {//save unit name
                         resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
+                    }
+                    if (unit["guide_id"] == (end)) { //stop once we reach our end position
+                        console.log(unit["id"]);
+                        isTraversing = false;
+                        break;
                     }
                 }//end traverse
             }else{
@@ -315,6 +455,7 @@ app.get('/list/units', function(request,response){
                     }
                 }//end traverse
             } else if (query.type == "guide_id") {
+                console.log("entered amount, guide_id");
                 tempList = underscore.sortBy(tempList, function (id) {
                     var unit = master_list.unit[id];
                     return unit["guide_id"];
@@ -331,7 +472,8 @@ app.get('/list/units', function(request,response){
                 else
                     count = -1;
 
-                for (var c = start; c != (count+1) && c < tempList.length; ++c) {
+                // console.log(start + " to " + count);
+                for (var c = start; c != (count) && c < tempList.length; ++c) {
                     var unit = master_list.unit[tempList[c]];
                     resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
                 }//end traverse
@@ -346,7 +488,7 @@ app.get('/list/units', function(request,response){
         console.log(err);
         response.end(JSON.stringify([err])); //return an empty array
     }
-})
+});
 
 var server = app.listen(argv["port"], argv["ip"], function(){
     var host = server.address().address;
