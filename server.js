@@ -4,6 +4,17 @@ var compression = require('compression');
 var bodyParser = require('body-parser');
 var express = require('express'),
     app = express();
+var argv = require('yargs')
+    .usage('Usage: $0 -p [integer] -i [string of IP address]')
+    .default("p", 80)
+    .default("i", '127.0.0.1')
+    .alias('p', 'port')
+    .alias('i', 'ip').alias('i', 'ip-address')
+    .describe('p', 'Port to run server on')
+    .describe('i', 'IP Address to run server on')
+    .help('h')
+    .alias('h', 'help')
+    .argv;
 
 app.use(compression());
 app.use(bodyParser.urlencoded({extended: false}));
@@ -326,7 +337,7 @@ app.get('/list/units', function(request,response){
     }
 })
 
-var server = app.listen(8081, '127.0.0.1', function(){
+var server = app.listen(argv["port"], argv["ip"], function(){
     var host = server.address().address;
     var port = server.address().port;
 
