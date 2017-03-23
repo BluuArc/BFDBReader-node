@@ -16,8 +16,19 @@ var argv = require('yargs')
     .alias('h', 'help')
     .argv;
 
+//source: http://stackoverflow.com/questions/7067966/how-to-allow-cors
+//CORS middleware
+var allowCrossDomain = function (req, res, next) {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET,POST');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+
+    next();
+}
+
 app.use(compression());
 app.use(bodyParser.urlencoded({extended: false}));
+app.use(allowCrossDomain);
 
 //on-going database that is a combination of 3 other databases (GL,EU,JP)
 var master_list = {
