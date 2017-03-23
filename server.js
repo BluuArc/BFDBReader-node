@@ -43,6 +43,12 @@ var master_list = {
     item: {},
 };
 
+//statistics of the server
+var stats = {
+    last_update: null,
+    num_units: 0
+}
+
 //asynchronous file load, used for updating after database is built
 function asynchr_json_load(file, callbackFn){
     console.log("opening " + __dirname + "/" + file);
@@ -171,6 +177,12 @@ function load_database(master_obj){
     console.log("Finished loading unit database");
 
     //open item
+
+
+    //update statistics
+    stats.last_update = new Date().toUTCString();
+    stats.num_units = underscore.size(master_obj["unit"]);
+    // console.log(stats);
 }
 
 //reload database from remote
@@ -251,6 +263,11 @@ function reload_database(callbackFn){
 
 app.get('/', function(request, response){
     response.end("<h1>Hello World</h1>");
+});
+
+//show the statistics of the server
+app.get('/status', function(request,response){
+    response.end(JSON.stringify(stats));
 });
 
 app.get('/reload', function(request,response){
