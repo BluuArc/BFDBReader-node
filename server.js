@@ -24,7 +24,7 @@ var argv = require('yargs')
     .argv;
 
 //source: http://stackoverflow.com/questions/7067966/how-to-allow-cors
-//CORS middleware
+//CORS middleware, required for cross-domain reqeusting
 var allowCrossDomain = function (req, res, next) {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET,POST');
@@ -46,7 +46,16 @@ var master_list = {
 //statistics of the server
 var stats = {
     last_update: null,
-    num_units: 0
+    num_units: 0,
+    num_items: 0
+}
+
+function create_id_array(json_obj){
+    var array = [];
+    for(o in json_obj){
+        array.push(json_obj[o]["id"].toString());
+    }
+    return array;
 }
 
 //asynchronous file load, used for updating after database is built
@@ -141,47 +150,69 @@ function merge_databases(db_main, db_sub, server){
     return local_obj;
 }
 
-//adds sp section in in the sub database to the main database
-function add_sp_to_db(db_main, db_sub){
-    // var local_obj = JSON.parse(JSON.stringify(db_main)); //casting
+//adds a section in in the sub database to the main database
+function add_field_to_db(db_main, db_sub, func){
     for(unit in db_sub){
-        db_main[unit]["skills"] = db_sub[unit]["skills"];
+        try{
+            func(db_main[unit], db_sub[unit]);
+        }catch(err){
+            continue;
+        }
     }
 }
 
 //load database from a file or files
 function load_database(master_obj){
     master_obj["unit"] = {};
+    master_obj["item"] = {};
+
     //open unit
-    // try{
-    //     console.log("Loading master unit database...");
-    //     master_obj["unit"] = synchr_json_load('info-master.json');
-    // }catch(err){ 
-        // console.log("Master database not found. Loading individual unit databases...");
-        console.log("Loading individual unit databases...");
-        var global = synchr_json_load('info-gl.json', ['info-gl-old.json']);
-        var global_sp = synchr_json_load('feskills-gl.json', ['feskills-gl-old.json']);
-        var japan = synchr_json_load('info-jp.json', ['info-jp-old.json']);
-        var japan_sp = synchr_json_load('feskills-jp.json', ['feskills-jp-old.json']);
-        var europe = synchr_json_load('info-eu.json',['info-eu-old.json']);
-        //add sp skills to respective databases
-        add_sp_to_db(global,global_sp);
-        add_sp_to_db(japan,japan_sp);
-        console.log("Merging unit databases...");
-        master_obj["unit"] = merge_databases(master_obj.unit, global, 'gl');
-        master_obj["unit"] = merge_databases(master_obj.unit, europe, 'eu');
-        master_obj["unit"] = merge_databases(master_obj.unit, japan, 'jp');
-        //TODO: Add creation of smaller JSON file of BFDBReader-node specific additions (e.g. add time and server)
-        // asynchr_json_write('info-master.json', JSON.stringify(master_obj["unit"]));
-    // }
+    console.log("Loading individual unit databases...");
+    var global = synchr_json_load('info-gl.json', ['info-gl-old.json']);
+    var global_sp = synchr_json_load('feskills-gl.json', ['feskills-gl-old.json']);
+    var global_evo = synchr_json_load('evo_list-gl.json', ['evo_list-gl-old.json']);
+    var japan = synchr_json_load('info-jp.json', ['info-jp-old.json']);
+    var japan_sp = synchr_json_load('feskills-jp.json', ['feskills-jp-old.json']);
+    var japan_evo = synchr_json_load('evo_list-jp.json', ['evo_list-jp-old.json']);
+    var europe = synchr_json_load('info-eu.json',['info-eu-old.json']);
+    // var europe_evo = synchr_json_load('evo_list-eu.json', ['evo_list-eu-old.json']); // empty at time of writing (Mar. 23, 2017)
+    //add extra data to respective databases
+    add_field_to_db(global,global_evo,function(unit1,unit2){
+        unit1["evo_mats"] = unit2["mats"];
+    });
+    add_field_to_db(global,global_sp,function(unit1, unit2){
+        unit1["skills"] = unit2["skills"];
+    });
+    add_field_to_db(japan, japan_sp, function (unit1, unit2) {
+        unit1["skills"] = unit2["skills"];
+    });
+    add_field_to_db(japan, japan_evo, function (unit1, unit2) {
+        unit1["evo_mats"] = unit2["mats"];
+    });
+    // add_field_to_db(europe, europe_evo, function (unit1, unit2) {
+    //     unit1["evo_mats"] = unit2["mats"];
+    // });
+    console.log("Merging unit databases...");
+    master_obj["unit"] = merge_databases(master_obj.unit, global, 'gl');
+    master_obj["unit"] = merge_databases(master_obj.unit, europe, 'eu');
+    master_obj["unit"] = merge_databases(master_obj.unit, japan, 'jp');
     console.log("Finished loading unit database");
 
     //open item
-
+    console.log("Loading individual item databases");
+    global = synchr_json_load('items-gl.json', ['items-gl-old.json']);
+    japan = synchr_json_load('items-jp.json', ['items-jp-old.json']);
+    europe = synchr_json_load('items-eu.json', ['items-eu-old.json']);
+    console.log("Merging item databases...");
+    master_obj["item"] = merge_databases(master_obj.item, global, 'gl');
+    master_obj["item"] = merge_databases(master_obj.item, europe, 'eu');
+    master_obj["item"] = merge_databases(master_obj.item, japan, 'jp');
+    console.log("Finished loading item database");
 
     //update statistics
     stats.last_update = new Date().toUTCString();
     stats.num_units = underscore.size(master_obj["unit"]);
+    stats.num_items = underscore.size(master_obj["item"]);
     // console.log(stats);
 }
 
@@ -282,11 +313,19 @@ app.get('/unit/:id', function(request, response){
     if(unit == undefined)  
         response.end(JSON.stringify({error: request.params.id + " is not found"}));
     else
-        response.end(JSON.stringify(master_list.unit[request.params.id]));
+        response.end(JSON.stringify(unit));
 });
 
-app.get('/search', function(request,response){
-    response.sendFile(__dirname + "/" + "search.html");
+app.get('/item/:id', function(request,response){
+    var item = master_list.item[request.params.id];
+    if (item == undefined)
+        response.end(JSON.stringify({ error: request.params.id + " is not found" }));
+    else
+        response.end(JSON.stringify(item));
+})
+
+app.get('/search/unit', function(request,response){
+    response.sendFile(__dirname + "/" + "search_unit.html");
 });
 
 function safe_json_get(value){
@@ -332,9 +371,11 @@ function get_query_value(queryField, unit){
     }
 }
 
+// function contains_query(query, )
+
 //given a series of search options, list units with those qualities
 //TODO: finish this function
-app.get('/search/options', function(request,response){
+app.get('/search/unit/options', function(request,response){
     // console.log(request.query);
     var query = request.query;
     for(q in query){
