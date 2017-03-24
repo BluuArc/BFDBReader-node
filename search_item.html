@@ -1,0 +1,61 @@
+<html>
+   <body>
+
+        Server URL: <input type="text" id="server-url-input"> <button onclick="setURL()">Save</button><br>
+
+        <br>
+        Current Address: <p id="server-url"></p><br>
+        <form action = "/search/item/options" method = "GET" id="form">
+            Blank fields will be ignored. Enter in the fields below the parameters you want to search for. <br>
+            Name/Sphere ID: <input type="text" name="item_name_id" title="string"> <br>
+            Sphere Description: <input type="text" name="item_desc" title="string"> <br>
+            Rarity: <input type = "text" name = "rarity" title="integer 0-8">  <br>
+            Item Type: <select name="type" title="pick one"> 
+                <option>Any</option>
+                <option>Material</option>
+                <option>Consumable</option>
+                <option>Sphere</option>
+                <option>EvoMat</option>
+                <option>Summoner_Consumable</option>
+                <option>LS_Sphere</option>
+            </select><br>
+            Sphere Effects: <input type = "text" name = "effect" title="string"> <br>
+            Sphere Type: <select name="sphere_type" title="pick one"> 
+                <option>Any</option>
+                <option>Status Boost</option>
+                <option>Critical</option>
+                <option>Drop</option>
+                <option>Status Ailment</option>
+                <option>Damage Reducing</option>
+                <option>Status Ailments Resistant</option>
+                <option>BB Gauge</option>
+                <option>HP Recovery</option>
+                <option>Expose Target</option>
+                <option>Damage Reflecting</option>
+                <option>Spark</option>
+                <option>Defense Penetrating</option>
+                <option>Atk Boosting</option>
+                <option>Special</option>
+            </select><br>
+            Recipe: <input type = "text" name = "recipe" title="string"> <br>
+            Server: <select name="server" title="pick one"> 
+                <option>Any</option>
+                <option>GL</option>
+                <option>JP</option>
+                <option>EU</option>
+            </select><br>
+            <input type = "submit" value = "Submit">
+        </form>
+
+        <script>
+            window.onload = function(){
+                document.getElementById("server-url").innerHTML = document.getElementById("form").action;
+            }
+
+            function setURL(){
+                document.getElementById("form").action = document.getElementById("server-url-input").value;
+                document.getElementById("server-url").innerHTML = document.getElementById("form").action;
+            }
+        </script>
+   </body>
+</html>

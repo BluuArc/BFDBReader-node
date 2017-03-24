@@ -47,7 +47,9 @@ var master_list = {
 var stats = {
     last_update: null,
     num_units: 0,
-    num_items: 0
+    num_items: 0,
+    newest_units: [],
+    newest_items:[]
 }
 
 function create_id_array(json_obj){
@@ -139,12 +141,12 @@ function merge_databases(db_main, db_sub, server){
         if(local_obj[unit] != undefined){ //exists, so just add date add time
             if(local_obj[unit]["server"].indexOf(server) == -1){
                 local_obj[unit]["server"].push(server);
-                local_obj[unit]["db_add_time"].push(new Date().toUTCString());
+                // local_obj[unit]["db_add_time"].push(new Date().toUTCString());
             }
         }else{ //doesn't exist, so add it and date add time
             local_obj[unit] = db_sub[unit];
             local_obj[unit].server = [server];
-            local_obj[unit]["db_add_time"] = [new Date().toUTCString()];
+            // local_obj[unit]["db_add_time"] = [new Date().toUTCString()];
         }
     }
     return local_obj;
@@ -199,7 +201,7 @@ function load_database(master_obj){
     console.log("Finished loading unit database");
 
     //open item
-    console.log("Loading individual item databases");
+    console.log("Loading individual item databases...");
     global = synchr_json_load('items-gl.json', ['items-gl-old.json']);
     japan = synchr_json_load('items-jp.json', ['items-jp-old.json']);
     europe = synchr_json_load('items-eu.json', ['items-eu-old.json']);
@@ -209,16 +211,71 @@ function load_database(master_obj){
     master_obj["item"] = merge_databases(master_obj.item, japan, 'jp');
     console.log("Finished loading item database");
 
-    //update statistics
-    stats.last_update = new Date().toUTCString();
-    stats.num_units = underscore.size(master_obj["unit"]);
-    stats.num_items = underscore.size(master_obj["item"]);
+    update_statistics();
     // console.log(stats);
+}
+
+//return everything that's in db_new and not in db_old
+function get_db_diffs(db_old, db_new){
+    var diffs = [];
+    for(elem in db_new){
+        if(db_old.indexOf(elem) == -1){
+            diffs.push(elem);
+        }
+    }
+    return diffs;
+}
+
+function update_statistics(){
+    console.log("Updating statistics...");
+    stats.last_update = new Date().toUTCString();
+    stats.num_units = underscore.size(master_list["unit"]);
+    stats.num_items = underscore.size(master_list["item"]);
+    var unit_id = create_id_array(master_list["unit"]);
+    var item_id = create_id_array(master_list["item"]);
+
+    //load previous data for unit and items
+    try{
+        var unit_data = synchr_json_load('unit_stats.json');
+
+        //save differences, if any
+        if(unit_data.last_loaded.length != stats.num_units){
+            unit_data.newest = get_db_diffs(unit_data.last_loaded, unit_id);
+            unit_data.last_loaded = unit_id;
+            asynchr_json_write('unit_stats.json', JSON.stringify(unit_data));
+        }
+    }catch(err){
+        //file doesn't exist, so create it
+        var unit_data = {
+            newest: unit_id,
+            last_loaded: unit_id
+        };
+        asynchr_json_write('unit_stats.json', JSON.stringify(unit_data));
+    }
+
+    try{
+        var item_data = synchr_json_load('item_stats.json');
+        if(item_data.last_loaded.length != stats.num_items){
+            item_data.newest = get_db_diffs(item_data.last_loaded, item_id);
+            item_data.last_loaded = unit_id;
+            asynchr_json_write('item_stats.json', JSON.stringify(item_data));
+        }
+    }catch(err){
+        var item_data = {
+            newest: item_id,
+            last_loaded: item_id
+        }
+        asynchr_json_write('item_stats.json', JSON.stringify(item_data));
+    }
+
+    stats.newest_units = unit_data.newest;
+    stats.newest_items = item_data.newest;
+    console.log("Finished updating statistics");
 }
 
 //reload database from remote
 function reload_database(callbackFn){
-    console.log("Preparing to reload database");
+    console.log("Preparing to reload database...");
     //save old files
     console.log("Saving old files");
     rename_file('info-gl.json', 'info-gl-old.json');
@@ -234,7 +291,7 @@ function reload_database(callbackFn){
     rename_file('evo_list-eu.json', 'evo_list-eu-old.json');
 
     //download files from remote servers and load database when finished
-    console.log("Downloading new files");
+    console.log("Downloading new files...");
     var main_url = 'https://raw.githubusercontent.com/Deathmax/bravefrontier_data/master';
     var list = [
         {
@@ -302,8 +359,8 @@ app.get('/status', function(request,response){
 });
 
 app.get('/reload', function(request,response){
-    response.send("Reloading database...<br>");
     reload_database(function(){
+        // response.send("Reloading database...<br>");
         response.end("Finished reloading database");
     })
 });
@@ -324,16 +381,8 @@ app.get('/item/:id', function(request,response){
         response.end(JSON.stringify(item));
 })
 
-app.get('/search/unit', function(request,response){
-    response.sendFile(__dirname + "/" + "search_unit.html");
-});
-
-function safe_json_get(value){
-     return (value != undefined) ? value : "";
-}
-
 //get the corresponding unit value of a given query
-function get_query_value(queryField, unit){
+function get_unit_query_value(queryField, unit){
     try{
         switch(queryField){
             case 'unit_name_id': return unit["guide_id"] + ": " + unit["name"].toLowerCase() + " (" + unit["id"]+")";
@@ -348,7 +397,7 @@ function get_query_value(queryField, unit){
             case 'sbb_name': return (unit["sbb"]["name"] + " - " + unit["sbb"]["desc"]).toLowerCase();
             case 'sbb_effect': return JSON.stringify(unit["sbb"]["levels"][9]["effects"]);
             case 'ubb_name': return (unit["ubb"]["name"] + " - " + unit["ubb"]["desc"]).toLowerCase();
-            case 'ubb_effect': return JSON.stringify(unit["ubb"]["levels"][9]["effects"]);
+            case 'ubb_effect': return JSON.stringify(unit["ubb"]["levels"]["effects"]);
             case 'es_name': return (unit["extra skill"]["name"] + " - " + unit["extra skill"]["desc"]).toLowerCase();
             case 'es_effect': return JSON.stringify(unit["extra skill"]["effects"]);
             case 'sp_name':
@@ -363,6 +412,8 @@ function get_query_value(queryField, unit){
                     result += JSON.stringify(unit["skills"][sp]["skill"]["effects"]) + "\n";
                 }
                 return result;
+            case 'evo_mats': return JSON.stringify(unit["evo_mats"]);
+            case 'server': return unit["server"];
             default: return "";
         }
     }catch(err){
@@ -371,26 +422,100 @@ function get_query_value(queryField, unit){
     }
 }
 
-// function contains_query(query, )
-
-//given a series of search options, list units with those qualities
-//TODO: finish this function
-app.get('/search/unit/options', function(request,response){
-    // console.log(request.query);
-    var query = request.query;
+function contains_unit_query(query, unit){
     for(q in query){
         var curQuery = query[q].toLowerCase();
         //wildcard queries
-        if  (curQuery == '' || (q == 'element' && curQuery == 'any') ||
-            (q == 'gender' && curQuery == 'any')){
-                continue;
+        if (curQuery == '' || (q == 'element' && curQuery == 'any') ||
+            (q == 'gender' && curQuery == 'any') ||
+            (q == 'server' && curQuery == 'any')) {
+            continue;
         }
 
-        var uValue = get_query_value(q, master_list.unit["10017"]);
-        console.log(q + ": " + uValue);
+        try{
+            var unitValue = get_unit_query_value(q, unit).toString();
+            if(unitValue.search(curQuery) == -1){
+                return false; //stop if any part of query is not in unit
+            }
+        }catch(err){ //only occurs if requested field is empty in unit
+            return false;
+        }
     }
-    // console.log("\n\n" + master_list.unit["10017"]);
-    response.end("Received request");
+    return true;
+}
+
+app.get('/search/unit', function (request, response) {
+    response.sendFile(__dirname + "/" + "search_unit.html");
+});
+
+//given a series of search options, list units with those qualities
+app.get('/search/unit/options', function(request,response){
+    var query = request.query;
+    var results = [];
+    for(u in master_list["unit"]){
+        var unit = master_list["unit"][u];
+        if(contains_unit_query(query, unit))
+            results.push(unit["id"]);
+    }
+    response.end(JSON.stringify(results));
+});
+
+function get_item_query_value(queryField, item){
+    try {
+        switch (queryField) {
+            case 'item_name_id': return item["id"] + ": " + item["name"].toLowerCase();
+            case 'item_desc': return item["desc"].toLowerCase();
+            case 'rarity': return item["rarity"].toString();
+            case 'type': return item["type"].toLowerCase();
+            case 'effect': return JSON.stringify(item["effect"]);
+            case 'sphere_type': return item["sphere type text"].toLowerCase();
+            case 'recipe': return JSON.stringify(item["recipe"]);
+            case 'server': return JSON.stringify(item["server"]);
+            default: return "";
+        }
+    } catch (err) {
+        // console.log(err);
+        return "";
+    }
+}
+
+function contains_item_query(query, item){
+    for (q in query) {
+        var curQuery = query[q].toLowerCase();
+        //wildcard queries
+        if (curQuery == '' || (q == 'type' && curQuery == 'any') ||
+            (q == 'sphere_type' && curQuery == 'any') || 
+            (q == 'server' && curQuery == 'any')){
+            continue;
+        }
+
+        try{
+            var itemValue = get_item_query_value(q, item).toString();
+            if (itemValue.search(curQuery) == -1) {
+                return false; //stop if any part of query is not in item
+            }
+        } catch (err) { //only occurs if requested field is empty in item
+            return false;
+        }
+    }
+    return true;
+}
+
+app.get('/search/item', function (request, response) {
+    response.sendFile(__dirname + "/" + "search_item.html");
+});
+
+//given a series of search options, list items with those qualities
+app.get('/search/item/options', function (request, response) {
+    var query = request.query;
+    // console.log(query);
+    var results = [];
+    for (i in master_list["item"]) {
+        var item = master_list["item"][i];
+        if (contains_item_query(query, item))
+            results.push(item["id"]);
+    }
+    response.end(JSON.stringify(results));
 });
 
 //given a start and end range, list unit names in that range
@@ -554,5 +679,20 @@ var server = app.listen(argv["port"], argv["ip"], function(){
 
     load_database(master_list);
 
-    console.log("Server listening at http://%s:%s", host, port);
+    // test_function();
+    console.log("Ready! Server listening at http://%s:%s", host, port);
 });
+
+//used for gathering certain data during debugging
+function test_function(){
+    var type = [];
+    for(i in master_list["unit"]){
+        type.push(master_list["unit"][i]["id"]);
+    }
+
+    var data = {
+        newest: type,
+        last_loaded: type
+    }
+    asynchr_json_write('unit_stats.json', JSON.stringify(data));
+}
