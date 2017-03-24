@@ -20,7 +20,7 @@ var argv = require('yargs')
     .alias('r', 'reload').alias('r','refresh')
     .describe('p', 'Port to run server on')
     .describe('i', 'IP Address to run server on')
-    .describe('r', 'Force a redownload of the database')
+    .describe('r', 'Force a redownload of the database. Use this if you have issues with the JSON files.')
     .help('h')
     .alias('h', 'help')
     .argv;
@@ -676,19 +676,23 @@ app.get('/list/units', function(request,response){
 });
 
 var server = app.listen(argv["port"], argv["ip"], function(){
-    var host = server.address().address;
-    var port = server.address().port;
+    
 
     if(argv["reload"]){
         reload_database(function(){
+            var host = server.address().address;
+            var port = server.address().port;
             console.log("Finished reloading database");
+            console.log("Ready! Server listening at http://%s:%s", host, port);
         });
     }else{
+        var host = server.address().address;
+        var port = server.address().port;
         load_database(master_list);
+        console.log("Ready! Server listening at http://%s:%s", host, port);
     }
 
     // test_function();
-    console.log("Ready! Server listening at http://%s:%s", host, port);
 });
 
 //used for gathering certain data during debugging
