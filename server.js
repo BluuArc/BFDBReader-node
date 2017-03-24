@@ -12,13 +12,15 @@ var express = require('express'),
 
 //for command line
 var argv = require('yargs')
-    .usage('Usage: $0 -p [integer] -i [string of IP address]')
-    .default("p", 80)
+    .usage('Usage: $0 -p [integer] -i [string of IP address] -r')
+    .default("p", 8081)
     .default("i", '127.0.0.1')
     .alias('p', 'port')
     .alias('i', 'ip').alias('i', 'ip-address')
+    .alias('r', 'reload').alias('r','refresh')
     .describe('p', 'Port to run server on')
     .describe('i', 'IP Address to run server on')
+    .describe('r', 'Force a redownload of the database')
     .help('h')
     .alias('h', 'help')
     .argv;
@@ -677,7 +679,13 @@ var server = app.listen(argv["port"], argv["ip"], function(){
     var host = server.address().address;
     var port = server.address().port;
 
-    load_database(master_list);
+    if(argv["reload"]){
+        reload_database(function(){
+            console.log("Finished reloading database");
+        });
+    }else{
+        load_database(master_list);
+    }
 
     // test_function();
     console.log("Ready! Server listening at http://%s:%s", host, port);
