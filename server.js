@@ -62,8 +62,8 @@ function create_id_array(json_obj){
 
 //asynchronous file load, used for updating after database is built
 function asynchr_json_load(file, callbackFn){
-    console.log("opening " + __dirname + "/" + file);
-    fs.readFile(__dirname + "/" + file, 'utf8', function(err,data){
+    console.log("opening " + __dirname + "/json/" + file);
+    fs.readFile(__dirname + "/json/" + file, 'utf8', function(err,data){
         if(err){
             console.log(err);
             callbackFn(null);
@@ -75,7 +75,7 @@ function asynchr_json_load(file, callbackFn){
 //download a single file
 function asynchr_file_download(url, local_name, callbackFn){
     //based on https://blog.xervo.io/node.js-tutorial-how-to-use-request-module 
-    var destination = fs.createWriteStream('./' + local_name);
+    var destination = fs.createWriteStream(__dirname + '/json/' + local_name);
     request(url).pipe(destination).on('finish',function(){
         // console.log("Finished downloading " + local_name + " from " + url);
         // asynchr_json_load(local_name, callbackFn);
@@ -93,7 +93,7 @@ function asynchr_files_download(list,callbackFn){
         var local_name = cur_set["local_name"];
         var url = cur_set["url"];
         console.log("Downloading " + url + " > " + local_name);
-        var destination = fs.createWriteStream('./' + local_name);
+        var destination = fs.createWriteStream(__dirname + '/json/' + local_name);
         request(url).pipe(destination).on('finish', function () {
             asynchr_files_download(list,callbackFn);
         });
@@ -103,20 +103,20 @@ function asynchr_files_download(list,callbackFn){
 //synchronous file load, used for building initial database
 function synchr_json_load(file, alternative_files){
     try{
-        return JSON.parse(fs.readFileSync(__dirname + "/" + file, 'utf8'));
+        return JSON.parse(fs.readFileSync(__dirname + "/json/" + file, 'utf8'));
     }catch(err){//error, try alternative files
         if(alternative_files != undefined && alternative_files.length > 0){
             var new_file = alternative_files.pop();
             return synchr_json_load(new_file,alternative_files);
         }else{//return an error if none of the files work
-            return JSON.parse(fs.readFileSync(__dirname + "/" + file, 'utf8'));
+            return JSON.parse(fs.readFileSync(__dirname + "/json/" + file, 'utf8'));
         }
     }
 }
 
 //used to save data
 function asynchr_json_write(file, data){
-    fs.writeFile(__dirname + "/" + file, data, function(err){
+    fs.writeFile(__dirname + "/json/" + file, data, function(err){
         if(err){
             console.log(err);
         }
@@ -127,8 +127,8 @@ function asynchr_json_write(file, data){
 
 function rename_file(cur_name,new_name){
     try{
-        var data = fs.readFileSync(__dirname + "/" + cur_name, 'utf8');
-        fs.writeFileSync(__dirname + "/" + new_name, data ,'utf8');
+        var data = fs.readFileSync(__dirname + "/json/" + cur_name, 'utf8');
+        fs.writeFileSync(__dirname + "/json/" + new_name, data ,'utf8');
     }catch(err){
         console.log(err);
     }
@@ -219,8 +219,8 @@ function load_database(master_obj){
 function get_db_diffs(db_old, db_new){
     var diffs = [];
     for(elem in db_new){
-        if(db_old.indexOf(elem) == -1){
-            diffs.push(elem);
+        if(db_old.indexOf(db_new[elem]) == -1){
+            diffs.push(db_new[elem]);
         }
     }
     return diffs;
@@ -236,13 +236,13 @@ function update_statistics(){
 
     //load previous data for unit and items
     try{
-        var unit_data = synchr_json_load('unit_stats.json');
+        var unit_data = synchr_json_load('stats-unit.json');
 
         //save differences, if any
         if(unit_data.last_loaded.length != stats.num_units){
             unit_data.newest = get_db_diffs(unit_data.last_loaded, unit_id);
             unit_data.last_loaded = unit_id;
-            asynchr_json_write('unit_stats.json', JSON.stringify(unit_data));
+            asynchr_json_write('stats-unit.json', JSON.stringify(unit_data));
         }
     }catch(err){
         //file doesn't exist, so create it
@@ -250,22 +250,22 @@ function update_statistics(){
             newest: unit_id,
             last_loaded: unit_id
         };
-        asynchr_json_write('unit_stats.json', JSON.stringify(unit_data));
+        asynchr_json_write('stats-unit.json', JSON.stringify(unit_data));
     }
 
     try{
-        var item_data = synchr_json_load('item_stats.json');
+        var item_data = synchr_json_load('stats-item.json');
         if(item_data.last_loaded.length != stats.num_items){
             item_data.newest = get_db_diffs(item_data.last_loaded, item_id);
-            item_data.last_loaded = unit_id;
-            asynchr_json_write('item_stats.json', JSON.stringify(item_data));
+            item_data.last_loaded = item_id;
+            asynchr_json_write('stats-item.json', JSON.stringify(item_data));
         }
     }catch(err){
         var item_data = {
             newest: item_id,
             last_loaded: item_id
         }
-        asynchr_json_write('item_stats.json', JSON.stringify(item_data));
+        asynchr_json_write('stats-item.json', JSON.stringify(item_data));
     }
 
     stats.newest_units = unit_data.newest;
@@ -445,7 +445,7 @@ function contains_unit_query(query, unit){
 }
 
 app.get('/search/unit', function (request, response) {
-    response.sendFile(__dirname + "/" + "search_unit.html");
+    response.sendFile(__dirname + "/json/" + "search_unit.html");
 });
 
 //given a series of search options, list units with those qualities
@@ -502,7 +502,7 @@ function contains_item_query(query, item){
 }
 
 app.get('/search/item', function (request, response) {
-    response.sendFile(__dirname + "/" + "search_item.html");
+    response.sendFile(__dirname + "/json/" + "search_item.html");
 });
 
 //given a series of search options, list items with those qualities
@@ -638,7 +638,7 @@ app.get('/list/units', function(request,response){
                     }
                 }//end traverse
             } else if (query.type == "guide_id") {
-                console.log("entered amount, guide_id");
+                // console.log("entered amount, guide_id");
                 tempList = underscore.sortBy(tempList, function (id) {
                     var unit = master_list.unit[id];
                     return unit["guide_id"];
@@ -694,5 +694,5 @@ function test_function(){
         newest: type,
         last_loaded: type
     }
-    asynchr_json_write('unit_stats.json', JSON.stringify(data));
+    asynchr_json_write('stats-unit.json', JSON.stringify(data));
 }
