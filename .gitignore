@@ -1,2 +1,3 @@
-*.json
-
+json/*
+!json/stats-unit.json
+!json/stats-item.json
