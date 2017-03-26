@@ -430,7 +430,7 @@ function contains_unit_query(query, unit){
         //wildcard queries
         if (curQuery == '' || (q == 'element' && curQuery == 'any') ||
             (q == 'gender' && curQuery == 'any') ||
-            (q == 'server' && curQuery == 'any')) {
+            (q == 'server' && curQuery == 'any') || q == 'strict') {
             continue;
         }
 
@@ -450,15 +450,45 @@ app.get('/search/unit', function (request, response) {
     response.sendFile(__dirname + "/json/" + "search_unit.html");
 });
 
+//shorten results to a single unit IFF only one type of unit exists in the list
+function shorten_results(result_arr) {
+    // console.log("before shorten: " + JSON.stringify(result_arr));
+    var unique = [];
+    for (r in result_arr) {
+        var cur_id = result_arr[r];
+        var category = cur_id - (cur_id % 10);
+        if (unique.indexOf(category) == -1) {
+            unique.push(category);
+        }
+    }
+
+    // console.log(unique);
+    if (unique.length == 1) {//result is at the end of the list
+        var result = result_arr[result_arr.length - 1];
+        while (result_arr.length != 0) {
+            result_arr.pop();
+        }
+        result_arr.push(result);
+    }
+    // console.log("after shorten: " + JSON.stringify(result_arr));
+}
+
 //given a series of search options, list units with those qualities
 app.get('/search/unit/options', function(request,response){
     var query = request.query;
+    // console.log(query);
     var results = [];
     for(u in master_list["unit"]){
         var unit = master_list["unit"][u];
         if(contains_unit_query(query, unit))
             results.push(unit["id"]);
     }
+    //if not using strict mode, try to shorten list
+    // console.log(results);
+    if (query["strict"] == false || query["strict"] == 'false') {
+        shorten_results(results);
+    }
+    // console.log(results);
     response.end(JSON.stringify(results));
 });
 
@@ -487,7 +517,7 @@ function contains_item_query(query, item){
         //wildcard queries
         if (curQuery == '' || (q == 'type' && curQuery == 'any') ||
             (q == 'sphere_type' && curQuery == 'any') || 
-            (q == 'server' && curQuery == 'any')){
+            (q == 'server' && curQuery == 'any') || q == 'strict'){
             continue;
         }
 
@@ -504,7 +534,7 @@ function contains_item_query(query, item){
 }
 
 app.get('/search/item', function (request, response) {
-    response.sendFile(__dirname + "/json/" + "search_item.html");
+    response.sendFile(__dirname + "/" + "search_item.html");
 });
 
 //given a series of search options, list items with those qualities
@@ -517,6 +547,7 @@ app.get('/search/item/options', function (request, response) {
         if (contains_item_query(query, item))
             results.push(item["id"]);
     }
+
     response.end(JSON.stringify(results));
 });
 
@@ -591,14 +622,14 @@ app.get('/list/units', function(request,response){
                 //traverse
                 for (u in tempList) {
                     var unit = master_list.unit[tempList[u]];
-                    if (unit["guide_id"] == start) { //start saving once we reach start position
+                    if (unit["guide_id"] >= start) { //start saving once we reach start position
                         isTraversing = true;
                     }
                     if (isTraversing) {//save unit name
                         resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
                     }
-                    if (unit["guide_id"] == (end)) { //stop once we reach our end position
-                        console.log(unit["id"]);
+                    if (unit["guide_id"] >= (end)) { //stop once we reach our end position
+                        // console.log(unit["id"]);
                         isTraversing = false;
                         break;
                     }
