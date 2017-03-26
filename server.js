@@ -383,6 +383,21 @@ app.get('/item/:id', function(request,response){
         response.end(JSON.stringify(item));
 })
 
+function safe_json_get(json_obj, fields_arr){
+    var curValue = json_obj;
+    // console.log(fields_arr);
+    try{
+        for(f in fields_arr){
+            curValue = curValue[fields_arr[f]];
+        }
+        // console.log(curValue);
+        return JSON.stringify(curValue).toLowerCase();
+    }catch(err){
+        console.log(err);
+        return "";
+    }
+}
+
 //get the corresponding unit value of a given query
 function get_unit_query_value(queryField, unit){
     try{
@@ -399,7 +414,7 @@ function get_unit_query_value(queryField, unit){
             case 'sbb_name': return (unit["sbb"]["name"] + " - " + unit["sbb"]["desc"]).toLowerCase();
             case 'sbb_effect': return JSON.stringify(unit["sbb"]["levels"][9]["effects"]);
             case 'ubb_name': return (unit["ubb"]["name"] + " - " + unit["ubb"]["desc"]).toLowerCase();
-            case 'ubb_effect': return JSON.stringify(unit["ubb"]["levels"]["effects"]);
+            case 'ubb_effect': return JSON.stringify(unit["ubb"]["levels"][0]["effects"]);
             case 'es_name': return (unit["extra skill"]["name"] + " - " + unit["extra skill"]["desc"]).toLowerCase();
             case 'es_effect': return JSON.stringify(unit["extra skill"]["effects"]);
             case 'sp_name':
@@ -416,6 +431,28 @@ function get_unit_query_value(queryField, unit){
                 return result;
             case 'evo_mats': return JSON.stringify(unit["evo_mats"]);
             case 'server': return unit["server"];
+            case 'all_desc': var msg = safe_json_get(unit, ["leader skill", "name"]) + " " + safe_json_get(unit, ["leader skill", "desc"]) + " ";
+                msg += safe_json_get(unit, ["extra skill", "name"]) + " " + safe_json_get(unit, ["extra skill", "desc"]) +" ";
+                msg += safe_json_get(unit, ["bb", "name"]) + " " + safe_json_get(unit, ["bb", "desc"]) + " ";
+                msg += safe_json_get(unit, ["sbb", "name"]) + " " + safe_json_get(unit, ["sbb", "desc"]) + " ";
+                msg += safe_json_get(unit, ["ubb", "name"]) + " " + safe_json_get(unit, ["ubb", "desc"]) + " ";
+                if (unit["skills"] != undefined) {
+                    for (sp in unit["skills"]) {
+                        msg += unit["skills"][sp]["skill"]["desc"] + " ";
+                    }
+                }
+                // console.log(msg);
+                return msg;
+            case 'all_effect': var msg = safe_json_get(unit, ["leader skill", "effects"]) + " ";
+                msg += safe_json_get(unit, ["extra skill", "effects"]) + " ";
+                msg += safe_json_get(unit, ["bb", "levels", 9, "effects"]) + " " + safe_json_get(unit, ["sbb", "levels", 9, "effects"]) + " " + safe_json_get(unit, ["ubb", "levels", 0, "effects"]);
+                if (unit["skills"] != undefined) {
+                    for (sp in unit["skills"]) {
+                        msg += JSON.stringify(unit["skills"][sp]["skill"]["effects"]) + "\n";
+                    }
+                }
+                // console.log(msg);
+                return msg;
             default: return "";
         }
     }catch(err){
