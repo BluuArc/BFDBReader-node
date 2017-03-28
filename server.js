@@ -48,10 +48,25 @@ var master_list = {
 //statistics of the server
 var stats = {
     last_update: null,
-    num_units: 0,
-    num_items: 0,
-    newest_units: [],
-    newest_items:[]
+    gl: {
+        num_units: 0,
+        num_items: 0,
+        newest_units: [],
+        newest_items: []
+    },
+    jp: {
+        num_units: 0,
+        num_items: 0,
+        newest_units: [],
+        newest_items: []
+    },
+    eu: {
+        num_units: 0,
+        num_items: 0,
+        newest_units: [],
+        newest_items: []
+    }
+    
 }
 
 function create_id_array(json_obj){
@@ -228,50 +243,107 @@ function get_db_diffs(db_old, db_new){
     return diffs;
 }
 
-function update_statistics(){
-    console.log("Updating statistics...");
-    stats.last_update = new Date().toUTCString();
-    stats.num_units = underscore.size(master_list["unit"]);
-    stats.num_items = underscore.size(master_list["item"]);
-    var unit_id = create_id_array(master_list["unit"]);
-    var item_id = create_id_array(master_list["item"]);
+function update_server_statistics(server){
+    console.log("Updating " + server.toUpperCase() + " statistics...");
+    var unit_list = underscore.filter(master_list["unit"], function (unit) {
+        return unit["server"].indexOf(server) > -1;
+    });
+    var item_list = underscore.filter(master_list["item"], function (item) {
+        return item["server"].indexOf(server) > -1;
+    });
 
-    //load previous data for unit and items
+    var unit_id = create_id_array(unit_list);
+    var item_id = create_id_array(item_list);
+    stats[server].num_units = underscore.size(unit_id);
+    stats[server].num_items = underscore.size(item_id);
+
+    //load previous data, if it exists
     try{
-        var unit_data = synchr_json_load('stats-unit.json');
+        var unit_data = synchr_json_load('stats-unit-' + server + ".json");
 
         //save differences, if any
-        if(unit_data.last_loaded.length != stats.num_units){
+        if (unit_data.last_loaded.length != stats[server].num_units) {
             unit_data.newest = get_db_diffs(unit_data.last_loaded, unit_id);
             unit_data.last_loaded = unit_id;
             asynchr_json_write('stats-unit.json', JSON.stringify(unit_data));
         }
-    }catch(err){
-        //file doesn't exist, so create it
+    }catch(err){ //file doesn't exist
         var unit_data = {
             newest: unit_id,
             last_loaded: unit_id
         };
-        asynchr_json_write('stats-unit.json', JSON.stringify(unit_data));
+        asynchr_json_write('stats-unit-' + server + '.json', JSON.stringify(unit_data));
     }
 
-    try{
-        var item_data = synchr_json_load('stats-item.json');
-        if(item_data.last_loaded.length != stats.num_items){
+    //load previous data, if it exists
+    try {
+        var item_data = synchr_json_load('stats-item-' + server + ".json");
+
+        //save differences, if any
+        if (item_data.last_loaded.length != stats[server].num_items) {
             item_data.newest = get_db_diffs(item_data.last_loaded, item_id);
             item_data.last_loaded = item_id;
             asynchr_json_write('stats-item.json', JSON.stringify(item_data));
         }
-    }catch(err){
+    } catch (err) { //file doesn't exist
         var item_data = {
             newest: item_id,
             last_loaded: item_id
-        }
-        asynchr_json_write('stats-item.json', JSON.stringify(item_data));
+        };
+        asynchr_json_write('stats-item-' + server + '.json', JSON.stringify(item_data));
     }
 
-    stats.newest_units = unit_data.newest;
-    stats.newest_items = item_data.newest;
+    stats[server].newest_units = unit_data.newest;
+    stats[server].newest_items = item_data.newest;
+}
+
+function update_statistics(){
+    console.log("Updating statistics...");
+    stats.last_update = new Date().toUTCString();
+    update_server_statistics('gl');
+    update_server_statistics('jp');
+    update_server_statistics('eu');
+    // stats.num_units = underscore.size(master_list["unit"]);
+    // stats.num_items = underscore.size(master_list["item"]);
+    // var unit_id = create_id_array(master_list["unit"]);
+    // var item_id = create_id_array(master_list["item"]);
+
+    // //load previous data for unit and items
+    // try{
+    //     var unit_data = synchr_json_load('stats-unit.json');
+
+    //     //save differences, if any
+    //     if(unit_data.last_loaded.length != stats.num_units){
+    //         unit_data.newest = get_db_diffs(unit_data.last_loaded, unit_id);
+    //         unit_data.last_loaded = unit_id;
+    //         asynchr_json_write('stats-unit.json', JSON.stringify(unit_data));
+    //     }
+    // }catch(err){
+    //     //file doesn't exist, so create it
+    //     var unit_data = {
+    //         newest: unit_id,
+    //         last_loaded: unit_id
+    //     };
+    //     asynchr_json_write('stats-unit.json', JSON.stringify(unit_data));
+    // }
+
+    // try{
+    //     var item_data = synchr_json_load('stats-item.json');
+    //     if(item_data.last_loaded.length != stats.num_items){
+    //         item_data.newest = get_db_diffs(item_data.last_loaded, item_id);
+    //         item_data.last_loaded = item_id;
+    //         asynchr_json_write('stats-item.json', JSON.stringify(item_data));
+    //     }
+    // }catch(err){
+    //     var item_data = {
+    //         newest: item_id,
+    //         last_loaded: item_id
+    //     }
+    //     asynchr_json_write('stats-item.json', JSON.stringify(item_data));
+    // }
+
+    // stats.newest_units = unit_data.newest;
+    // stats.newest_items = item_data.newest;
     console.log("Finished updating statistics");
 }
 
@@ -760,19 +832,20 @@ var server = app.listen(argv["port"], argv["ip"], function(){
         console.log("Ready! Server listening at http://%s:%s", host, port);
     }
 
-    // test_function();
+    // test_function('jp');
 });
 
 //used for gathering certain data during debugging
-function test_function(){
-    var type = [];
-    for(i in master_list["unit"]){
-        type.push(master_list["unit"][i]["id"]);
-    }
+function test_function(server){
+    var unit_list = underscore.filter(master_list["unit"], function (unit) {
+        return unit["server"].indexOf(server) > -1;
+    });
+    var item_list = underscore.filter(master_list["item"], function (item) {
+        return item["server"].indexOf(server) > -1;
+    });
 
-    var data = {
-        newest: type,
-        last_loaded: type
-    }
-    asynchr_json_write('stats-unit.json', JSON.stringify(data));
+    var unit_id = create_id_array(unit_list);
+    var item_id = create_id_array(item_list);
+    console.log(unit_id.reverse());
+    console.log(item_id.reverse());
 }
