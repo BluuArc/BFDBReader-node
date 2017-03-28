@@ -265,7 +265,7 @@ function update_server_statistics(server){
         if (unit_data.last_loaded.length != stats[server].num_units) {
             unit_data.newest = get_db_diffs(unit_data.last_loaded, unit_id);
             unit_data.last_loaded = unit_id;
-            asynchr_json_write('stats-unit.json', JSON.stringify(unit_data));
+            asynchr_json_write('stats-unit-' + server + '.json', JSON.stringify(unit_data));
         }
     }catch(err){ //file doesn't exist
         var unit_data = {
@@ -283,7 +283,7 @@ function update_server_statistics(server){
         if (item_data.last_loaded.length != stats[server].num_items) {
             item_data.newest = get_db_diffs(item_data.last_loaded, item_id);
             item_data.last_loaded = item_id;
-            asynchr_json_write('stats-item.json', JSON.stringify(item_data));
+            asynchr_json_write('stats-item-' + server + '.json', JSON.stringify(item_data));
         }
     } catch (err) { //file doesn't exist
         var item_data = {
@@ -737,7 +737,7 @@ app.get('/list/units', function(request,response){
                     if (isTraversing) {//save unit name
                         resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
                     }
-                    if (unit["guide_id"] >= (end)) { //stop once we reach our end position
+                    if (end != -1 && unit["guide_id"] >= (end)) { //stop once we reach our end position
                         // console.log(unit["id"]);
                         isTraversing = false;
                         break;
