@@ -539,7 +539,7 @@ function contains_unit_query(query, unit){
         //wildcard queries
         if (curQuery == '' || (q == 'element' && curQuery == 'any') ||
             (q == 'gender' && curQuery == 'any') ||
-            (q == 'server' && curQuery == 'any') || q == 'strict') {
+            (q == 'server' && curQuery == 'any') || q == 'strict' || q == 'translate') {
             continue;
         }
 
