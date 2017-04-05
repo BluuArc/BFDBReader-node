@@ -194,7 +194,8 @@ function load_database(master_obj){
     var japan_sp = synchr_json_load('feskills-jp.json', ['feskills-jp-old.json']);
     var japan_evo = synchr_json_load('evo_list-jp.json', ['evo_list-jp-old.json']);
     var europe = synchr_json_load('info-eu.json',['info-eu-old.json']);
-    // var europe_evo = synchr_json_load('evo_list-eu.json', ['evo_list-eu-old.json']); // empty at time of writing (Mar. 23, 2017)
+    var europe_evo = synchr_json_load('evo_list-eu.json', ['evo_list-eu-old.json']);
+    var europe_sp = synchr_json_load('feskills-eu.json', ['feskills-eu-old.json']);
     //add extra data to respective databases
     add_field_to_db(global,global_evo,function(unit1,unit2){
         unit1["evo_mats"] = unit2["mats"];
@@ -206,6 +207,12 @@ function load_database(master_obj){
         unit1["skills"] = unit2["skills"];
     });
     add_field_to_db(japan, japan_evo, function (unit1, unit2) {
+        unit1["evo_mats"] = unit2["mats"];
+    });
+    add_field_to_db(europe, europe_sp, function (unit1, unit2) {
+        unit1["skills"] = unit2["skills"];
+    });
+    add_field_to_db(europe, europe_evo, function (unit1, unit2) {
         unit1["evo_mats"] = unit2["mats"];
     });
     // add_field_to_db(europe, europe_evo, function (unit1, unit2) {
@@ -303,47 +310,6 @@ function update_statistics(){
     update_server_statistics('gl');
     update_server_statistics('jp');
     update_server_statistics('eu');
-    // stats.num_units = underscore.size(master_list["unit"]);
-    // stats.num_items = underscore.size(master_list["item"]);
-    // var unit_id = create_id_array(master_list["unit"]);
-    // var item_id = create_id_array(master_list["item"]);
-
-    // //load previous data for unit and items
-    // try{
-    //     var unit_data = synchr_json_load('stats-unit.json');
-
-    //     //save differences, if any
-    //     if(unit_data.last_loaded.length != stats.num_units){
-    //         unit_data.newest = get_db_diffs(unit_data.last_loaded, unit_id);
-    //         unit_data.last_loaded = unit_id;
-    //         asynchr_json_write('stats-unit.json', JSON.stringify(unit_data));
-    //     }
-    // }catch(err){
-    //     //file doesn't exist, so create it
-    //     var unit_data = {
-    //         newest: unit_id,
-    //         last_loaded: unit_id
-    //     };
-    //     asynchr_json_write('stats-unit.json', JSON.stringify(unit_data));
-    // }
-
-    // try{
-    //     var item_data = synchr_json_load('stats-item.json');
-    //     if(item_data.last_loaded.length != stats.num_items){
-    //         item_data.newest = get_db_diffs(item_data.last_loaded, item_id);
-    //         item_data.last_loaded = item_id;
-    //         asynchr_json_write('stats-item.json', JSON.stringify(item_data));
-    //     }
-    // }catch(err){
-    //     var item_data = {
-    //         newest: item_id,
-    //         last_loaded: item_id
-    //     }
-    //     asynchr_json_write('stats-item.json', JSON.stringify(item_data));
-    // }
-
-    // stats.newest_units = unit_data.newest;
-    // stats.newest_items = item_data.newest;
     console.log("Finished updating statistics");
 }
 
@@ -357,6 +323,7 @@ function reload_database(callbackFn){
     rename_file('info-eu.json', 'info-eu-old.json');
     rename_file('feskills-gl.json', 'feskills-gl-old.json');
     rename_file('feskills-jp.json', 'feskills-jp-old.json');
+    rename_file('feskills-eu.json', 'feskills-eu-old.json');
     rename_file('items-gl.json', 'items-gl-old.json');
     rename_file('items-jp.json', 'items-jp-old.json');
     rename_file('items-eu.json', 'items-eu-old.json');
@@ -403,6 +370,10 @@ function reload_database(callbackFn){
         {
             url: main_url + '/eu/info.json',
             local_name: 'info-eu.json'
+        },
+        {
+            url: main_url + '/eu/feskills.json',
+            local_name: 'feskills-eu.json'
         },
         {
             url: main_url + '/eu/items.json',
@@ -559,6 +530,18 @@ app.get('/search/unit', function (request, response) {
     response.sendFile(__dirname + "/json/" + "search_unit.html");
 });
 
+function get_highest_rarity(category){
+    var final_id = (category + 1).toString();
+    for(var i = 8; i >= 0; --i){
+        var str = (category + i).toString();
+        if(master_list.unit[str] != undefined){
+            final_id = str;
+            break;
+        }
+    }
+    return parseInt(final_id);
+}
+
 //shorten results to a single unit IFF only one type of unit exists in the list
 function shorten_results(result_arr) {
     // console.log("before shorten: " + JSON.stringify(result_arr));
@@ -577,7 +560,7 @@ function shorten_results(result_arr) {
         while (result_arr.length != 0) {
             result_arr.pop();
         }
-        result_arr.push(result);
+        result_arr.push(get_highest_rarity(unique[0]));
     }
     // console.log("after shorten: " + JSON.stringify(result_arr));
 }
