@@ -555,12 +555,29 @@ function shorten_results(result_arr) {
     }
 
     // console.log(unique);
-    if (unique.length == 1) {//result is at the end of the list
-        var result = result_arr[result_arr.length - 1];
+    if (unique.length == 1) {
+        var result = result_arr[result_arr.length - 1]; //result is at the end of the list in special case
+
+        //check for special cases where ID rule doesn't apply due to shared IDs between
+        //two or more units
+        var special_case_arr = [860124,860125,750156];
+        var special_case = false;
+        for(c in special_case_arr){
+            if(result_arr.indexOf(special_case_arr[c]) > -1){
+                special_case = true;
+            }
+        }
+
+        //clear result array
         while (result_arr.length != 0) {
             result_arr.pop();
         }
-        result_arr.push(get_highest_rarity(unique[0]));
+
+        //push final result
+        if(!special_case)
+            result_arr.push(get_highest_rarity(unique[0]));
+        else
+            result_arr.push(result);
     }
     // console.log("after shorten: " + JSON.stringify(result_arr));
 }
@@ -577,7 +594,7 @@ app.get('/search/unit/options', function(request,response){
     }
     //if not using strict mode, try to shorten list
     // console.log(results);
-    if (query["strict"] == false || query["strict"] == 'false') {
+    if ((query["strict"] == false || query["strict"] == 'false') && (query["rarity"] == undefined || query["rarity"] == "*" || query["rarity"].length == 0)) {
         shorten_results(results);
     }
     // console.log(results);
