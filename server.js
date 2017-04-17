@@ -593,8 +593,10 @@ app.get('/search/unit/options', function(request,response){
             results.push(unit["id"]);
     }
     //if not using strict mode, try to shorten list
-    // console.log(results);
-    if ((query["strict"] == false || query["strict"] == 'false') && (query["rarity"] == undefined || query["rarity"] == "*" || query["rarity"].length == 0)) {
+    var notStrict = (query["strict"] == false || query["strict"] == 'false');
+    var noRarity = (query["rarity"] == undefined || query["rarity"] == "*" || query["rarity"].length == 0);
+    var notGuide = (query["unit_name_id"] == undefined || (!isNaN(query["unit_name_id"]) && parseInt(query["unit_name_id"]) >= 10011) || (isNaN(query["unit_name_id"] && query["unit_name_id"].indexOf(":") == -1)));
+    if (notStrict && noRarity && notGuide) {
         shorten_results(results);
     }
     // console.log(results);
