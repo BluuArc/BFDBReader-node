@@ -151,18 +151,40 @@ function rename_file(cur_name,new_name){
     }
 }
 
+
+function get_unit_home_server(id) {
+    if (id >= 10000 && id < 70000) {
+        return 'jp';
+    } else if (id < 800000 && id >= 700000) {
+        return 'eu';
+    } else if (id >= 800000 && id < 900000) {
+        return 'gl';
+    } else {
+        console.log("Unkown root for " + id);
+        return 'unknown';
+    }
+}
+
 //add in anything in db_sub that is not in db_main
-function merge_databases(db_main, db_sub, server){
+function merge_databases(db_main, db_sub, server) {
     var local_obj = JSON.parse(JSON.stringify(db_main)); //casting
-    for(unit in db_sub){ //iterate through everything in object
-        if(local_obj[unit] != undefined){ //exists, so just add date add time
-            if(local_obj[unit]["server"].indexOf(server) == -1){
+    for (unit in db_sub) { //iterate through everything in object
+        if (local_obj[unit] != undefined) { //exists, so just add date add time
+            if (local_obj[unit]["server"].indexOf(server) == -1) {
                 local_obj[unit]["server"].push(server);
                 // local_obj[unit]["db_add_time"].push(new Date().toUTCString());
             }
-        }else{ //doesn't exist, so add it and date add time
-            local_obj[unit] = db_sub[unit];
-            local_obj[unit].server = [server];
+        } else { //doesn't exist, so add it and date add time
+            //add special case for overlapping IDs 
+            var id = parseInt(unit);
+            if (get_unit_home_server(id) == 'eu' && server == 'gl') {
+                id = "8" + id.toString();
+                console.log("Changing " + unit + " to " + id);
+            } else {
+                id = id.toString();
+            }
+            local_obj[id] = db_sub[unit];
+            local_obj[id].server = [server];
             // local_obj[unit]["db_add_time"] = [new Date().toUTCString()];
         }
     }
@@ -589,8 +611,10 @@ app.get('/search/unit/options', function(request,response){
     var results = [];
     for(u in master_list["unit"]){
         var unit = master_list["unit"][u];
-        if(contains_unit_query(query, unit))
-            results.push(unit["id"]);
+        if(contains_unit_query(query, unit)){
+            // console.log("Found " + u);
+            results.push(u);
+        }
     }
     //if not using strict mode, try to shorten list
     var notStrict = (query["strict"] == false || query["strict"] == 'false');
