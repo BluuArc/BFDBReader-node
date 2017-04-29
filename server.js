@@ -437,7 +437,9 @@ app.get('/reload', function(request,response){
 });
 
 app.get('/unit/:id', function(request, response){
-    var unit = master_list.unit[request.params.id];
+    var unit = master_list.translated_units[request.params.id];
+    if(unit === undefined)
+        unit = master_list.unit[request.params.id];
     if(unit === undefined)  
         response.end(JSON.stringify({error: request.params.id + " is not found"}));
     else
