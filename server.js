@@ -471,7 +471,14 @@ function safe_json_get(json_obj, fields_arr, default_return){
 function get_unit_query_value(queryField, unit){
     try{
         switch(queryField){
-            case 'unit_name_id': return unit["guide_id"] + ": " + unit["name"].toLowerCase() + " (" + unit["id"]+")";
+            case 'unit_name_id': 
+                if(master_list.translated_units[unit.id] === undefined )
+                    return unit["guide_id"] + ": " + unit["name"].toLowerCase() + " (" + unit["id"]+")";
+                else{
+                    var tempUnit = master_list.translated_units[unit.id];
+                    return tempUnit["guide_id"] + ": " + tempUnit["name"].toLowerCase() + " (" + tempUnit["id"] + ")";
+                }
+                break;
             case 'rarity': return unit["rarity"].toString();
             case 'element': return unit["element"].toLowerCase();
             case 'gender': return unit["gender"].toLowerCase();
