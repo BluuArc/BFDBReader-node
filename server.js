@@ -3,6 +3,7 @@ var fs = require('fs');
 var request = require('request');
 
 var underscore = require('underscore'); //for search functions
+var translate = require('google-translate-api');
 
 //for server setup 
 var compression = require('compression');
@@ -42,6 +43,7 @@ app.use(allowCrossDomain);
 //on-going database that is a combination of 3 other databases (GL,EU,JP)
 var master_list = {
     unit: {},
+    translated_units: {},
     item: {},
 };
 
@@ -168,7 +170,7 @@ function get_unit_home_server(id) {
 //add in anything in db_sub that is not in db_main
 function merge_databases(db_main, db_sub, server) {
     var local_obj = JSON.parse(JSON.stringify(db_main)); //casting
-    for (unit in db_sub) { //iterate through everything in object
+    for (var unit in db_sub) { //iterate through everything in object
         if (local_obj[unit] != undefined) { //exists, so just add date add time
             if (local_obj[unit]["server"].indexOf(server) == -1) {
                 local_obj[unit]["server"].push(server);
@@ -193,7 +195,7 @@ function merge_databases(db_main, db_sub, server) {
 
 //adds a section in in the sub database to the main database
 function add_field_to_db(db_main, db_sub, func){
-    for(unit in db_sub){
+    for(var unit in db_sub){
         try{
             func(db_main[unit], db_sub[unit]);
         }catch(err){
@@ -287,8 +289,9 @@ function update_server_statistics(server){
     stats[server].num_items = underscore.size(item_id);
 
     //load previous data, if it exists
+    var unit_data;
     try{
-        var unit_data = synchr_json_load('stats-unit-' + server + ".json");
+        unit_data = synchr_json_load('stats-unit-' + server + ".json");
 
         //save differences, if any
         if (unit_data.last_loaded.length != stats[server].num_units) {
@@ -297,7 +300,7 @@ function update_server_statistics(server){
             asynchr_json_write('stats-unit-' + server + '.json', JSON.stringify(unit_data));
         }
     }catch(err){ //file doesn't exist
-        var unit_data = {
+        unit_data = {
             newest: unit_id,
             last_loaded: unit_id
         };
@@ -305,8 +308,9 @@ function update_server_statistics(server){
     }
 
     //load previous data, if it exists
+    var item_data;
     try {
-        var item_data = synchr_json_load('stats-item-' + server + ".json");
+        item_data = synchr_json_load('stats-item-' + server + ".json");
 
         //save differences, if any
         if (item_data.last_loaded.length != stats[server].num_items) {
@@ -315,7 +319,7 @@ function update_server_statistics(server){
             asynchr_json_write('stats-item-' + server + '.json', JSON.stringify(item_data));
         }
     } catch (err) { //file doesn't exist
-        var item_data = {
+        item_data = {
             newest: item_id,
             last_loaded: item_id
         };
@@ -427,14 +431,14 @@ app.get('/status', function(request,response){
 
 app.get('/reload', function(request,response){
     reload_database(function(){
-        // response.send("Reloading database...<br>");
-        response.end("Finished reloading database");
+        translate_jp_units();
+        response.end(JSON.stringify(stats));
     })
 });
 
 app.get('/unit/:id', function(request, response){
     var unit = master_list.unit[request.params.id];
-    if(unit == undefined)  
+    if(unit === undefined)  
         response.end(JSON.stringify({error: request.params.id + " is not found"}));
     else
         response.end(JSON.stringify(unit));
@@ -448,7 +452,7 @@ app.get('/item/:id', function(request,response){
         response.end(JSON.stringify(item));
 })
 
-function safe_json_get(json_obj, fields_arr){
+function safe_json_get(json_obj, fields_arr, default_return){
     var curValue = json_obj;
     // console.log(fields_arr);
     try{
@@ -459,7 +463,7 @@ function safe_json_get(json_obj, fields_arr){
         return JSON.stringify(curValue).toLowerCase();
     }catch(err){
         console.log(err);
-        return "";
+        return (default_return != undefined) ? default_return : "";
     }
 }
 
@@ -730,7 +734,9 @@ app.get('/list/units', function(request,response){
                         isTraversing = true;
                     }
                     if(isTraversing){//save unit name
-                        var unit = master_list.unit[tempList[u]];
+                        var unit = master_list.translated_units[tempList[u]];
+                        if(unit === undefined)
+                            unit = master_list.unit[tempList[u]];
                         resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
                     }
                     if(end != -1 && parseInt(tempList[u]) >= end){ //stop once we reach our end position
@@ -756,7 +762,9 @@ app.get('/list/units', function(request,response){
 
                 //traverse
                 for (u in tempList) {
-                    var unit = master_list.unit[tempList[u]];
+                    var unit = master_list.translated_units[tempList[u]];
+                    if (unit === undefined)
+                        unit = master_list.unit[tempList[u]];
                     if (unit["guide_id"] >= start) { //start saving once we reach start position
                         isTraversing = true;
                     }
@@ -800,7 +808,9 @@ app.get('/list/units', function(request,response){
                         break;
                     }
                     if (isTraversing) {//save unit name
-                        var unit = master_list.unit[tempList[u]];
+                        var unit = master_list.translated_units[tempList[u]];
+                        if (unit === undefined)
+                            unit = master_list.unit[tempList[u]];
                         resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
                         c++;
                     }
@@ -825,7 +835,9 @@ app.get('/list/units', function(request,response){
 
                 // console.log(start + " to " + count);
                 for (var c = start; c != (count) && c < tempList.length; ++c) {
-                    var unit = master_list.unit[tempList[c]];
+                    var unit = master_list.translated_units[tempList[c]];
+                    if(unit === undefined)
+                        unit = master_list.unit[tempList[c]];
                     resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
                 }//end traverse
             } else {
@@ -841,6 +853,119 @@ app.get('/list/units', function(request,response){
     }
 });
 
+function translate_to_english(msg, fields, endField) {
+    return translate(msg, { from: 'ja', to: 'en' })
+        .then(function (result) {
+            var result_text = "";
+            if (result.text.indexOf("null") == result.text.length - 4) {
+                result_text = result.text.replace("null", "");
+            } else {
+                result_text = result.text;
+            }
+            return {
+                translation: result_text + "*",
+                fields: fields.concat(endField)
+            };
+        }).catch(err => {
+            console.error(err);
+        });
+}
+
+//given a unit, return a promise that contains the translated unit object (name only)
+function translate_unit_name(unit) {
+    //recursively translate all fields
+    function translate_unit_recursive(object, levels) {
+        var promises = [];
+        var translatable_fields = ["desc", "name", "dependency comment"];
+
+        //get to desired position
+        var curObject = object;
+        for (var f in levels) {
+            curObject = curObject[levels[f]];
+        }
+
+        var local_levels = levels.slice();
+        //check each field
+        for (var field in curObject) {
+            local_levels.push(field);
+            var curField = curObject[field];
+
+            if (Array.isArray(curField) || (typeof curField == "object")) {
+                //recursively translate all sub fields
+                promises = promises.concat(translate_unit_recursive(object, local_levels));
+            } else if (translatable_fields.indexOf(field) > -1 && (typeof curField == "string") && curField.length > 0) {
+                //translate current field
+                var curPromise = translate_to_english(curField, local_levels, field)
+                promises.push(curPromise);
+            }
+            local_levels.pop();
+        }
+        return promises;
+    }
+
+    function translate_unit_name_helper(unit){
+        return (translate_to_english(unit.name,[],"name"));
+    }
+
+    //merge the data of the sub_object into the fields of the main_object
+    function merge_field(main_object, sub_object) {
+        var cur_position = main_object;
+        var f = 0;
+        for (f = 0; f < sub_object.fields.length - 1; ++f) {
+            cur_position = cur_position[sub_object.fields[f]];
+        }
+
+        cur_position[sub_object.fields[f]] = sub_object.translation;
+    }
+
+    //make a copy of the unit
+    var new_unit = JSON.parse(JSON.stringify(unit));
+    // var promises = translate_unit_recursive(new_unit, []);
+    var promises = [translate_unit_name_helper(new_unit)];
+    return Promise.all(promises)
+        .then(function (translated_objects) {
+            for (var r in translated_objects) {
+                merge_field(new_unit, translated_objects[r]);
+            }
+            return new_unit;
+        });
+}
+
+function isJapaneseText(name) {
+    return name.search(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/) > -1;
+}
+
+function translate_jp_units(){
+    console.log("Translating units");
+    var promises = [];
+    var count_finished = 0;
+    for(var u in master_list.unit){
+        var curUnit = master_list.unit[u];
+        if(isJapaneseText(curUnit.name)){
+            console.log("Translating " + curUnit.id);
+            promises.push(translate_unit_name(curUnit)
+                .then(function(translated_unit){
+                    console.log("Finished translating " + translated_unit.id + " (" + (++count_finished) + "/" + promises.length + ")");
+                    return translated_unit;
+                }));
+        }
+    }  
+    console.log("Translating " + promises.length + " units");
+    Promise.all(promises)
+        .then(function(results){
+            //put translated units into master list
+            console.log("Finished translating JP units. Putting them into list now.");
+            for(var r in results){
+                var curUnit = results[r];
+                master_list.translated_units[curUnit.id] = curUnit;
+            }
+        })
+        .then(function(){
+            console.log("Finished translating and saving JP units");
+            // console.log(master_list.translated_units);
+        })
+}
+
 var server = app.listen(argv["port"], argv["ip"], function(){
     
 
@@ -848,6 +973,7 @@ var server = app.listen(argv["port"], argv["ip"], function(){
         reload_database(function(){
             var host = server.address().address;
             var port = server.address().port;
+            translate_jp_units();
             console.log("Finished reloading database");
             console.log("Ready! Server listening at http://%s:%s", host, port);
         });
@@ -855,23 +981,75 @@ var server = app.listen(argv["port"], argv["ip"], function(){
         var host = server.address().address;
         var port = server.address().port;
         load_database(master_list);
+        translate_jp_units();
         console.log("Ready! Server listening at http://%s:%s", host, port);
     }
 
-    // test_function('jp');
+    // test_function();
 });
+
+function wiki_move(unit){
+    // console.log(unit);
+    console.log("Processing " + unit.id);
+    var result = "", temp = "";
+    result += "ID: " + unit.id + "\n";
+    try{
+        try{
+            temp = "|animation_attack  = " + unit.animations.attack['total number of frames']  + "\n";
+            temp += "|animation_idle    = " + unit.animations.idle['total number of frames'] + "\n";
+            temp += "|animation_move    = " + unit.animations.move['total number of frames'] + "\n";
+            result += temp;
+        }catch(err){
+            console.log(err);
+            result += "|animation_attack  = " + "Error: field doesn't exist" + "\n";
+            result += "|animation_idle    = " + "Error: field doesn't exist" + "\n";
+            result += "|animation_move    = " + "Error: field doesn't exist" + "\n";
+        }
+
+        try{
+            temp = "|movespeed_attack  = " + unit.movement.attack['move speed'] + "\n";
+            temp += "|movespeed_skill   = " + unit.movement.skill['move speed'] + "\n";
+            result += temp;
+        }catch(err){
+            console.log(err);
+            result += "|movespeed_attack  = " + "Error: field doesn't exist" + "\n";
+            result += "|movespeed_skill   = " + "Error: field doesn't exist" + "\n";
+        }
+
+        try{
+            temp = "|speedtype_attack  = " + unit.movement.attack['move speed type'] + "\n";
+            temp += "|speedtype_skill   = " + unit.movement.skill['move speed type'] + "\n";
+            result += temp;
+        }catch(err){
+            console.log(err);
+            result += "|speedtype_attack  = " + "Error: field doesn't exist" + "\n";
+            result += "|speedtype_skill   = " + "Error: field doesn't exist" + "\n";
+        }
+        
+        try{
+            temp = "|movetype_attack   = " + unit.movement.attack['move type'] + "\n";
+            temp += "|movetype_skill    = " + unit.movement.skill['move type'] + "\n\n";
+            result += temp;
+        }catch(err){
+            console.log(err);
+            result += "|movetype_attack   = " + "Error: field doesn't exist" + "\n";
+            result += "|movetype_skill    = " + "Error: field doesn't exist" + "\n\n";
+        }
+    }catch(err){
+        console.log(err);
+        result = "ERROR\n\n";
+    }
+    return result;
+}
 
 //used for gathering certain data during debugging
 function test_function(server){
-    var unit_list = underscore.filter(master_list["unit"], function (unit) {
-        return unit["server"].indexOf(server) > -1;
-    });
-    var item_list = underscore.filter(master_list["item"], function (item) {
-        return item["server"].indexOf(server) > -1;
-    });
-
-    var unit_id = create_id_array(unit_list);
-    var item_id = create_id_array(item_list);
-    console.log(unit_id.reverse());
-    console.log(item_id.reverse());
+    var destination = fs.createWriteStream('move.txt', {encoding: 'utf8'});
+    var result = "";
+    for(var u in master_list.unit){
+        result += (wiki_move(master_list.unit[u]));
+    }
+    destination.write(result);
+    destination.close();
+    console.log("Done");
 }
