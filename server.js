@@ -13,15 +13,17 @@ var express = require('express'),
 
 //for command line
 var argv = require('yargs')
-    .usage('Usage: $0 -p [integer] -i [string of IP address] -r')
+    .usage('Usage: $0 -p [integer] -i [string of IP address] -r -n')
     .default("p", 8081)
     .default("i", '127.0.0.1')
     .alias('p', 'port')
     .alias('i', 'ip').alias('i', 'ip-address')
     .alias('r', 'reload').alias('r','refresh')
+    .alias('n','notranslate')
     .describe('p', 'Port to run server on')
     .describe('i', 'IP Address to run server on')
     .describe('r', 'Force a redownload of the database. Use this if you have issues with the JSON files.')
+    .describe('n', 'Disable translation (for testing)')
     .help('h')
     .alias('h', 'help')
     .argv;
@@ -204,6 +206,39 @@ function add_field_to_db(db_main, db_sub, func){
     }
 }
 
+//convert all IDs in recipes to names
+function translate_recipes(items){
+    for(var i in items){
+        var curItem = items[i];
+        if(curItem.recipe !== undefined){
+            for(var m in curItem.recipe.materials){
+                curItem.recipe.materials[m].name = items[curItem.recipe.materials[m].id].name;
+                // console.log(curItem.recipe.materials[m].name);
+            }
+        }
+    }
+}
+
+//create usage field for all items
+function get_item_usage(items){
+    for(var i in items){
+        var curItem = items[i];
+        curItem.usage = [];
+        for(var j in items){
+            if(items[j].recipe !== undefined){
+                for(var m in items[j].recipe.materials){
+                    if(items[j].recipe.materials[m].id == curItem.id){
+                        curItem.usage.push({
+                            id: j,
+                            name: items[j].name
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
+
 //load database from a file or files
 function load_database(master_obj){
     master_obj["unit"] = {};
@@ -239,9 +274,7 @@ function load_database(master_obj){
     add_field_to_db(europe, europe_evo, function (unit1, unit2) {
         unit1["evo_mats"] = unit2["mats"];
     });
-    // add_field_to_db(europe, europe_evo, function (unit1, unit2) {
-    //     unit1["evo_mats"] = unit2["mats"];
-    // });
+
     console.log("Merging unit databases...");
     master_obj["unit"] = merge_databases(master_obj.unit, global, 'gl');
     master_obj["unit"] = merge_databases(master_obj.unit, europe, 'eu');
@@ -257,6 +290,8 @@ function load_database(master_obj){
     master_obj["item"] = merge_databases(master_obj.item, global, 'gl');
     master_obj["item"] = merge_databases(master_obj.item, europe, 'eu');
     master_obj["item"] = merge_databases(master_obj.item, japan, 'jp');
+    translate_recipes(master_obj.item);
+    get_item_usage(master_obj.item);
     console.log("Finished loading item database");
 
     update_statistics();
@@ -431,7 +466,8 @@ app.get('/status', function(request,response){
 
 app.get('/reload', function(request,response){
     reload_database(function(){
-        translate_jp_units();
+        if (!argv.notranslate)
+            translate_jp_units();
         response.end(JSON.stringify(stats));
     })
 });
@@ -982,7 +1018,8 @@ var server = app.listen(argv["port"], argv["ip"], function(){
         reload_database(function(){
             var host = server.address().address;
             var port = server.address().port;
-            translate_jp_units();
+            if (!argv.notranslate)
+                translate_jp_units();
             console.log("Finished reloading database");
             console.log("Ready! Server listening at http://%s:%s", host, port);
         });
@@ -990,14 +1027,15 @@ var server = app.listen(argv["port"], argv["ip"], function(){
         var host = server.address().address;
         var port = server.address().port;
         load_database(master_list);
-        translate_jp_units();
+        if(!argv.notranslate)
+            translate_jp_units();
         console.log("Ready! Server listening at http://%s:%s", host, port);
     }
 
     // test_function();
 });
 
-function wiki_move(unit){
+function wiki_move_helper(unit){
     // console.log(unit);
     console.log("Processing " + unit.id);
     var result = "", temp = "";
@@ -1051,14 +1089,26 @@ function wiki_move(unit){
     return result;
 }
 
-//used for gathering certain data during debugging
-function test_function(server){
+//used for gathering move data for wiki
+function wiki_move(server){
     var destination = fs.createWriteStream('move.txt', {encoding: 'utf8'});
     var result = "";
     for(var u in master_list.unit){
-        result += (wiki_move(master_list.unit[u]));
+        result += (wiki_move_helper(master_list.unit[u]));
     }
     destination.write(result);
     destination.close();
     console.log("Done");
+}
+
+function test_function(){
+    var types = [];
+    for(var i in master_list.item){
+        var curItem = master_list.item[i];
+        if (curItem["sphere type text"] !== undefined && types.indexOf(curItem["sphere type text"]) == -1){
+            types.push(curItem["sphere type text"]);
+        }
+            
+    }
+    console.log(types);
 }
