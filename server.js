@@ -47,6 +47,7 @@ var master_list = {
     unit: {},
     translated_units: {},
     item: {},
+    translated_items: {},
 };
 
 //statistics of the server
@@ -483,7 +484,9 @@ app.get('/unit/:id', function(request, response){
 });
 
 app.get('/item/:id', function(request,response){
-    var item = master_list.item[request.params.id];
+    var item = master_list.translated_items[request.params.id];
+    if(item === undefined)
+        item = master_list.item[request.params.id];
     if (item == undefined)
         response.end(JSON.stringify({ error: request.params.id + " is not found" }));
     else
@@ -501,7 +504,7 @@ function safe_json_get(json_obj, fields_arr, default_return){
         return JSON.stringify(curValue).toLowerCase();
     }catch(err){
         console.log(err);
-        return (default_return != undefined) ? default_return : "";
+        return (default_return !== undefined) ? default_return : "";
     }
 }
 
@@ -679,7 +682,13 @@ app.get('/search/unit/options', function(request,response){
 function get_item_query_value(queryField, item){
     try {
         switch (queryField) {
-            case 'item_name_id': return item["id"] + ": " + item["name"].toLowerCase();
+            case 'item_name_id': 
+                if(master_list.translated_units[item.id] === undefined)
+                    return item["id"] + ": " + item["name"].toLowerCase();
+                else{
+                    var tempItem = master_list.translated_units[item.id];
+                    return tempItem.id + ": " + tempItem.name.toLowerCase();
+                }
             case 'item_desc': return item["desc"].toLowerCase();
             case 'rarity': return item["rarity"].toString();
             case 'type': return item["type"].toLowerCase();
@@ -701,7 +710,7 @@ function contains_item_query(query, item){
         //wildcard queries
         if (curQuery == '' || (q == 'type' && curQuery == 'any') ||
             (q == 'sphere_type' && curQuery == 'any') || 
-            (q == 'server' && curQuery == 'any') || q == 'strict'){
+            (q == 'server' && curQuery == 'any') || q == 'strict' || q == 'translate'){
             continue;
         }
 
@@ -980,6 +989,37 @@ function isJapaneseText(name) {
     return name.search(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/) > -1;
 }
 
+function translate_jp_items(){
+    console.log("Translating items");
+    var promises = [];
+    var count_finished = 0;
+    for(var i in master_list.item){
+        var curItem = master_list.item[i];
+        if(isJapaneseText(curItem.name)){
+            console.log("Translating item " + curItem.id);
+            promises.push(translate_unit_name(curItem)
+                .then(function(translated_item){
+                    console.log("Finished translating item " + translated_item.id + " (" + (++count_finished) + "/" + promises.length + ")");
+                    return translated_item;
+                }));
+        }
+    }
+    console.log("Translating " + promises.length + " items");
+    Promise.all(promises)
+        .then(function(results){
+            //put translated items into master list
+            console.log("Putting translated JP items into list now.");
+            // console.log(results);
+            for(var r in results){
+                var curItem = results[r];
+                master_list.translated_items[curItem.id] = curItem;
+            }
+        })
+        .then(function(){
+            console.log("Finished translating JP items.");
+        });
+}
+
 function translate_jp_units(){
     console.log("Translating units");
     var promises = [];
@@ -987,10 +1027,10 @@ function translate_jp_units(){
     for(var u in master_list.unit){
         var curUnit = master_list.unit[u];
         if(isJapaneseText(curUnit.name)){
-            console.log("Translating " + curUnit.id);
+            console.log("Translating unit " + curUnit.id);
             promises.push(translate_unit_name(curUnit)
                 .then(function(translated_unit){
-                    console.log("Finished translating " + translated_unit.id + " (" + (++count_finished) + "/" + promises.length + ")");
+                    console.log("Finished translating unit " + translated_unit.id + " (" + (++count_finished) + "/" + promises.length + ")");
                     return translated_unit;
                 }));
         }
@@ -999,14 +1039,14 @@ function translate_jp_units(){
     Promise.all(promises)
         .then(function(results){
             //put translated units into master list
-            console.log("Finished translating JP units. Putting them into list now.");
+            console.log("Putting translated JP units into list now.");
             for(var r in results){
                 var curUnit = results[r];
                 master_list.translated_units[curUnit.id] = curUnit;
             }
         })
         .then(function(){
-            console.log("Finished translating and saving JP units");
+            console.log("Finished translating JP units");
             // console.log(master_list.translated_units);
         })
 }
@@ -1018,8 +1058,10 @@ var server = app.listen(argv["port"], argv["ip"], function(){
         reload_database(function(){
             var host = server.address().address;
             var port = server.address().port;
-            if (!argv.notranslate)
+            if (!argv.notranslate){
                 translate_jp_units();
+                translate_jp_items();
+            }
             console.log("Finished reloading database");
             console.log("Ready! Server listening at http://%s:%s", host, port);
         });
@@ -1027,8 +1069,10 @@ var server = app.listen(argv["port"], argv["ip"], function(){
         var host = server.address().address;
         var port = server.address().port;
         load_database(master_list);
-        if(!argv.notranslate)
+        if(!argv.notranslate){
             translate_jp_units();
+            translate_jp_items();
+        }
         console.log("Ready! Server listening at http://%s:%s", host, port);
     }
 
@@ -1105,8 +1149,8 @@ function test_function(){
     var types = [];
     for(var i in master_list.item){
         var curItem = master_list.item[i];
-        if (curItem["sphere type text"] !== undefined && types.indexOf(curItem["sphere type text"]) == -1){
-            types.push(curItem["sphere type text"]);
+        if (types.indexOf(curItem.type) == -1){
+            types.push(curItem.type);
         }
             
     }
