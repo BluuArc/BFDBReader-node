@@ -72,7 +72,7 @@ var stats = {
         newest_items: []
     }
     
-}
+};
 
 function create_id_array(json_obj){
     var array = [];
@@ -165,7 +165,7 @@ function get_unit_home_server(id) {
     } else if (id >= 800000 && id < 900000) {
         return 'gl';
     } else {
-        console.log("Unkown root for " + id);
+        // console.log("Unkown root for " + id);
         return 'unknown';
     }
 }
@@ -174,9 +174,9 @@ function get_unit_home_server(id) {
 function merge_databases(db_main, db_sub, server) {
     var local_obj = JSON.parse(JSON.stringify(db_main)); //casting
     for (var unit in db_sub) { //iterate through everything in object
-        if (local_obj[unit] != undefined) { //exists, so just add date add time
-            if (local_obj[unit]["server"].indexOf(server) == -1) {
-                local_obj[unit]["server"].push(server);
+        if (local_obj[unit] !== undefined) { //exists, so just add date add time
+            if (local_obj[unit].server.indexOf(server) == -1) {
+                local_obj[unit].server.push(server);
                 // local_obj[unit]["db_add_time"].push(new Date().toUTCString());
             }
         } else { //doesn't exist, so add it and date add time
@@ -240,63 +240,102 @@ function get_item_usage(items){
     }
 }
 
+function load_json_promisified(file, alternative_files){
+    return new Promise(function(fulfill,reject){
+        //try to load first file
+        fs.readFile(__dirname + "/json/" + file, 'utf8', function (err, data) {
+            if (err) {
+                //try another file if possible
+                if(alternative_files !== undefined &&  alternative_files.length > 0){
+                    var new_file = alternative_files.pop();
+                    return load_json_promisified(new_file,alternative_files)
+                }else{
+                    reject("Error: cannot open " + file + " or its alternatives");
+                }
+            }
+            //return parsed data 
+            fulfill(JSON.parse(data));
+        });
+    });
+}
+
+//server: gl, jp, or eu
+function single_server_db_load(server){
+    return new Promise(function(fulfill,reject){
+        var mini_db = {};
+        //load files asynchronously
+        var main_promise = load_json_promisified('info-' + server + '.json', ['info-' + server + '-old.json'])
+            .then(function(result){
+                mini_db.main = result;
+            });
+        var sp_promise = load_json_promisified('feskills-' + server + '.json', ['feskills-' + server + '-old.json'])
+            .then(function (result) {
+                mini_db.sp = result;
+            });
+
+        var evo_promise = load_json_promisified('evo_list-' + server + '.json', ['evo_list-' + server + '-old.json'])
+            .then(function (result) {
+                mini_db.evo = result;
+            });
+        
+        var item_promise = load_json_promisified('items-' + server + '.json', ['items-' + server + '-old.json'])
+            .then(function (result) {
+                mini_db.items = result;
+            });
+        
+        //process files once finished loading
+        Promise.all([main_promise, sp_promise, evo_promise])
+            .then(function(results){ //finished loading JSON files
+                //merge into one database object
+                add_field_to_db(mini_db.main,mini_db.evo,function(unit1,unit2){
+                    unit1.evo_mats = unit2.mats;
+                });
+
+                add_field_to_db(mini_db.main,mini_db.sp, function(unit1,unit2){
+                    unit1.skills = unit2.skills;
+                });
+
+                //return merged databases
+                fulfill({
+                    unit: mini_db.main,
+                    item: mini_db.items
+                });
+            });
+    });
+}
+
 //load database from a file or files
-function load_database(master_obj){
-    master_obj["unit"] = {};
-    master_obj["item"] = {};
+function load_database(master){
+    return new Promise(function(fulfill,reject){
+        master.unit = {};
+        master.item = {};
 
-    //open unit
-    console.log("Loading individual unit databases...");
-    var global = synchr_json_load('info-gl.json', ['info-gl-old.json']);
-    var global_sp = synchr_json_load('feskills-gl.json', ['feskills-gl-old.json']);
-    var global_evo = synchr_json_load('evo_list-gl.json', ['evo_list-gl-old.json']);
-    var japan = synchr_json_load('info-jp.json', ['info-jp-old.json']);
-    var japan_sp = synchr_json_load('feskills-jp.json', ['feskills-jp-old.json']);
-    var japan_evo = synchr_json_load('evo_list-jp.json', ['evo_list-jp-old.json']);
-    var europe = synchr_json_load('info-eu.json',['info-eu-old.json']);
-    var europe_evo = synchr_json_load('evo_list-eu.json', ['evo_list-eu-old.json']);
-    var europe_sp = synchr_json_load('feskills-eu.json', ['feskills-eu-old.json']);
-    //add extra data to respective databases
-    add_field_to_db(global,global_evo,function(unit1,unit2){
-        unit1["evo_mats"] = unit2["mats"];
-    });
-    add_field_to_db(global,global_sp,function(unit1, unit2){
-        unit1["skills"] = unit2["skills"];
-    });
-    add_field_to_db(japan, japan_sp, function (unit1, unit2) {
-        unit1["skills"] = unit2["skills"];
-    });
-    add_field_to_db(japan, japan_evo, function (unit1, unit2) {
-        unit1["evo_mats"] = unit2["mats"];
-    });
-    add_field_to_db(europe, europe_sp, function (unit1, unit2) {
-        unit1["skills"] = unit2["skills"];
-    });
-    add_field_to_db(europe, europe_evo, function (unit1, unit2) {
-        unit1["evo_mats"] = unit2["mats"];
-    });
+        console.log("Loading individual databases");
+        var global = single_server_db_load('gl');
+        var japan = single_server_db_load('jp');
+        var europe = single_server_db_load('eu');
 
-    console.log("Merging unit databases...");
-    master_obj["unit"] = merge_databases(master_obj.unit, global, 'gl');
-    master_obj["unit"] = merge_databases(master_obj.unit, europe, 'eu');
-    master_obj["unit"] = merge_databases(master_obj.unit, japan, 'jp');
-    console.log("Finished loading unit database");
+        //wait for databases to finish loading
+        Promise.all([global, japan, europe])
+            .then(function(results){
+                console.log("Merging unit databases");
+                master.unit = merge_databases(master.unit, results[0].unit, 'gl');
+                master.unit = merge_databases(master.unit, results[2].unit, 'eu');
+                master.unit = merge_databases(master.unit, results[1].unit, 'jp');
 
-    //open item
-    console.log("Loading individual item databases...");
-    global = synchr_json_load('items-gl.json', ['items-gl-old.json']);
-    japan = synchr_json_load('items-jp.json', ['items-jp-old.json']);
-    europe = synchr_json_load('items-eu.json', ['items-eu-old.json']);
-    console.log("Merging item databases...");
-    master_obj["item"] = merge_databases(master_obj.item, global, 'gl');
-    master_obj["item"] = merge_databases(master_obj.item, europe, 'eu');
-    master_obj["item"] = merge_databases(master_obj.item, japan, 'jp');
-    translate_recipes(master_obj.item);
-    get_item_usage(master_obj.item);
-    console.log("Finished loading item database");
+                console.log("Merging item databases...");
+                master.item = merge_databases(master.item, results[0].item, 'gl');
+                master.item = merge_databases(master.item, results[2].item, 'eu');
+                master.item = merge_databases(master.item, results[1].item, 'jp');
 
-    update_statistics();
-    // console.log(stats);
+                console.log("Finished loading databases");
+            })
+            .then(function(){
+                update_statistics();
+                fulfill(); //finished loading and updating
+            });
+
+    });
 }
 
 //return everything that's in db_new and not in db_old
@@ -312,11 +351,11 @@ function get_db_diffs(db_old, db_new){
 
 function update_server_statistics(server){
     console.log("Updating " + server.toUpperCase() + " statistics...");
-    var unit_list = underscore.filter(master_list["unit"], function (unit) {
-        return unit["server"].indexOf(server) > -1;
+    var unit_list = underscore.filter(master_list.unit, function (unit) {
+        return unit.server.indexOf(server) > -1;
     });
-    var item_list = underscore.filter(master_list["item"], function (item) {
-        return item["server"].indexOf(server) > -1;
+    var item_list = underscore.filter(master_list.item, function (item) {
+        return item.server.indexOf(server) > -1;
     });
 
     var unit_id = create_id_array(unit_list);
@@ -330,7 +369,7 @@ function update_server_statistics(server){
         unit_data = synchr_json_load('stats-unit-' + server + ".json");
 
         //save differences, if any
-        if (unit_data.last_loaded.length != stats[server].num_units) {
+        if (unit_data.last_loaded.length != stats[server].num_units || unit_data.last_loaded[0] !== unit_id[0]) {
             unit_data.newest = get_db_diffs(unit_data.last_loaded, unit_id);
             unit_data.last_loaded = unit_id;
             asynchr_json_write('stats-unit-' + server + '.json', JSON.stringify(unit_data));
@@ -349,7 +388,7 @@ function update_server_statistics(server){
         item_data = synchr_json_load('stats-item-' + server + ".json");
 
         //save differences, if any
-        if (item_data.last_loaded.length != stats[server].num_items) {
+        if (item_data.last_loaded.length != stats[server].num_items || item_data.last_loaded[0] !== item_id[0]) {
             item_data.newest = get_db_diffs(item_data.last_loaded, item_id);
             item_data.last_loaded = item_id;
             asynchr_json_write('stats-item-' + server + '.json', JSON.stringify(item_data));
@@ -368,10 +407,11 @@ function update_server_statistics(server){
 
 function update_statistics(){
     console.log("Updating statistics...");
+    var servers = ['gl','jp','eu'];
     stats.last_update = new Date().toUTCString();
-    update_server_statistics('gl');
-    update_server_statistics('jp');
-    update_server_statistics('eu');
+    for(var i = 0; i < servers.length; ++i){
+        update_server_statistics(servers[i]);
+    }
     console.log("Finished updating statistics");
 }
 
@@ -1052,8 +1092,6 @@ function translate_jp_units(){
 }
 
 var server = app.listen(argv["port"], argv["ip"], function(){
-    
-
     if(argv["reload"]){
         reload_database(function(){
             var host = server.address().address;
@@ -1068,12 +1106,14 @@ var server = app.listen(argv["port"], argv["ip"], function(){
     }else{
         var host = server.address().address;
         var port = server.address().port;
-        load_database(master_list);
-        if(!argv.notranslate){
-            translate_jp_units();
-            translate_jp_items();
-        }
-        console.log("Ready! Server listening at http://%s:%s", host, port);
+        load_database(master_list)
+            .then(function(){
+                if(!argv.notranslate){
+                    translate_jp_units();
+                    translate_jp_items();
+                }
+                console.log("Ready! Server listening at http://%s:%s", host, port);
+            });
     }
 
     // test_function();
