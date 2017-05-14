@@ -36,7 +36,7 @@ var allowCrossDomain = function (req, res, next) {
     res.header('Access-Control-Allow-Headers', 'Content-Type');
 
     next();
-}
+};
 
 app.use(compression());
 app.use(bodyParser.urlencoded({extended: false}));
@@ -76,102 +76,58 @@ var stats = {
 
 function create_id_array(json_obj){
     var array = [];
-    for(o in json_obj){
-        array.push(json_obj[o]["id"].toString());
+    for(var o in json_obj){
+        array.push(json_obj[o].id.toString());
     }
     return array;
 }
 
-//asynchronous file load, used for updating after database is built
-function asynchr_json_load(file, callbackFn){
-    console.log("opening " + __dirname + "/json/" + file);
-    fs.readFile(__dirname + "/json/" + file, 'utf8', function(err,data){
-        if(err){
-            console.log(err);
-            callbackFn(null);
-        }
-        callbackFn(JSON.parse(data));
-    });
-}
-
-//download a single file
-function asynchr_file_download(url, local_name, callbackFn){
-    //based on https://blog.xervo.io/node.js-tutorial-how-to-use-request-module 
-    var destination = fs.createWriteStream(__dirname + '/json/' + local_name);
-    request(url).pipe(destination).on('finish',function(){
-        // console.log("Finished downloading " + local_name + " from " + url);
-        // asynchr_json_load(local_name, callbackFn);
-        callbackFn();
-    });
-}
-
-//download multiple files before continuing
-function asynchr_files_download(list,callbackFn){
-    if(list == undefined || list.length == 0)
-        callbackFn();
-    else{
-        //based on https://blog.xervo.io/node.js-tutorial-how-to-use-request-module 
-        var cur_set = list.pop(); //list is an array of download jobs
-        var local_name = cur_set["local_name"];
-        var url = cur_set["url"];
-        console.log("Downloading " + url + " > " + local_name);
+//donwnload a single file
+function file_download_promisified(url,local_name){
+    return new Promise(function(fulfill,reject){
+        console.log("DL: " + url + " > " + local_name);
+        try{
+            fs.mkdirSync(__dirname + '/json/');
+        }catch(err){/*do nothing as directory already exists*/}
         var destination = fs.createWriteStream(__dirname + '/json/' + local_name);
+        console.log(destination.path);
         request(url).pipe(destination).on('finish', function () {
-            asynchr_files_download(list,callbackFn);
+            fulfill(local_name);
         });
-    }
-}
-
-//synchronous file load, used for building initial database
-function synchr_json_load(file, alternative_files){
-    try{
-        return JSON.parse(fs.readFileSync(__dirname + "/json/" + file, 'utf8'));
-    }catch(err){//error, try alternative files
-        if(alternative_files != undefined && alternative_files.length > 0){
-            var new_file = alternative_files.pop();
-            return synchr_json_load(new_file,alternative_files);
-        }else{//return an error if none of the files work
-            return JSON.parse(fs.readFileSync(__dirname + "/json/" + file, 'utf8'));
-        }
-    }
-}
-
-//used to save data
-function asynchr_json_write(file, data){
-    fs.writeFile(__dirname + "/json/" + file, data, function(err){
-        if(err){
-            console.log(err);
-        }
-        console.log("Saved " + file);
-        return;
     });
 }
 
-function rename_file(cur_name,new_name){
-    try{
-        var data = fs.readFileSync(__dirname + "/json/" + cur_name, 'utf8');
-        fs.writeFileSync(__dirname + "/json/" + new_name, data ,'utf8');
-    }catch(err){
-        console.log(err);
-    }
-}
-
-
-function get_unit_home_server(id) {
-    if (id >= 10000 && id < 70000) {
-        return 'jp';
-    } else if (id < 800000 && id >= 700000) {
-        return 'eu';
-    } else if (id >= 800000 && id < 900000) {
-        return 'gl';
-    } else {
-        // console.log("Unkown root for " + id);
-        return 'unknown';
-    }
+function rename_file_promisified(cur_name,new_name){
+    return new Promise(function(fulfill,reject){
+        fs.readFile(__dirname + "/json/" + cur_name, 'utf8', function (err, data) {
+            if (err) {
+                console.log("Couldn't find " + cur_name + " to rename");
+                fulfill(); //file doesn't exist, but that's okay
+            }else{
+                fs.writeFile(__dirname + "/json/" + new_name, data, 'utf8',function(err){
+                    if(err) console.log("Couldn't rename " + cur_name + " to " + new_name);
+                    else    console.log("Remamed " + cur_name + " to " + new_name);
+                    fulfill(); //finished trying to rename file
+                });
+            }
+        });
+    });
 }
 
 //add in anything in db_sub that is not in db_main
 function merge_databases(db_main, db_sub, server) {
+    function get_unit_home_server(id) {
+        if (id >= 10000 && id < 70000) {
+            return 'jp';
+        } else if (id < 800000 && id >= 700000) {
+            return 'eu';
+        } else if (id >= 800000 && id < 900000) {
+            return 'gl';
+        } else {
+            // console.log("Unkown root for " + id);
+            return 'unknown';
+        }
+    }
     var local_obj = JSON.parse(JSON.stringify(db_main)); //casting
     for (var unit in db_sub) { //iterate through everything in object
         if (local_obj[unit] !== undefined) { //exists, so just add date add time
@@ -180,8 +136,8 @@ function merge_databases(db_main, db_sub, server) {
                 // local_obj[unit]["db_add_time"].push(new Date().toUTCString());
             }
         } else { //doesn't exist, so add it and date add time
-            //add special case for overlapping IDs 
             var id = parseInt(unit);
+            //add special case for overlapping IDs 
             if (get_unit_home_server(id) == 'eu' && server == 'gl') {
                 id = "8" + id.toString();
                 console.log("Changing " + unit + " to " + id);
@@ -248,13 +204,19 @@ function load_json_promisified(file, alternative_files){
                 //try another file if possible
                 if(alternative_files !== undefined &&  alternative_files.length > 0){
                     var new_file = alternative_files.pop();
-                    return load_json_promisified(new_file,alternative_files)
+                    console.log("Couldn't load " + file + ". Trying " + new_file);
+                    return load_json_promisified(new_file,alternative_files).catch(reject);
                 }else{
                     reject("Error: cannot open " + file + " or its alternatives");
                 }
             }
             //return parsed data 
-            fulfill(JSON.parse(data));
+            try{
+                var result = JSON.parse(data);
+                fulfill(result);
+            }catch(parseError){
+                reject(parseError);
+            }
         });
     });
 }
@@ -267,21 +229,20 @@ function single_server_db_load(server){
         var main_promise = load_json_promisified('info-' + server + '.json', ['info-' + server + '-old.json'])
             .then(function(result){
                 mini_db.main = result;
-            });
+            }).catch(reject);
         var sp_promise = load_json_promisified('feskills-' + server + '.json', ['feskills-' + server + '-old.json'])
             .then(function (result) {
                 mini_db.sp = result;
-            });
-
+            }).catch(reject);
         var evo_promise = load_json_promisified('evo_list-' + server + '.json', ['evo_list-' + server + '-old.json'])
             .then(function (result) {
                 mini_db.evo = result;
-            });
+            }).catch(reject);
         
         var item_promise = load_json_promisified('items-' + server + '.json', ['items-' + server + '-old.json'])
             .then(function (result) {
                 mini_db.items = result;
-            });
+            }).catch(reject);
         
         //process files once finished loading
         Promise.all([main_promise, sp_promise, evo_promise])
@@ -300,7 +261,7 @@ function single_server_db_load(server){
                     unit: mini_db.main,
                     item: mini_db.items
                 });
-            });
+            }).catch(reject);
     });
 }
 
@@ -311,9 +272,9 @@ function load_database(master){
         master.item = {};
 
         console.log("Loading individual databases");
-        var global = single_server_db_load('gl');
-        var japan = single_server_db_load('jp');
-        var europe = single_server_db_load('eu');
+        var global = single_server_db_load('gl').catch(reject);
+        var japan = single_server_db_load('jp').catch(reject);
+        var europe = single_server_db_load('eu').catch(reject);
 
         //wait for databases to finish loading
         Promise.all([global, japan, europe])
@@ -333,15 +294,15 @@ function load_database(master){
             .then(function(){
                 update_statistics();
                 fulfill(); //finished loading and updating
-            });
-
+            })
+            .catch(reject);
     });
 }
 
 //return everything that's in db_new and not in db_old
 function get_db_diffs(db_old, db_new){
     var diffs = [];
-    for(elem in db_new){
+    for(var elem in db_new){
         if(db_old.indexOf(db_new[elem]) == -1){
             diffs.push(db_new[elem]);
         }
@@ -349,150 +310,146 @@ function get_db_diffs(db_old, db_new){
     return diffs;
 }
 
-function update_server_statistics(server){
-    console.log("Updating " + server.toUpperCase() + " statistics...");
-    var unit_list = underscore.filter(master_list.unit, function (unit) {
-        return unit.server.indexOf(server) > -1;
-    });
-    var item_list = underscore.filter(master_list.item, function (item) {
-        return item.server.indexOf(server) > -1;
-    });
-
-    var unit_id = create_id_array(unit_list);
-    var item_id = create_id_array(item_list);
-    stats[server].num_units = underscore.size(unit_id);
-    stats[server].num_items = underscore.size(item_id);
-
-    //load previous data, if it exists
-    var unit_data;
-    try{
-        unit_data = synchr_json_load('stats-unit-' + server + ".json");
-
-        //save differences, if any
-        if (unit_data.last_loaded.length != stats[server].num_units || unit_data.last_loaded[0] !== unit_id[0]) {
-            unit_data.newest = get_db_diffs(unit_data.last_loaded, unit_id);
-            unit_data.last_loaded = unit_id;
-            asynchr_json_write('stats-unit-' + server + '.json', JSON.stringify(unit_data));
-        }
-    }catch(err){ //file doesn't exist
-        unit_data = {
-            newest: unit_id,
-            last_loaded: unit_id
-        };
-        asynchr_json_write('stats-unit-' + server + '.json', JSON.stringify(unit_data));
-    }
-
-    //load previous data, if it exists
-    var item_data;
-    try {
-        item_data = synchr_json_load('stats-item-' + server + ".json");
-
-        //save differences, if any
-        if (item_data.last_loaded.length != stats[server].num_items || item_data.last_loaded[0] !== item_id[0]) {
-            item_data.newest = get_db_diffs(item_data.last_loaded, item_id);
-            item_data.last_loaded = item_id;
-            asynchr_json_write('stats-item-' + server + '.json', JSON.stringify(item_data));
-        }
-    } catch (err) { //file doesn't exist
-        item_data = {
-            newest: item_id,
-            last_loaded: item_id
-        };
-        asynchr_json_write('stats-item-' + server + '.json', JSON.stringify(item_data));
-    }
-
-    stats[server].newest_units = unit_data.newest;
-    stats[server].newest_items = item_data.newest;
-}
-
+//update statistics for all servers
 function update_statistics(){
+    function update_statistics_per_server(server) {
+        //holds local file load/save functions
+        var updater = {
+            load: function (file, alternative_files) {
+                try {
+                    return JSON.parse(fs.readFileSync(__dirname + "/json/" + file, 'utf8'));
+                } catch (err) {//error, try alternative files
+                    if (alternative_files !== undefined && alternative_files.length > 0) {
+                        var new_file = alternative_files.pop();
+                        return updater.load(new_file, alternative_files);
+                    } else {//return an error if none of the files work
+                        return JSON.parse(fs.readFileSync(__dirname + "/json/" + file, 'utf8'));
+                    }
+                }
+            },
+            save: function (file, data) {
+                fs.writeFile(__dirname + "/json/" + file, data, function (err) {
+                    if (err) {
+                        console.log(err);
+                    }
+                    console.log("Saved " + file);
+                    return;
+                });
+            }
+        };
+
+        console.log("Updating " + server.toUpperCase() + " statistics...");
+        var unit_list = underscore.filter(master_list.unit, function (unit) {
+            return unit.server.indexOf(server) > -1;
+        });
+        var item_list = underscore.filter(master_list.item, function (item) {
+            return item.server.indexOf(server) > -1;
+        });
+
+        //gather basic statistics
+        var unit_id = create_id_array(unit_list);
+        var item_id = create_id_array(item_list);
+        stats[server].num_units = underscore.size(unit_id);
+        stats[server].num_items = underscore.size(item_id);
+
+        //load previous data, if it exists
+        var unit_data;
+        try {
+            unit_data = updater.load('stats-unit-' + server + ".json");
+
+            //save differences, if any
+            if (unit_data.last_loaded.length != stats[server].num_units || unit_data.last_loaded[0] !== unit_id[0]) {
+                unit_data.newest = get_db_diffs(unit_data.last_loaded, unit_id);
+                unit_data.last_loaded = unit_id;
+                updater.save('stats-unit-' + server + '.json', JSON.stringify(unit_data));
+            }
+        } catch (err) { //file doesn't exist
+            unit_data = {
+                newest: unit_id,
+                last_loaded: unit_id
+            };
+            updater.save('stats-unit-' + server + '.json', JSON.stringify(unit_data));
+        }
+
+        //load previous data, if it exists
+        var item_data;
+        try {
+            item_data = updater.load('stats-item-' + server + ".json");
+
+            //save differences, if any
+            if (item_data.last_loaded.length != stats[server].num_items || item_data.last_loaded[0] !== item_id[0]) {
+                item_data.newest = get_db_diffs(item_data.last_loaded, item_id);
+                item_data.last_loaded = item_id;
+                updater.save('stats-item-' + server + '.json', JSON.stringify(item_data));
+            }
+        } catch (err) { //file doesn't exist
+            item_data = {
+                newest: item_id,
+                last_loaded: item_id
+            };
+            updater.save('stats-item-' + server + '.json', JSON.stringify(item_data));
+        }
+
+        //keep track of newest units on server
+        stats[server].newest_units = unit_data.newest;
+        stats[server].newest_items = item_data.newest;
+    }
     console.log("Updating statistics...");
     var servers = ['gl','jp','eu'];
     stats.last_update = new Date().toUTCString();
     for(var i = 0; i < servers.length; ++i){
-        update_server_statistics(servers[i]);
+        update_statistics_per_server(servers[i]);
     }
     console.log("Finished updating statistics");
 }
 
 //reload database from remote
-function reload_database(callbackFn){
-    console.log("Preparing to reload database...");
-    //save old files
-    console.log("Saving old files");
-    rename_file('info-gl.json', 'info-gl-old.json');
-    rename_file('info-jp.json', 'info-jp-old.json');
-    rename_file('info-eu.json', 'info-eu-old.json');
-    rename_file('feskills-gl.json', 'feskills-gl-old.json');
-    rename_file('feskills-jp.json', 'feskills-jp-old.json');
-    rename_file('feskills-eu.json', 'feskills-eu-old.json');
-    rename_file('items-gl.json', 'items-gl-old.json');
-    rename_file('items-jp.json', 'items-jp-old.json');
-    rename_file('items-eu.json', 'items-eu-old.json');
-    rename_file('evo_list-gl.json', 'evo_list-gl-old.json');
-    rename_file('evo_list-jp.json', 'evo_list-jp-old.json');
-    rename_file('evo_list-eu.json', 'evo_list-eu-old.json');
+function reload_database(){
+    return new Promise(function(fulfill,reject){
+        console.log("Preparing to reload database...");
 
-    //download files from remote servers and load database when finished
-    console.log("Downloading new files...");
-    var main_url = 'https://raw.githubusercontent.com/Deathmax/bravefrontier_data/master';
-    var list = [
-        {
-            url: main_url + '/info.json',
-            local_name: 'info-gl.json'
-        },
-        {
-            url: main_url + '/feskills.json',
-            local_name: 'feskills-gl.json'
-        },
-        {
-            url: main_url + '/items.json',
-            local_name: 'items-gl.json'
-        },
-        {
-            url: main_url + '/evo_list.json',
-            local_name: 'evo_list-gl.json'
-        },
-        {
-            url: main_url + '/jp/info.json',
-            local_name: 'info-jp.json'
-        },
-        {
-            url: main_url + '/jp/feskills.json',
-            local_name: 'feskills-jp.json'
-        },
-        {
-            url: main_url + '/jp/items.json',
-            local_name: 'items-jp.json'
-        },
-        {
-            url: main_url + '/jp/evo_list.json',
-            local_name: 'evo_list-jp.json'
-        },
-        {
-            url: main_url + '/eu/info.json',
-            local_name: 'info-eu.json'
-        },
-        {
-            url: main_url + '/eu/feskills.json',
-            local_name: 'feskills-eu.json'
-        },
-        {
-            url: main_url + '/eu/items.json',
-            local_name: 'items-eu.json'
-        },
-        {
-            url: main_url + '/eu/evo_list.json',
-            local_name: 'evo_list-eu.json'
-        },
-    ];
-    asynchr_files_download(list,function(){
-        load_database(master_list);
-        try{
-            callbackFn();
-        }catch(err){
-            console.log(err);
+        console.log("Saving old files");
+        var db_type = ['info','feskills','items','evo_list'];
+        var servers = ['gl','jp','eu'];
+
+        var promises = [];
+        //rename old files
+        for(var d = 0; d < db_type.length; ++d){
+            for(var s = 0; s < servers.length; ++s){
+                var filePrefix = db_type[d] + '-' + servers[s];
+                var p = rename_file_promisified(filePrefix + ".json", filePrefix + "-old.json");
+                promises.push(p);
+            }
         }
+
+        Promise.all(promises)
+            .then(function(result){ //finished renaming files
+                //download files from remote servers and load database when finished
+                console.log("Downloading new files...");
+                var main_url = 'https://raw.githubusercontent.com/Deathmax/bravefrontier_data/master/';
+                var requests = [];
+                var completed = 0;
+                for(var d = 0; d < db_type.length; ++d){
+                    for(var s = 0; s < servers.length; ++s){
+                        var url = main_url;
+                        if(servers[s] !== "gl") url += servers[s] + "/";
+                        url += db_type[d] + ".json";
+                        var fileName = db_type[d] + "-" + servers[s] + ".json";
+                        requests.push(file_download_promisified(url,fileName)
+                            .then(function(name){
+                                console.log("Downloaded " + name + " (" + (++completed) + "/" + requests.length + ")");
+                            }));
+                    }
+                }
+                return Promise.all(requests);
+            })
+            .then(function(results){ //finished downloading files
+                return load_database(master_list);
+            })
+            .then(function(){
+                fulfill(); //done redownloading and reloading everything
+            })
+            .catch(reject);
     });
 }
 
@@ -506,11 +463,16 @@ app.get('/status', function(request,response){
 });
 
 app.get('/reload', function(request,response){
-    reload_database(function(){
-        if (!argv.notranslate)
-            translate_jp_units();
+    reload_database().then(function(){
+        if (!argv.notranslate) {
+            var translations = [translate_jp_units(), translate_jp_items()];
+            Promise.all(translations)
+                .then(function (result) {
+                    console.log("Finished reloading database");
+                });
+        }
         response.end(JSON.stringify(stats));
-    })
+    });
 });
 
 app.get('/unit/:id', function(request, response){
@@ -527,7 +489,7 @@ app.get('/item/:id', function(request,response){
     var item = master_list.translated_items[request.params.id];
     if(item === undefined)
         item = master_list.item[request.params.id];
-    if (item == undefined)
+    if (item === undefined)
         response.end(JSON.stringify({ error: request.params.id + " is not found" }));
     else
         response.end(JSON.stringify(item));
@@ -537,7 +499,7 @@ function safe_json_get(json_obj, fields_arr, default_return){
     var curValue = json_obj;
     // console.log(fields_arr);
     try{
-        for(f in fields_arr){
+        for(var f in fields_arr){
             curValue = curValue[fields_arr[f]];
         }
         // console.log(curValue);
@@ -593,9 +555,13 @@ function get_unit_query_value(queryField, unit){
                 msg += safe_json_get(unit, ["bb", "name"]) + " " + safe_json_get(unit, ["bb", "desc"]) + " ";
                 msg += safe_json_get(unit, ["sbb", "name"]) + " " + safe_json_get(unit, ["sbb", "desc"]) + " ";
                 msg += safe_json_get(unit, ["ubb", "name"]) + " " + safe_json_get(unit, ["ubb", "desc"]) + " ";
-                if (unit["skills"] != undefined) {
+                if (unit["skills"] !== undefined) {
                     for (sp in unit["skills"]) {
-                        msg += unit["skills"][sp]["skill"]["desc"] + " ";
+                        try{
+                            msg += unit["skills"][sp]["skill"]["desc"] + " ";
+                        }catch(err){
+                            continue;
+                        }
                     }
                 }
                 // console.log(msg);
@@ -603,9 +569,13 @@ function get_unit_query_value(queryField, unit){
             case 'all_effect': var msg = safe_json_get(unit, ["leader skill", "effects"]) + " ";
                 msg += safe_json_get(unit, ["extra skill", "effects"]) + " ";
                 msg += safe_json_get(unit, ["bb", "levels", 9, "effects"]) + " " + safe_json_get(unit, ["sbb", "levels", 9, "effects"]) + " " + safe_json_get(unit, ["ubb", "levels", 0, "effects"]);
-                if (unit["skills"] != undefined) {
+                if (unit["skills"] !== undefined) {
                     for (sp in unit["skills"]) {
-                        msg += JSON.stringify(unit["skills"][sp]["skill"]["effects"]) + "\n";
+                        try{
+                            msg += JSON.stringify(unit["skills"][sp]["skill"]["effects"]) + "\n";
+                        }catch(err){
+                            continue;
+                        }
                     }
                 }
                 // console.log(msg);
@@ -618,8 +588,9 @@ function get_unit_query_value(queryField, unit){
     }
 }
 
+//returns true if all non-empty query values are in the given unit
 function contains_unit_query(query, unit){
-    for(q in query){
+    for(var q in query){
         var curQuery = query[q].toLowerCase();
         //wildcard queries
         if (curQuery == '' || (q == 'element' && curQuery == 'any') ||
@@ -630,7 +601,7 @@ function contains_unit_query(query, unit){
 
         try{
             var unitValue = get_unit_query_value(q, unit).toString();
-            if(unitValue.search(curQuery) == -1){
+            if(unitValue.indexOf(curQuery) == -1){
                 return false; //stop if any part of query is not in unit
             }
         }catch(err){ //only occurs if requested field is empty in unit
@@ -744,8 +715,9 @@ function get_item_query_value(queryField, item){
     }
 }
 
+//returns true if all non-empty query values are in the given item
 function contains_item_query(query, item){
-    for (q in query) {
+    for (var q in query) {
         var curQuery = query[q].toLowerCase();
         //wildcard queries
         if (curQuery == '' || (q == 'type' && curQuery == 'any') ||
@@ -756,7 +728,7 @@ function contains_item_query(query, item){
 
         try{
             var itemValue = get_item_query_value(q, item).toString();
-            if (itemValue.search(curQuery) == -1) {
+            if (itemValue.indexOf(curQuery) == -1) {
                 return false; //stop if any part of query is not in item
             }
         } catch (err) { //only occurs if requested field is empty in item
@@ -951,6 +923,7 @@ function translate_to_english(msg, fields, endField) {
     return translate(msg, { from: 'ja', to: 'en' })
         .then(function (result) {
             var result_text = "";
+            //clean up result, if necessary
             if (result.text.indexOf("null") == result.text.length - 4) {
                 result_text = result.text.replace("null", "");
             } else {
@@ -1010,6 +983,7 @@ function translate_unit_name(unit) {
         }
 
         cur_position[sub_object.fields[f]] = sub_object.translation;
+        // cur_position[sub_object.fields[f] + "_translated"] = sub_object.translation;
     }
 
     //make a copy of the unit
@@ -1030,89 +1004,109 @@ function isJapaneseText(name) {
 }
 
 function translate_jp_items(){
-    console.log("Translating items");
-    var promises = [];
-    var count_finished = 0;
-    for(var i in master_list.item){
-        var curItem = master_list.item[i];
-        if(isJapaneseText(curItem.name)){
-            console.log("Translating item " + curItem.id);
-            promises.push(translate_unit_name(curItem)
-                .then(function(translated_item){
-                    console.log("Finished translating item " + translated_item.id + " (" + (++count_finished) + "/" + promises.length + ")");
-                    return translated_item;
-                }));
-        }
-    }
-    console.log("Translating " + promises.length + " items");
-    Promise.all(promises)
-        .then(function(results){
-            //put translated items into master list
-            console.log("Putting translated JP items into list now.");
-            // console.log(results);
-            for(var r in results){
-                var curItem = results[r];
-                master_list.translated_items[curItem.id] = curItem;
+    return new Promise(function(fulfill,reject){
+        console.log("Translating items");
+        var promises = [];
+        var count_finished = 0;
+        for(var i in master_list.item){
+            var curItem = master_list.item[i];
+            if(isJapaneseText(curItem.name)){
+                // console.log("Translating item " + curItem.id);
+                promises.push(translate_unit_name(curItem)
+                    .then(function(translated_item){
+                        console.log("Translated item " + translated_item.id + " (" + (++count_finished) + "/" + promises.length + ")");
+                        return translated_item;
+                    }));
             }
-        })
-        .then(function(){
-            console.log("Finished translating JP items.");
-        });
+        }
+        console.log("Translating " + promises.length + " items");
+        Promise.all(promises)
+            .then(function(results){
+                //put translated items into master list
+                console.log("Putting translated JP items into list now.");
+                // console.log(results);
+                for(var r in results){
+                    var curItem = results[r];
+                    master_list.translated_items[curItem.id] = curItem;
+                }
+            })
+            .then(function(){
+                console.log("Finished translating JP items.");
+                fulfill();
+            }).catch(reject);
+    });
 }
 
 function translate_jp_units(){
-    console.log("Translating units");
-    var promises = [];
-    var count_finished = 0;
-    for(var u in master_list.unit){
-        var curUnit = master_list.unit[u];
-        if(isJapaneseText(curUnit.name)){
-            console.log("Translating unit " + curUnit.id);
-            promises.push(translate_unit_name(curUnit)
-                .then(function(translated_unit){
-                    console.log("Finished translating unit " + translated_unit.id + " (" + (++count_finished) + "/" + promises.length + ")");
-                    return translated_unit;
-                }));
-        }
-    }  
-    console.log("Translating " + promises.length + " units");
-    Promise.all(promises)
-        .then(function(results){
-            //put translated units into master list
-            console.log("Putting translated JP units into list now.");
-            for(var r in results){
-                var curUnit = results[r];
-                master_list.translated_units[curUnit.id] = curUnit;
+    return new Promise(function(fulfill,reject){
+        console.log("Translating units");
+        var promises = [];
+        var count_finished = 0;
+        for(var u in master_list.unit){
+            var curUnit = master_list.unit[u];
+            if(isJapaneseText(curUnit.name)){
+                // console.log("Translating unit " + curUnit.id);
+                promises.push(translate_unit_name(curUnit)
+                    .then(function(translated_unit){
+                        console.log("Translated unit " + translated_unit.id + " (" + (++count_finished) + "/" + promises.length + ")");
+                        return translated_unit;
+                    }));
             }
-        })
-        .then(function(){
-            console.log("Finished translating JP units");
-            // console.log(master_list.translated_units);
-        })
+        }  
+        console.log("Translating " + promises.length + " units");
+        Promise.all(promises)
+            .then(function(results){
+                //put translated units into master list
+                console.log("Putting translated JP units into list now.");
+                for(var r in results){
+                    var curUnit = results[r];
+                    master_list.translated_units[curUnit.id] = curUnit;
+                }
+            })
+            .then(function(){
+                console.log("Finished translating JP units");
+                fulfill();
+            }).catch(reject);
+    });
 }
 
 var server = app.listen(argv["port"], argv["ip"], function(){
     if(argv["reload"]){
-        reload_database(function(){
-            var host = server.address().address;
-            var port = server.address().port;
-            if (!argv.notranslate){
-                translate_jp_units();
-                translate_jp_items();
-            }
-            console.log("Finished reloading database");
-            console.log("Ready! Server listening at http://%s:%s", host, port);
+        reload_database()
+            .then(function(){
+                var host = server.address().address;
+                var port = server.address().port;
+                if (!argv.notranslate){
+                    var translations = [translate_jp_units(),translate_jp_items()];
+                    Promise.all(translations)
+                        .then(function(result){
+                            console.log("Finished reloading database");
+                            console.log("Ready! Server listening at http://%s:%s", host, port);
+                        });
+                }else{
+                    console.log("Finished reloading database");
+                    console.log("Ready! Server listening at http://%s:%s", host, port);
+                }
         });
     }else{
         var host = server.address().address;
         var port = server.address().port;
         load_database(master_list)
             .then(function(){
-                if(!argv.notranslate){
-                    translate_jp_units();
-                    translate_jp_items();
+                if (!argv.notranslate) {
+                    var translations = [translate_jp_units(), translate_jp_items()];
+                    Promise.all(translations)
+                        .then(function (result) {
+                            console.log("Ready! Server listening at http://%s:%s", host, port);
+                        });
+                } else {
+                    console.log("Ready! Server listening at http://%s:%s", host, port);
                 }
-                console.log("Ready! Server listening at http://%s:%s", host, port);
+            })
+            .catch(function(err){
+                console.log(err);
+                console.log("Exiting...");
+                process.exit();
             });
     }
 
