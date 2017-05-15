@@ -289,6 +289,8 @@ function load_database(master){
                 master.item = merge_databases(master.item, results[2].item, 'eu');
                 master.item = merge_databases(master.item, results[1].item, 'jp');
 
+                translate_recipes(master.item);
+                get_item_usage(master.item);
                 console.log("Finished loading databases");
             })
             .then(function(){
