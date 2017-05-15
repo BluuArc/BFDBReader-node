@@ -128,26 +128,47 @@ function merge_databases(db_main, db_sub, server) {
             return 'unknown';
         }
     }
+    function get_server_id(unit_id, server){
+        var id = parseInt(unit_id);
+        //add special case for overlapping IDs 
+        if (get_unit_home_server(id) == 'eu' && server == 'gl') {
+            id = "8" + id.toString();
+            console.log("Changing " + unit + " to " + id);
+        } else {
+            id = id.toString();
+        }
+        return id;
+    }
     var local_obj = JSON.parse(JSON.stringify(db_main)); //casting
+    var previous_evos = [];
     for (var unit in db_sub) { //iterate through everything in object
+        var id = get_server_id(unit, server);
         if (local_obj[unit] !== undefined) { //exists, so just add date add time
             if (local_obj[unit].server.indexOf(server) == -1) {
                 local_obj[unit].server.push(server);
                 // local_obj[unit]["db_add_time"].push(new Date().toUTCString());
             }
-        } else { //doesn't exist, so add it and date add time
-            var id = parseInt(unit);
-            //add special case for overlapping IDs 
-            if (get_unit_home_server(id) == 'eu' && server == 'gl') {
-                id = "8" + id.toString();
-                console.log("Changing " + unit + " to " + id);
-            } else {
-                id = id.toString();
+            //save evo mats
+            if (local_obj[id].evo_mats === undefined && db_sub[unit].evo_mats !== undefined){
+                var next_id = get_server_id(db_sub[unit].next, server);
+                local_obj[id].evo_mats = db_sub[unit].evo_mats;
+                local_obj[id].next = next_id.toString();
+                previous_evos.push({
+                    id: next_id,
+                    prev: id.toString()
+                });
+                // local_obj[next_id].prev = id;
             }
+        } else { //doesn't exist, so add it and date add time
+            
             local_obj[id] = db_sub[unit];
             local_obj[id].server = [server];
             // local_obj[unit]["db_add_time"] = [new Date().toUTCString()];
         }
+    }
+    //add previous evo data once all units are added
+    for(var i = 0; i < previous_evos.length; ++i){
+        local_obj[previous_evos[i].id].prev = previous_evos[i].prev.toString();
     }
     return local_obj;
 }
@@ -156,7 +177,7 @@ function merge_databases(db_main, db_sub, server) {
 function add_field_to_db(db_main, db_sub, func){
     for(var unit in db_sub){
         try{
-            func(db_main[unit], db_sub[unit]);
+            func(db_main[unit], db_sub[unit], db_main, db_sub);
         }catch(err){
             continue;
         }
@@ -248,8 +269,10 @@ function single_server_db_load(server){
         Promise.all([main_promise, sp_promise, evo_promise])
             .then(function(results){ //finished loading JSON files
                 //merge into one database object
-                add_field_to_db(mini_db.main,mini_db.evo,function(unit1,unit2){
+                add_field_to_db(mini_db.main,mini_db.evo,function(unit1,unit2, db_main, db_sub){
                     unit1.evo_mats = unit2.mats;
+                    unit1.next = unit2.evo.id;
+                    db_main[unit1.next].prev = unit1.id;
                 });
 
                 add_field_to_db(mini_db.main,mini_db.sp, function(unit1,unit2){
@@ -263,6 +286,26 @@ function single_server_db_load(server){
                 });
             }).catch(reject);
     });
+}
+
+//make sure all known evo mats are in English
+function translate_evo_mats(unit_db, item_db){
+    //for every unit with an evolution
+    for(var unit in unit_db){
+        var curUnit = unit_db[unit];
+        if(curUnit.evo_mats !== undefined){
+            //for every evo mat
+            for(var m = 0; m < curUnit.evo_mats.length; ++m){
+                var curMat = curUnit.evo_mats[m];
+                //use names currently available in database
+                if(curMat.type === "unit" && unit_db[curMat.id] !== undefined){
+                    unit_db[unit].evo_mats[m].name = unit_db[curMat.id].name;
+                }else if(curMat.type === "item" && item_db[curMat.id] !== undefined){
+                    unit_db[unit].evo_mats[m].name = item_db[curMat.id].name;
+                }
+            }
+        }
+    }
 }
 
 //load database from a file or files
@@ -291,6 +334,7 @@ function load_database(master){
 
                 translate_recipes(master.item);
                 get_item_usage(master.item);
+                translate_evo_mats(master.unit, master.item);
                 console.log("Finished loading databases");
             })
             .then(function(){
@@ -629,8 +673,44 @@ function get_highest_rarity(category){
     return parseInt(final_id);
 }
 
+//get the list of units linked together by evolution given a single unit
+function get_evo_line(unit_id){
+    var evo = [];
+    var curUnit = master_list.unit[unit_id];
+    //go to lowest rarity unit
+    while(curUnit.prev !== undefined){
+        curUnit = master_list.unit[curUnit.prev];
+    }
+
+    //traverse to highest rarity unit
+    evo.push(curUnit.id);
+    while(curUnit.next !== undefined){
+        evo.push(curUnit.next);
+        curUnit = master_list.unit[curUnit.next];
+    }
+
+    return evo;
+}
+
 //shorten results to a single unit IFF only one type of unit exists in the list
-function shorten_results(result_arr) {
+//assumption: result_arr has at least one element in it
+function shorten_results(result_arr){
+    var last_evo = get_evo_line(result_arr[0]);
+    //check for uniqueness, return original array if not unique
+    for(var u = 1; u < result_arr.length; ++u){
+        var cur_evo = get_evo_line(result_arr[u]);
+        if(cur_evo.length !== last_evo.length || cur_evo[0] !== last_evo[0]){
+            return result_arr;
+        }
+    }
+
+    //if this point is reached, then only one type of unit exists in the list
+    //return last unit in list as it's the highest rarity one
+    return [last_evo.pop()];
+}
+
+//shorten results to a single unit IFF only one type of unit exists in the list
+function shorten_results_old(result_arr) {
     // console.log("before shorten: " + JSON.stringify(result_arr));
     var unique = [];
     for (r in result_arr) {
@@ -685,8 +765,8 @@ app.get('/search/unit/options', function(request,response){
     var notStrict = (query["strict"] == false || query["strict"] == 'false');
     var noRarity = (query["rarity"] == undefined || query["rarity"] == "*" || query["rarity"].length == 0);
     var notGuide = (query["unit_name_id"] == undefined || (!isNaN(query["unit_name_id"]) && parseInt(query["unit_name_id"]) >= 10011) || (isNaN(query["unit_name_id"]) && query["unit_name_id"].indexOf(":") == -1));
-    if (notStrict && noRarity && notGuide) {
-        shorten_results(results);
+    if (notStrict && noRarity && notGuide && results.length > 0) {
+        results = shorten_results(results);
     }
     // console.log(results);
     response.end(JSON.stringify(results));
