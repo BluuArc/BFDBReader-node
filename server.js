@@ -13,17 +13,19 @@ var express = require('express'),
 
 //for command line
 var argv = require('yargs')
-    .usage('Usage: $0 -p [integer] -i [string of IP address] -r -n')
+    .usage('Usage: $0 -p [integer] -i [string of IP address] -r -n -t')
     .default("p", 8081)
     .default("i", '127.0.0.1')
     .alias('p', 'port')
     .alias('i', 'ip').alias('i', 'ip-address')
     .alias('r', 'reload').alias('r','refresh')
     .alias('n','notranslate')
+    .alias('t', 'test_function')
     .describe('p', 'Port to run server on')
     .describe('i', 'IP Address to run server on')
     .describe('r', 'Force a redownload of the database. Use this if you have issues with the JSON files.')
     .describe('n', 'Disable translation (for testing)')
+    .describe('t', 'Run test function')
     .help('h')
     .alias('h', 'help')
     .argv;
@@ -199,11 +201,14 @@ function translate_recipes(items){
 
 //create usage field for all items
 function get_item_usage(items){
+    //for every item
     for(var i in items){
         var curItem = items[i];
         curItem.usage = [];
+        //for every other item with a recipe
         for(var j in items){
-            if(items[j].recipe !== undefined){
+            if(items[j].recipe !== undefined && j !== i){
+                //for every material in the other item
                 for(var m in items[j].recipe.materials){
                     if(items[j].recipe.materials[m].id == curItem.id){
                         curItem.usage.push({
@@ -1189,10 +1194,12 @@ var server = app.listen(argv["port"], argv["ip"], function(){
                 console.log(err);
                 console.log("Exiting...");
                 process.exit();
+            })
+            .then(function(){
+                if(argv.test_function)
+                    test_function();
             });
     }
-
-    // test_function();
 });
 
 function wiki_move_helper(unit){
@@ -1261,14 +1268,102 @@ function wiki_move(server){
     console.log("Done");
 }
 
-function test_function(){
-    var types = [];
-    for(var i in master_list.item){
-        var curItem = master_list.item[i];
-        if (types.indexOf(curItem.type) == -1){
-            types.push(curItem.type);
+function getBuffDataForAll(units, items){
+    function mergeArrays(main,sub){
+        for(var i = 0; i < sub.length; ++i){
+            if(main.indexOf(sub[i]) === -1)
+                main.push(sub[i]);
         }
-            
     }
-    console.log(types);
+
+    function mergeProperties(main,sub,id){
+        for(var i in sub){
+            if(main[i] === undefined){
+                main[i] = [];
+            }
+            // if(main.common_id.indexOf(id) === -1){
+            if(main[i].length < 5 && main[i].indexOf(id) === -1){
+                main[i].push(id);
+                // main.common_id.push(id);
+            }
+        }
+    }
+
+    //object_id - ID of overall object
+    //object - current JSON object we're analyzing
+    //main_object - contains all data about IDs
+    //firstLevelProperty - "units" or "items"
+    function getBuffData(object_id, object, main_object, firstLevelProperty){
+        for(var i in object){
+            //look for id field
+            if(typeof object[i] !== "object"){
+                var property = "";
+                var propertyType = "";;
+                if(i.indexOf("passive id") > -1){
+                    propertyType = "passive";
+                    property = "passive_id_" + object[i];
+                }else if(i.indexOf("proc id") > -1){
+                    propertyType = "proc";
+                    property = "proc_id_" + object[i];
+                }else if(i.indexOf("buff id") > -1){
+                    propertyType = "buff";
+                    property = "buff_id_"  + object[i];
+                }
+
+                //add current ID to list if propertyType is valid
+                if(propertyType.length > 0){
+                    //create field if it doesn't exist yet
+                    if (main_object[firstLevelProperty][propertyType][property] === undefined) {
+                        main_object[firstLevelProperty][propertyType][property] = {
+                            // fields: Object.keys(object),
+                            // common_id: []
+                        }
+                        // main_object[firstLevelProperty][propertyType][property].fields = Object.keys(object);
+                        // main_object[firstLevelProperty][propertyType][property].common_id = []; //create list of IDs that have this parameter
+                    }
+                    // mergeArrays(main_object[firstLevelProperty][propertyType][property].fields, Object.keys(object));
+                    mergeProperties(main_object[firstLevelProperty][propertyType][property], object, object_id);
+                    // if (main_object[firstLevelProperty][propertyType][property].common_id.indexOf(object_id) === -1)
+                    //     main_object[firstLevelProperty][propertyType][property].common_id.push(object_id);
+                }
+            }else{
+                //recursive call if we encounter an object
+                getBuffData(object_id,object[i],main_object,firstLevelProperty);
+            }
+        }//end for every key in object
+    }//end getBuffData function
+
+    var result = {
+        units: {
+            passive: {},
+            buff: {},
+            proc: {}
+        },
+        items: {
+            passive: {},
+            buff: {},
+            proc: {}
+        }
+    };
+
+    //get buff data of all units
+    for(var u in units){
+        var curUnit = units[u];
+        getBuffData(curUnit.id,curUnit,result,"units");
+    }
+
+    //get buff data of all items
+    for(var i in items){
+        var curItem = items[i];
+        getBuffData(curItem.id, curItem,result,"items");
+    }
+    return result;
+}
+
+function test_function(){
+    console.log("Entered test function");
+    
+    var result = getBuffDataForAll(master_list.unit,master_list.item);
+    fs.writeFileSync("./all_buff_id.json", JSON.stringify(result));
+    console.log("Done");
 }
