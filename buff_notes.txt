@@ -1,0 +1,5 @@
+unit.proc
+    all - covers bb/sbb/ubb
+    55 - FWETLD corresponds to fire, water, earth, thunder, light, and dark, respectively
+    44 - unit 720176 has some weird values with this ID
+    2 - if no hits are mentioned, then the burst heal happens all at once; over multiple hits means that for every hit, units heal a fraction of the burst heal
