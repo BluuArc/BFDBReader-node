@@ -19,6 +19,35 @@ function bfdb_client(){
         return result;
     }
 
+    //run an array against a function that returns a promise n times
+    //each function is expected to receive the object at an array index
+    function do_n_at_a_time(arr, n, promiseFn) {
+        function n_recursive(arr, n, acc, callbackFn) {
+            if (arr.length === 0) {
+                callbackFn(acc);
+            } else {
+                var max = (arr.length < n) ? arr.length : n;
+                var promises = [];
+                for (var i = 0; i < max; ++i) {
+                    var curObject = arr.shift();
+                    promises.push(promiseFn(curObject));
+                }
+                Promise.all(promises)
+                    .then(function (results) {
+                        for(var i = 0; i < results.length; ++i){
+                            acc.push(results[i]);
+                        }
+                        n_recursive(arr, n, acc, callbackFn);
+                    });
+            }
+        }
+
+        var new_arr = arr.slice();
+        return new Promise(function (fulfill, reject) {
+            n_recursive(new_arr, n, [], fulfill);
+        });
+    }
+
     function getUnit (id) {
         return new Promise(function (fulfill, reject) {
             //check if all parameters are properly set
@@ -45,25 +74,7 @@ function bfdb_client(){
 
     //get multiple units by ID
     this.getUnits = function(id_arr){
-        function get_units_recursive(id_arr,acc,callbackFn){
-            if(id_arr.length === 0){
-                callbackFn(acc);
-            }else{
-                if(acc === undefined){
-                    acc = [];
-                }
-                getUnit(id_arr.shift())
-                    .then(function(unit){
-                        // console.log(unit);
-                        acc.push(unit);
-                        get_units_recursive(id_arr,acc,callbackFn);
-                    });
-            }
-        }
-        return new Promise(function(fulfill,reject){
-            // console.log("entered getUnits");
-            get_units_recursive(id_arr,[],fulfill);
-        });
+        return do_n_at_a_time(id_arr,5,getUnit);
     };
 
     //search for a unit given a set of parameters
@@ -125,9 +136,8 @@ function bfdb_client(){
         });
     };
 
-    //get item by ID
-    this.getItem = function(id){
-        return new Promise(function(fulfill,reject){
+    function getItem(id) {
+        return new Promise(function (fulfill, reject) {
             //check if all parameters are properly set
             if (address === undefined || address.length === 0) {
                 reject("Error: No URL specified. Use .setAddress(url) to fix.");
@@ -146,7 +156,15 @@ function bfdb_client(){
                     });
             }
         });
-    };
+    }
+
+    //get item by ID
+    this.getItem = getItem;
+
+    //get multiple items by ID
+    this.getItems = function(id_arr){
+        return do_n_at_a_time(id_arr,5,getItem);
+    }
 
     //search for an item given a set of parameters
     this.searchItem = function (query) {
@@ -177,7 +195,7 @@ function bfdb_client(){
             } else if (query === undefined) {
                 reject("Error: No query specified.");
             } else if (!itemQueryIsValid(query)) {
-                reject("Error: Query isn't valid.")
+                reject("Error: Query isn't valid.");
             } else {
                 var options = {
                     method: 'GET',
@@ -191,6 +209,25 @@ function bfdb_client(){
             }
         });
     };
+
+    this.getStatus = function(){
+        return new Promise(function (fulfill, reject) {
+            //check if all parameters are properly set
+            if (address === undefined || address.length === 0) {
+                reject("Error: No URL specified. Use .setAddress(url) to fix.");
+            } else {
+                var options = {
+                    method: 'GET',
+                    uri: address + "/status"
+                };
+
+                return request(options)
+                    .then(function (response) {
+                        fulfill(JSON.parse(response));
+                    });
+            }
+        });
+    }
 }
 
 var client = new bfdb_client();
