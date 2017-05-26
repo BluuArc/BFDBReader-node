@@ -135,7 +135,7 @@ function rename_file_promisified(cur_name,new_name){
             }else{
                 fs.writeFile(__dirname + "/json/" + new_name, data, 'utf8',function(err){
                     if(err) console.log("Couldn't rename " + cur_name + " to " + new_name);
-                    else    console.log("Remamed " + cur_name + " to " + new_name);
+                    else    console.log("Renamed " + cur_name + " to " + new_name);
                     fulfill(); //finished trying to rename file
                 });
             }
