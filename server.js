@@ -85,7 +85,7 @@ function create_id_array(json_obj){
 }
 
 //donwnload a single file
-function file_download_promisified(url,local_name){
+function json_download_promisified(url,local_name){
     return new Promise(function(fulfill,reject){
         console.log("DL: " + url + " > " + local_name);
         try{
@@ -96,6 +96,33 @@ function file_download_promisified(url,local_name){
         request(url).pipe(destination).on('finish', function () {
             fulfill(local_name);
         });
+    });
+}
+
+//run an array against a function that returns a promise n times
+//each function is expected to receive the object at an array index
+//promises shouldn't return anything locally
+function do_n_at_a_time(arr, n, promiseFn){
+    function n_recursive(arr,n,callbackFn){
+        if(arr.length === 0){
+            callbackFn();
+        }else{
+            var max = (arr.length < n) ? arr.length : n;
+            var promises = [];
+            for(var i = 0; i < max; ++i){
+                var curObject = arr.shift();
+                promises.push(promiseFn(curObject));
+            }
+            Promise.all(promises)
+                .then(function(result){
+                    n_recursive(arr,n,callbackFn);
+                });
+        }
+    }
+
+    var new_arr = arr.slice();
+    return new Promise(function(fulfill,reject){
+        n_recursive(new_arr,n,fulfill);
     });
 }
 
@@ -479,6 +506,9 @@ function reload_database(){
                 console.log("Downloading new files...");
                 var main_url = 'https://raw.githubusercontent.com/Deathmax/bravefrontier_data/master/';
                 var requests = [];
+                var info_requests = [];
+                // var sp_requests = [];
+                var other_requests = [];
                 var completed = 0;
                 for(var d = 0; d < db_type.length; ++d){
                     for(var s = 0; s < servers.length; ++s){
@@ -486,12 +516,33 @@ function reload_database(){
                         if(servers[s] !== "gl") url += servers[s] + "/";
                         url += db_type[d] + ".json";
                         var fileName = db_type[d] + "-" + servers[s] + ".json";
-                        requests.push(file_download_promisified(url,fileName)
-                            .then(function(name){
-                                console.log("Downloaded " + name + " (" + (++completed) + "/" + requests.length + ")");
-                            }));
+                        if(db_type[d] === 'info'){
+                            info_requests.push({ url: url, fileName: fileName });
+                        }else{
+                            other_requests.push({ url: url, fileName: fileName });
+                        }
                     }
                 }
+
+                var total_requests = info_requests.length + other_requests.length;
+                //DL info files one at a time
+                requests.push(do_n_at_a_time(info_requests,1,function(dl_request){
+                    var url = dl_request.url;
+                    var fileName = dl_request.fileName;
+                    return json_download_promisified(url, fileName)
+                        .then(function (name) {
+                            console.log("Downloaded " + name + " (" + (++completed) + "/" + total_requests + ")");
+                        });
+                }));
+                //DL other files 5 at a time
+                requests.push(do_n_at_a_time(other_requests, 5, function (dl_request) {
+                    var url = dl_request.url;
+                    var fileName = dl_request.fileName;
+                    return json_download_promisified(url, fileName)
+                        .then(function (name) {
+                            console.log("Downloaded " + name + " (" + (++completed) + "/" + total_requests + ")");
+                        });
+                }));
                 return Promise.all(requests);
             })
             .then(function(results){ //finished downloading files
@@ -1092,23 +1143,25 @@ function isJapaneseText(name) {
 
 function translate_jp_items(){
     return new Promise(function(fulfill,reject){
-        console.log("Translating items");
-        var promises = [];
+        // console.log("Translating items");
+        // var promises = [];
+        var items_to_translate = [];
         var count_finished = 0;
         for(var i in master_list.item){
             var curItem = master_list.item[i];
             if(isJapaneseText(curItem.name)){
-                // console.log("Translating item " + curItem.id);
-                promises.push(translate_unit_name(curItem)
-                    .then(function(translated_item){
-                        console.log("Translated item " + translated_item.id + " (" + (++count_finished) + "/" + promises.length + ")");
-                        return translated_item;
-                    }));
+                items_to_translate.push(curItem);
             }
         }
-        console.log("Translating " + promises.length + " items");
-        Promise.all(promises)
-            .then(function(results){
+        console.log("Translating " + items_to_translate.length + " items");
+        // Promise.all(promises)
+        do_n_at_a_time(items_to_translate,10,function(item){
+            return translate_unit_name(item)
+                .then(function (translated_item) {
+                    console.log("Translated item " + translated_item.id + " (" + (++count_finished) + "/" + items_to_translate.length + ")");
+                    return translated_item;
+                })
+        }).then(function(results){
                 //put translated items into master list
                 console.log("Putting translated JP items into list now.");
                 // console.log(results);
@@ -1126,23 +1179,25 @@ function translate_jp_items(){
 
 function translate_jp_units(){
     return new Promise(function(fulfill,reject){
-        console.log("Translating units");
-        var promises = [];
+        // console.log("Translating units");
+        var units_to_translate = [];
         var count_finished = 0;
         for(var u in master_list.unit){
             var curUnit = master_list.unit[u];
             if(isJapaneseText(curUnit.name)){
-                // console.log("Translating unit " + curUnit.id);
-                promises.push(translate_unit_name(curUnit)
-                    .then(function(translated_unit){
-                        console.log("Translated unit " + translated_unit.id + " (" + (++count_finished) + "/" + promises.length + ")");
-                        return translated_unit;
-                    }));
+                units_to_translate.push(curUnit);
             }
         }  
-        console.log("Translating " + promises.length + " units");
-        Promise.all(promises)
-            .then(function(results){
+        console.log("Translating " + units_to_translate.length + " units");
+
+        // Promise.all(promises)
+        do_n_at_a_time(units_to_translate,10,function(unit){
+            return translate_unit_name(unit)
+                .then(function (translated_unit) {
+                    console.log("Translated unit " + translated_unit.id + " (" + (++count_finished) + "/" + units_to_translate.length + ")");
+                    return translated_unit;
+                });
+        }).then(function(results){
                 //put translated units into master list
                 console.log("Putting translated JP units into list now.");
                 for(var r in results){
