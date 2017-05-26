@@ -19,28 +19,52 @@ function bfdb_client(){
         return result;
     }
 
-    //get unit by ID
-    this.getUnit = function(id){
-        return new Promise(function(fulfill,reject){
+    function getUnit (id) {
+        return new Promise(function (fulfill, reject) {
             //check if all parameters are properly set
             if (address === undefined || address.length === 0) {
                 reject("Error: No URL specified. Use .setAddress(url) to fix.");
             } else if (id === undefined || id.length === 0) {
                 reject("Error: No ID specified.");
-            }else{
-
+            } else {
                 var options = {
                     method: 'GET',
                     uri: address + "/unit/" + id
                 };
 
                 return request(options)
-                    .then(function(response){
+                    .then(function (response) {
                         fulfill(JSON.parse(response));
                     });
             }
         });
     }
+
+    //get unit by ID
+    this.getUnit = getUnit;
+
+    //get multiple units by ID
+    this.getUnits = function(id_arr){
+        function get_units_recursive(id_arr,acc,callbackFn){
+            if(id_arr.length === 0){
+                callbackFn(acc);
+            }else{
+                if(acc === undefined){
+                    acc = [];
+                }
+                getUnit(id_arr.shift())
+                    .then(function(unit){
+                        // console.log(unit);
+                        acc.push(unit);
+                        get_units_recursive(id_arr,acc,callbackFn);
+                    });
+            }
+        }
+        return new Promise(function(fulfill,reject){
+            // console.log("entered getUnits");
+            get_units_recursive(id_arr,[],fulfill);
+        });
+    };
 
     //search for a unit given a set of parameters
     this.searchUnit = function(query){
