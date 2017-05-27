@@ -44,7 +44,11 @@ function bfdb_client(){
 
         var new_arr = arr.slice();
         return new Promise(function (fulfill, reject) {
-            n_recursive(new_arr, n, [], fulfill);
+            try{
+                n_recursive(new_arr, n, [], fulfill);
+            }catch(err){
+                reject(err);
+            }
         });
     }
 
@@ -64,7 +68,7 @@ function bfdb_client(){
                 return request(options)
                     .then(function (response) {
                         fulfill(JSON.parse(response));
-                    });
+                    }).catch(reject);
             }
         });
     }
@@ -131,7 +135,7 @@ function bfdb_client(){
                 return request(options)
                     .then(function(response){
                         fulfill(JSON.parse(response));
-                    });
+                    }).catch(reject);
             }
         });
     };
@@ -153,7 +157,7 @@ function bfdb_client(){
                 return request(options)
                     .then(function (response) {
                         fulfill(JSON.parse(response));
-                    });
+                    }).catch(reject);
             }
         });
     }
@@ -205,7 +209,7 @@ function bfdb_client(){
                 return request(options)
                     .then(function (response) {
                         fulfill(JSON.parse(response));
-                    });
+                    }).catch(reject);
             }
         });
     };
@@ -224,7 +228,7 @@ function bfdb_client(){
                 return request(options)
                     .then(function (response) {
                         fulfill(JSON.parse(response));
-                    });
+                    }).catch(reject);
             }
         });
     }
