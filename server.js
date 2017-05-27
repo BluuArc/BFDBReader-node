@@ -101,28 +101,30 @@ function json_download_promisified(url,local_name){
 
 //run an array against a function that returns a promise n times
 //each function is expected to receive the object at an array index
-//promises shouldn't return anything locally
-function do_n_at_a_time(arr, n, promiseFn){
-    function n_recursive(arr,n,callbackFn){
-        if(arr.length === 0){
-            callbackFn();
-        }else{
+function do_n_at_a_time(arr, n, promiseFn) {
+    function n_recursive(arr, n, acc, callbackFn) {
+        if (arr.length === 0) {
+            callbackFn(acc);
+        } else {
             var max = (arr.length < n) ? arr.length : n;
             var promises = [];
-            for(var i = 0; i < max; ++i){
+            for (var i = 0; i < max; ++i) {
                 var curObject = arr.shift();
                 promises.push(promiseFn(curObject));
             }
             Promise.all(promises)
-                .then(function(result){
-                    n_recursive(arr,n,callbackFn);
+                .then(function (results) {
+                    for (var i = 0; i < results.length; ++i) {
+                        acc.push(results[i]);
+                    }
+                    n_recursive(arr, n, acc, callbackFn);
                 });
         }
     }
 
     var new_arr = arr.slice();
-    return new Promise(function(fulfill,reject){
-        n_recursive(new_arr,n,fulfill);
+    return new Promise(function (fulfill, reject) {
+        n_recursive(new_arr, n, [], fulfill);
     });
 }
 
