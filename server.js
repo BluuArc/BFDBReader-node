@@ -260,17 +260,38 @@ function load_json_promisified(file, alternative_files){
                 if(alternative_files !== undefined &&  alternative_files.length > 0){
                     var new_file = alternative_files.pop();
                     console.log("Couldn't load " + file + ". Trying " + new_file);
-                    return load_json_promisified(new_file,alternative_files).catch(reject);
+                    load_json_promisified(new_file,alternative_files).then(fulfill).catch(reject);
+                    return;
                 }else{
                     reject("Error: cannot open " + file + " or its alternatives");
+                    return;
                 }
             }
             //return parsed data 
+            var result;
             try{
-                var result = JSON.parse(data);
-                fulfill(result);
+                result = JSON.parse(data);
             }catch(parseError){
-                reject(parseError);
+                //try another file if possible
+                if (alternative_files !== undefined && alternative_files.length > 0) {
+                    var new_file = alternative_files.pop();
+                    console.log(parseError,"Couldn't load " + file + ". Trying " + new_file);
+                    load_json_promisified(new_file, alternative_files).then(fulfill).catch(reject);
+                    return;
+                } else {
+                    reject(`${parseError}` + "\nError: cannot open " + file + " or its alternatives");
+                    return;
+                }
+            }
+            if(file.indexOf("-old.json") > -1){
+                // console.log(file.indexOf("-old.json"));
+                rename_file_promisified(file,file.replace("-old.json",".json"))
+                    .then(function(){
+                        console.log("Successfully loaded old file. Renamed old file to current file");
+                        fulfill(result);
+                    }).catch(reject);
+            }else{
+                fulfill(result);
             }
         });
     });
@@ -302,6 +323,7 @@ function single_server_db_load(server){
         //process files once finished loading
         Promise.all([main_promise, sp_promise, evo_promise])
             .then(function(results){ //finished loading JSON files
+                console.log("Successfully opened files for " + server, "\nProceeding to load them now.");
                 //merge into one database object
                 add_field_to_db(mini_db.main,mini_db.evo,function(unit1,unit2, db_main, db_sub){
                     unit1.evo_mats = unit2.mats;
