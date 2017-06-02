@@ -129,7 +129,7 @@ function bfdb_client(){
             }else{
                 var options = {
                     method: 'GET',
-                    uri: address + "/search/unit/options?" + get_request_options(query)
+                    uri: encodeURI(address + "/search/unit/options?" + get_request_options(query))
                 };
 
                 return request(options)
@@ -203,7 +203,7 @@ function bfdb_client(){
             } else {
                 var options = {
                     method: 'GET',
-                    uri: address + "/search/item/options?" + get_request_options(query)
+                    uri: encodeURI(address + "/search/item/options?" + get_request_options(query))
                 };
 
                 return request(options)

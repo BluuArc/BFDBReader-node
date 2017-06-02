@@ -716,18 +716,20 @@ function get_unit_query_value(queryField, unit){
 
 //returns true if all non-empty query values are in the given unit
 function contains_unit_query(query, unit){
+    var ignored_fields = ['strict','translate','verbose'];
     for(var q in query){
         var curQuery = query[q].toLowerCase();
         //wildcard queries
-        if (curQuery == '' || (q == 'element' && curQuery == 'any') ||
+        if (curQuery.length === 0 || (q == 'element' && curQuery == 'any') ||
             (q == 'gender' && curQuery == 'any') ||
-            (q == 'server' && curQuery == 'any') || q == 'strict' || q == 'translate') {
+            (q == 'server' && curQuery == 'any') || ignored_fields.indexOf(q) > -1) {
             continue;
         }
 
         try{
             var unitValue = get_unit_query_value(q, unit).toString();
             if(unitValue.indexOf(curQuery) == -1){
+                // if(query.verbose == true || query.verbose == 'true') console.log("Failed on",unit.id,q,curQuery);
                 return false; //stop if any part of query is not in unit
             }
         }catch(err){ //only occurs if requested field is empty in unit
@@ -832,7 +834,10 @@ function shorten_results_old(result_arr) {
 //given a series of search options, list units with those qualities
 app.get('/search/unit/options', function(request,response){
     var query = request.query;
-    // console.log(query);
+    if (query.verbose == true || query.verbose == 'true'){
+        console.log("Query",query);
+    }
+
     var results = [];
     for(u in master_list["unit"]){
         var unit = master_list["unit"][u];
@@ -848,7 +853,7 @@ app.get('/search/unit/options', function(request,response){
     if (notStrict && noRarity && notGuide && results.length > 0) {
         results = shorten_results(results);
     }
-    // console.log(results);
+    if (query.verbose == true || query.verbose == 'true') console.log("Search results",results);
     response.end(JSON.stringify(results));
 });
 
@@ -879,12 +884,13 @@ function get_item_query_value(queryField, item){
 
 //returns true if all non-empty query values are in the given item
 function contains_item_query(query, item){
+    var ignored_fields = ['strict', 'translate', 'verbose'];
     for (var q in query) {
         var curQuery = query[q].toLowerCase();
         //wildcard queries
         if (curQuery == '' || (q == 'type' && curQuery == 'any') ||
             (q == 'sphere_type' && curQuery == 'any') || 
-            (q == 'server' && curQuery == 'any') || q == 'strict' || q == 'translate'){
+            (q == 'server' && curQuery == 'any') || ignored_fields.indexOf(q) > -1){
             continue;
         }
 
@@ -907,6 +913,9 @@ app.get('/search/item', function (request, response) {
 //given a series of search options, list items with those qualities
 app.get('/search/item/options', function (request, response) {
     var query = request.query;
+        console.log("Query", query);
+    if (query.verbose == true || query.verbose == 'true') {
+    }
     // console.log(query);
     var results = [];
     for (i in master_list["item"]) {
@@ -914,7 +923,7 @@ app.get('/search/item/options', function (request, response) {
         if (contains_item_query(query, item))
             results.push(item["id"]);
     }
-
+    // if (query.verbose == true || query.verbose == 'true') console.log("Search results", results);
     response.end(JSON.stringify(results));
 });
 
