@@ -631,7 +631,7 @@ function safe_json_get(json_obj, fields_arr, default_return){
         // console.log(curValue);
         return JSON.stringify(curValue).toLowerCase();
     }catch(err){
-        console.log(err);
+        // console.log(err);
         return (default_return !== undefined) ? default_return : "";
     }
 }
@@ -778,10 +778,12 @@ function get_evo_line(unit_id){
 //assumption: result_arr has at least one element in it
 function shorten_results(result_arr){
     var last_evo = get_evo_line(result_arr[0]);
+    var last_guide_id = last_evo[0].guide_id;
     //check for uniqueness, return original array if not unique
     for(var u = 1; u < result_arr.length; ++u){
         var cur_evo = get_evo_line(result_arr[u]);
-        if(cur_evo.length !== last_evo.length || cur_evo[0] !== last_evo[0]){
+        var cur_guide_id = cur_evo[0].guide_id;
+        if(cur_evo.length !== last_evo.length || cur_evo[0].id !== last_evo[0].id || cur_guide_id !== last_guide_id){
             return result_arr;
         }
     }
@@ -851,6 +853,9 @@ app.get('/search/unit/options', function(request,response){
     var noRarity = (query["rarity"] == undefined || query["rarity"] == "*" || query["rarity"].length == 0);
     var notGuide = (query["unit_name_id"] == undefined || (!isNaN(query["unit_name_id"]) && parseInt(query["unit_name_id"]) >= 10011) || (isNaN(query["unit_name_id"]) && query["unit_name_id"].indexOf(":") == -1));
     if (notStrict && noRarity && notGuide && results.length > 0) {
+        if(query.verbose == true || query.verbose == 'true'){
+            console.log("Results before shorten",results);
+        }
         results = shorten_results(results);
     }
     if (query.verbose == true || query.verbose == 'true') console.log("Search results",results);
@@ -913,9 +918,8 @@ app.get('/search/item', function (request, response) {
 //given a series of search options, list items with those qualities
 app.get('/search/item/options', function (request, response) {
     var query = request.query;
+    if (query.verbose == true || query.verbose == 'true')
         console.log("Query", query);
-    if (query.verbose == true || query.verbose == 'true') {
-    }
     // console.log(query);
     var results = [];
     for (i in master_list["item"]) {
@@ -923,7 +927,8 @@ app.get('/search/item/options', function (request, response) {
         if (contains_item_query(query, item))
             results.push(item["id"]);
     }
-    // if (query.verbose == true || query.verbose == 'true') console.log("Search results", results);
+    if (query.verbose == true || query.verbose == 'true') 
+        console.log("Search results", results);
     response.end(JSON.stringify(results));
 });
 
