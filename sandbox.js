@@ -44,6 +44,10 @@ var buff_processor = (function(){
         return text + "";
     }
 
+    function to_proper_case(input){
+        return `${input[0].toUpperCase()}${input.slice(1)}`;
+    }
+
     function get_polarized_number(number) {
         if (number < 0) return number.toString();
         else return "+" + number.toString();
@@ -150,6 +154,21 @@ var buff_processor = (function(){
         return msg;
     }
 
+    function elemental_buff_handler(effects){
+        var msg = "Add ";
+        var length = effects["elements added"].length;
+        if(length < 6){
+            msg += to_proper_case(effects["elements added"][0]);
+            for(var i = 1; i < length; ++i){
+                msg += "/" + to_proper_case(effects["elements added"][i]);
+            }
+        }else{
+            msg += "all";
+        }
+        msg += ` ${(length === 1) ? "element" : "elements"} to attacks`;
+        return msg;
+    }
+
     function ewd_buff_handler(effects) {
         var elements = ['Fire', 'Water', 'Earth', 'Thunder', 'Light', 'Dark'];
         var suffix = " units do extra elemental weakness dmg";
@@ -223,7 +242,7 @@ var buff_processor = (function(){
             type = turns["target type"]
             turns = turns["buff turns"]
         }
-        msg += " for " + turns + (turns === 1 ? " turn" : " turns");
+        if(turns) msg += " for " + turns + (turns === 1 ? " turn" : " turns");
         msg += " (" + area + "," + type + ")";
         return msg;
     }
@@ -299,6 +318,14 @@ var buff_processor = (function(){
                 return msg;
             }
         },
+        '8': {
+            desc: "Increase Max HP",
+            func: function (effects, damage_frames, base_element) {
+                var msg = `+${effects["max hp% increase"]}% Max HP`;
+                msg += get_duration_and_target(effects);
+                return msg;
+            }
+        },
         '9': {
             desc: "ATK/DEF down to enemy",
             func: function (effects, damage_frames, base_element) {
@@ -336,6 +363,14 @@ var buff_processor = (function(){
                 return msg;
             }
         },
+        '22': {
+            desc: "Defense Ignore",
+            func: function (effects, damage_frames, base_element) {
+                var msg = `${effects['defense% ignore']}% DEF ignore`;
+                msg += get_duration_and_target(effects["defense% ignore turns (39)"], effects["target area"], effects["target type"]);
+                return msg;
+            }
+        },
         '23': {
             desc: "Spark Damage",
             func: function (effects, damage_frames, base_element) {
@@ -353,6 +388,22 @@ var buff_processor = (function(){
                 if(source_buff === "ATT") source_buff = "ATK";
                 var msg = "Convert " + buff.replace('% ', "% " + source_buff + " to ");
                 msg += get_duration_and_target(effects["% converted turns"], effects["target area"], effects["target type"]);
+                return msg;
+            }
+        },
+        '30': {
+            desc: "Elemental Buffs",
+            func: function (effects, damage_frames, base_element) {
+                var msg = elemental_buff_handler(effects);
+                msg += get_duration_and_target(effects["elements added turns"], effects["target area"], effects["target type"]);
+                return msg;
+            }
+        },
+        '31': {
+            desc: "BC Insta-fill/Flat BB Gauge Increase",
+            func: function (effects, damage_frames, base_element) {
+                var msg = `${get_polarized_number(effects["increase bb gauge"])} BC fill`;
+                msg += get_duration_and_target(undefined, effects['target area'], effects['target type']);
                 return msg;
             }
         },
@@ -417,11 +468,52 @@ var buff_processor = (function(){
                 return msg;
             }
         },
+        '62': {
+            desc: "Elemental Barrier",
+            notes: ["This buff cannot be buff wiped", "Unless otherwise specified, assume that the barrier has 100% DMG absorption"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = `${effects["elemental barrier hp"]} HP (${effects["elemental barrier def"]} DEF`;
+                if(effects["elemental barrier absorb dmg%"] != 100){
+                    msg += `/${effects["elemental barrier absorb dmg%"]}% DMG absorption`;
+                }
+                msg += `) ${effects["elemental barrier element"]} barrier`;
+                msg += get_duration_and_target(effects);
+                return msg;
+            }
+        },
         '66': {
             desc: "Revive Allies",
             func: function (effects, damage_frames, base_element) {
                 var msg = `${effects["revive unit chance%"]}% chance to revive allies with ${effects["revive unit hp%"]}% HP`;
                 msg += ` (${effects["target area"]},${effects["target type"]})`
+                return msg;
+            }
+        },
+        '67': {
+            desc: "BC Fill on Spark",
+            func: function (effects, damage_frames, base_element) {
+                var msg = `${effects["bc fill on spark%"]}% chance to fill ${get_formatted_minmax(effects["bc fill on spark low"], effects["bc fill on spark high"])} BC on spark`;
+                msg += get_duration_and_target(effects["bc fill on spark buff turns (111)"], effects["target area"], effects["target type"]);
+                return msg;
+            }
+        },
+        '78': {
+            desc: "Self ATK/DEF/REC/Crit Rate",
+            notes: ["Stacks with the regular party ATK/DEF/REC/Crit Rate buff", "Example of a unit having both party and self is Silvie (840128)"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = "";
+                if (effects["self atk% buff"] || effects["self def% buff"] || effects["self rec% buff"]) { //regular tri-stat
+                    msg += adr_buff_handler(effects["self atk% buff"], effects["self def% buff"], effects["self rec% buff"]);
+                }
+                if (effects["self crit% buff"]) {//crit rate buff
+                    if (msg.length > 0) msg += ", ";
+                    msg += "+" + effects["self crit% buff"] + "% crit rate";
+                }
+
+                if (msg.length === 0) {
+                    throw "Message length is 0";
+                }
+                msg += get_duration_and_target(effects["self stat buff turns"], effects["target area"], effects["target type"]);
                 return msg;
             }
         },
@@ -627,18 +719,19 @@ var itemQuery = {
 
 var unitQuery = {
     // unit_name_id: "neferet",
-    unit_name_id: "feng",
+    unit_name_id: "zelban",
     strict: "false",
-    // server: "GL",
-    // rarity: 8
+    // server: "JP",
+    // rarity: 5
+    // element: 'thunder'
 };
 
 client.searchUnit(unitQuery)
     .then(function (result) {
         if(result.length === 1){
             return client.getUnit(result[0]).then(function(unit){
-                var burst_type = "ubb";
-                console.log(unit.name);
+                var burst_type = "sbb";
+                console.log(unit.name, unit.id);
                 console.log(unit[burst_type].desc);
                 console.log(unit[burst_type]["damage frames"]);
                 console.log(unit[burst_type].levels[0].effects);
