@@ -45,7 +45,7 @@ var buff_processor = (function(){
     }
 
     function to_proper_case(input){
-        return `${input[0].toUpperCase()}${input.slice(1)}`;
+        return `${input[0].toUpperCase()}${input.slice(1).toLowerCase()}`;
     }
 
     function get_polarized_number(number) {
@@ -202,6 +202,46 @@ var buff_processor = (function(){
         return msg;
     }
 
+    function ailment_reflect_handler(effects){
+        console.log("entered ailment_reflect_handler");
+        var ailments = ["injury%", "poison%", "sick%", "weaken%", "curse%", "paralysis%"];
+        var ailments_full_name = ["counter inflict injury% (81)", "counter inflict poison% (78)", "counter inflict sick% (80)", "counter inflict weaken% (79)", "counter inflict curse% (82)", "counter inflict paralysis% (83)"];
+        var values = {};
+        var msg = "";
+        //sort values by proc chance
+        for (var i = 0; i < ailments.length; ++i) {
+            var curAilment = effects[ailments_full_name[i]];
+            console.log(ailments_full_name[i],curAilment);
+            if (curAilment) {
+                // console.log(ailments[i], curAilment);
+                if (!values[curAilment.toString()]) {
+                    values[curAilment.toString()] = [];
+                }
+                values[curAilment.toString()].push(ailments[i].replace('%', ""));
+            }
+        }
+
+        console.log(values);
+
+        for (var a in values) {
+            if (msg.length > 0) msg += ", ";
+
+            msg += a + "% chance to inflict ";
+            if(values[a].length === ailments.length){
+                msg += "any ailment"
+            }else{
+                for (var ailment = 0; ailment < values[a].length; ++ailment) {
+                    msg += values[a][ailment];
+                    if (ailment !== values[a].length - 1) {
+                        msg += "/";
+                    }
+                }
+            }
+        }
+        msg += " when hit";
+        return msg;
+    }
+
     function ailment_inflict_handler(effects) {
         var ailments = ["injury%", "poison%", "sick%", "weaken%", "curse%", "paralysis%"];
         var values = {};
@@ -247,9 +287,16 @@ var buff_processor = (function(){
         return msg;
     }
 
+    var buff_types = {
+        attack: `unit attacks enemy`,
+        buff: `unit gains some sort of enhancement to their stats or attacks, can last more than one turn`,
+        debuff: `unit's attack inflicts some ailment onto the enemy`,
+        effect: `buff does something directly to the unit(s) on that turn; multiple instances of itself on the same turn will stack`
+    }; 
     var proc_buffs = {
         '1': {
             desc: "Regular Attack",
+            type: ["attack"],
             func: function(effects,damage_frames,base_element){
                 var numHits = damage_frames.hits;
                 var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
@@ -264,6 +311,7 @@ var buff_processor = (function(){
         },
         '2': {
             desc: "Burst Heal",
+            type: ["effect"],
             notes: ["if no hits are mentioned, then the burst heal happens all at once", "over multiple hits means that for every hit, units heal a fraction of the burst heal"],
             func: function (effects, damage_frames, base_element){
                 var msg = get_formatted_minmax(effects['heal low'], effects['heal high']) + " HP burst heal ";
@@ -276,6 +324,7 @@ var buff_processor = (function(){
         },
         '3': {
             desc: "Heal over Time (HoT)",
+            type: ["buff"],
             func: function (effects, damage_frames, base_element){
                 var msg = get_formatted_minmax(effects["gradual heal low"], effects["gradual heal high"]) + " HP HoT";
                 msg += " (+" + effects["rec added% (from target)"] + "% target REC)";
@@ -284,8 +333,31 @@ var buff_processor = (function(){
                 return msg;
             }
         },
+        '4': {
+            desc: "BB Gauge Refill",
+            type: ["effect"],
+            notes: ["This effect is similar to the regular BC insta-fill buff (proc 31), but has the option of filling a percentage of the BB gauge", "Filling 100% of own BB gauge meanse that the gauge will be refilled to SBB if it's unlocked"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = "Fills ";
+                if(effects["bb bc fill%"]){
+                    msg += `${effects["bb bc fill%"]}%`;
+                }
+
+                if(effects["bb bc fill"]){
+                    if (effects["bb bc fill%"]) msg += " and ";
+                    msg += `${effects["bb bc fill"]} BC`;
+                }
+
+                if(effects["target area"] === "single" && effects["target type"] === "self")
+                    msg += " of own BB gauge";
+                else
+                    msg += get_duration_and_target(undefined, effects["target area"], effects["target type"]);
+                return msg;
+            }
+        },
         '5': {
             desc: "Regular and Elemental ATK/DEF/REC/Crit Rate",
+            type: ["buff"],
             func: function (effects, damage_frames, base_element){
                 var msg = "";
                 if (effects["atk% buff (1)"] || effects["def% buff (3)"] || effects["rec% buff (5)"]) { //regular tri-stat
@@ -320,6 +392,7 @@ var buff_processor = (function(){
         },
         '8': {
             desc: "Increase Max HP",
+            type: ["buff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = `+${effects["max hp% increase"]}% Max HP`;
                 msg += get_duration_and_target(effects);
@@ -328,6 +401,7 @@ var buff_processor = (function(){
         },
         '9': {
             desc: "ATK/DEF down to enemy",
+            type: ["debuff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = "";
                 if (effects['buff #1']) {
@@ -348,6 +422,7 @@ var buff_processor = (function(){
         },
         '11': {
             desc: "Inflict Ailment on Enemy",
+            type: ["debuff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = ailment_inflict_handler(effects);
                 if (msg.length === 0) throw "Message length is 0";
@@ -356,6 +431,7 @@ var buff_processor = (function(){
         },
         '19': {
             desc: "BC Fill per Turn",
+            type: ["buff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = effects["increase bb gauge gradual"] + " BC/turn";
 
@@ -363,8 +439,18 @@ var buff_processor = (function(){
                 return msg;
             }
         },
+        '20': {
+            desc: "BC Fill on Hit",
+            type: ["buff"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = `${effects["bc fill when attacked%"]}% chance to fill ${get_formatted_minmax(effects["bc fill when attacked low"],effects["bc fill when attacked high"])} BC when hit`;
+                msg += get_duration_and_target(effects["bc fill when attacked turns (38)"], effects["target area"], effects["target type"]);
+                return msg;
+            }
+        },
         '22': {
             desc: "Defense Ignore",
+            type: ["buff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = `${effects['defense% ignore']}% DEF ignore`;
                 msg += get_duration_and_target(effects["defense% ignore turns (39)"], effects["target area"], effects["target type"]);
@@ -373,6 +459,7 @@ var buff_processor = (function(){
         },
         '23': {
             desc: "Spark Damage",
+            type: ["buff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = get_polarized_number(effects["spark dmg% buff (40)"]) + "% spark DMG";
 
@@ -382,6 +469,7 @@ var buff_processor = (function(){
         },
         '24': {
             desc: "Stat Conversion",
+            type: ["buff"],
             func: function (effects, damage_frames, base_element) {
                 var buff = adr_buff_handler(effects['atk% buff (46)'], effects['def% buff (47)'], effects['rec% buff (48)']);
                 var source_buff = effects['converted attribute'].toUpperCase().slice(0, 3);
@@ -391,8 +479,25 @@ var buff_processor = (function(){
                 return msg;
             }
         },
+        '29': {
+            desc: "Multi-Elemental Attack",
+            type: ["attack"],
+            func: function (effects, damage_frames, base_element) {
+                var numHits = damage_frames.hits;
+                var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
+                msg += effects["bb atk%"] + "% ";
+                msg += to_proper_case(effects["bb elements"][0]);
+                for(let e = 1; e < effects["bb elements"].length; ++e){
+                    msg += "/" + to_proper_case(effects["bb elements"][e]);
+                }
+                msg += " " + ((effects["target area"].toUpperCase() === "SINGLE") ? "ST" : effects["target area"].toUpperCase());
+                if (effects["bb flat atk"]) msg += " (+" + effects["bb flat atk"] + ")";
+                return msg;
+            }
+        },
         '30': {
             desc: "Elemental Buffs",
+            type: ["buff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = elemental_buff_handler(effects);
                 msg += get_duration_and_target(effects["elements added turns"], effects["target area"], effects["target type"]);
@@ -401,6 +506,7 @@ var buff_processor = (function(){
         },
         '31': {
             desc: "BC Insta-fill/Flat BB Gauge Increase",
+            type: ["effect"],
             func: function (effects, damage_frames, base_element) {
                 var msg = `${get_polarized_number(effects["increase bb gauge"])} BC fill`;
                 msg += get_duration_and_target(undefined, effects['target area'], effects['target type']);
@@ -410,6 +516,7 @@ var buff_processor = (function(){
         '44': {
             desc: "Damage Over Time (DoT)",
             notes: ["unit 720176 has some weird values with this ID"],
+            type: ["debuff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = effects["dot atk%"] + "% DoT";
                 if (effects['dot flat atk'])
@@ -426,6 +533,7 @@ var buff_processor = (function(){
         },
         '45': {
             desc: "BB/SBB/UBB ATK",
+            type: ["buff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = bb_atk_buff_handler(effects["bb atk% buff"], effects["sbb atk% buff"], effects["ubb atk% buff"]);
 
@@ -436,8 +544,18 @@ var buff_processor = (function(){
                 return msg;
             }
         },
+        '53': {
+            desc: "Ailment Reflect",
+            type: ["buff"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = ailment_reflect_handler(effects);
+                msg += get_duration_and_target(effects["counter inflict ailment turns"], effects["target area"], effects["target type"]);
+                return msg;
+            }
+        },
         '54': {
             desc: "Critical Hit Damage",
+            type: ["buff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = get_polarized_number(effects["crit multiplier%"]) + "% crit DMG";
 
@@ -448,6 +566,7 @@ var buff_processor = (function(){
         '55': {
             desc: "Elemental Weakness Damage (EWD)",
             notes: ["FWETLD corresponds to fire, water, earth, thunder, light, and dark, respectively"],
+            type: ["buff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = ewd_buff_handler(effects);
                 if (msg.length === 0) {
@@ -460,6 +579,7 @@ var buff_processor = (function(){
         '56': {
             desc: "Chance Angel Idol (AI)",
             notes: ["This buff cannot be buff wiped"],
+            type: ["buff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = effects["angel idol recover chance%"] + "% chance AI";
                 if (effects["angel idol recover hp%"]) msg += " (recovers " + effects["angel idol recover hp%"] + "% HP on proc)";
@@ -468,8 +588,18 @@ var buff_processor = (function(){
                 return msg;
             }
         },
+        '58': {
+            desc: "Spark Vulnerability to Enemy",
+            type: ["debuff"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = `${effects["spark dmg received apply%"]}% chance to inflict ${parseInt(effects["spark dmg received debuff turns (94)"])+1} turn ${get_polarized_number(effects["spark dmg% received"])}% Spark vulnerability debuff`;
+                msg += get_duration_and_target(undefined, effects["target area"], effects["target type"]);
+                return msg;
+            }
+        },
         '62': {
             desc: "Elemental Barrier",
+            type: ["buff"],
             notes: ["This buff cannot be buff wiped", "Unless otherwise specified, assume that the barrier has 100% DMG absorption"],
             func: function (effects, damage_frames, base_element) {
                 var msg = `${effects["elemental barrier hp"]} HP (${effects["elemental barrier def"]} DEF`;
@@ -483,6 +613,7 @@ var buff_processor = (function(){
         },
         '66': {
             desc: "Revive Allies",
+            type: ["effect"],
             func: function (effects, damage_frames, base_element) {
                 var msg = `${effects["revive unit chance%"]}% chance to revive allies with ${effects["revive unit hp%"]}% HP`;
                 msg += ` (${effects["target area"]},${effects["target type"]})`
@@ -491,6 +622,7 @@ var buff_processor = (function(){
         },
         '67': {
             desc: "BC Fill on Spark",
+            type: ["buff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = `${effects["bc fill on spark%"]}% chance to fill ${get_formatted_minmax(effects["bc fill on spark low"], effects["bc fill on spark high"])} BC on spark`;
                 msg += get_duration_and_target(effects["bc fill on spark buff turns (111)"], effects["target area"], effects["target type"]);
@@ -500,6 +632,7 @@ var buff_processor = (function(){
         '78': {
             desc: "Self ATK/DEF/REC/Crit Rate",
             notes: ["Stacks with the regular party ATK/DEF/REC/Crit Rate buff", "Example of a unit having both party and self is Silvie (840128)"],
+            type: ["buff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = "";
                 if (effects["self atk% buff"] || effects["self def% buff"] || effects["self rec% buff"]) { //regular tri-stat
@@ -519,6 +652,7 @@ var buff_processor = (function(){
         },
         '85': {
             desc: "Heal on Hit",
+            type: ["buff"],
             func: function (effects, damage_frames, base_element) {
                 var msg = effects["hp recover from dmg chance"] + "% chance to heal ";
                 msg += get_formatted_minmax(effects["hp recover from dmg% low"], effects["hp recover from dmg% high"]) + "% DMG when hit";
@@ -719,10 +853,10 @@ var itemQuery = {
 
 var unitQuery = {
     // unit_name_id: "neferet",
-    unit_name_id: "zelban",
+    unit_name_id: "nyami",
     strict: "false",
     // server: "JP",
-    // rarity: 5
+    // rarity: 8
     // element: 'thunder'
 };
 
@@ -730,7 +864,7 @@ client.searchUnit(unitQuery)
     .then(function (result) {
         if(result.length === 1){
             return client.getUnit(result[0]).then(function(unit){
-                var burst_type = "sbb";
+                var burst_type = "bb";
                 console.log(unit.name, unit.id);
                 console.log(unit[burst_type].desc);
                 console.log(unit[burst_type]["damage frames"]);
