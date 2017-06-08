@@ -203,7 +203,6 @@ var buff_processor = (function(){
     }
 
     function ailment_reflect_handler(effects){
-        console.log("entered ailment_reflect_handler");
         var ailments = ["injury%", "poison%", "sick%", "weaken%", "curse%", "paralysis%"];
         var ailments_full_name = ["counter inflict injury% (81)", "counter inflict poison% (78)", "counter inflict sick% (80)", "counter inflict weaken% (79)", "counter inflict curse% (82)", "counter inflict paralysis% (83)"];
         var values = {};
@@ -221,7 +220,7 @@ var buff_processor = (function(){
             }
         }
 
-        console.log(values);
+        // console.log(values);
 
         for (var a in values) {
             if (msg.length > 0) msg += ", ";
@@ -239,6 +238,40 @@ var buff_processor = (function(){
             }
         }
         msg += " when hit";
+        return msg;
+    }
+
+    function ailment_buff_handler(effects) {
+        var ailments = ["injury%", "poison%", "sick%", "weaken%", "curse%", "paralysis%"];
+        var values = {};
+        var msg = "";
+        //sort values by proc chance
+        for (var i = 0; i < ailments.length; ++i) {
+            var curAilment = effects[ailments[i] + " buff"];
+            if (curAilment) {
+                // console.log(ailments[i], curAilment);
+                if (!values[curAilment.toString()]) {
+                    values[curAilment.toString()] = [];
+                }
+                values[curAilment.toString()].push(ailments[i].replace('%', ""));
+            }
+        }
+
+        // console.log(values);
+
+        for (var a in values) {
+            if (msg.length > 0) msg += ", ";
+            else msg += "Adds ";
+
+            msg += a + "% chance to inflict ";
+            for (var ailment = 0; ailment < values[a].length; ++ailment) {
+                msg += values[a][ailment];
+                if (ailment !== values[a].length - 1) {
+                    msg += "/";
+                }
+            }
+        }
+        msg += " to all attacks";
         return msg;
     }
 
@@ -274,13 +307,141 @@ var buff_processor = (function(){
         return msg;
     }
 
+    function ailments_cured_handler(ailments_array){
+        function contains_all_status_ailments(arr){
+            var containsAll = true;
+            var ailments = ['poison', 'weaken', 'sick', 'injury', 'curse', 'paralysis'];
+            for(let a = 0; a < ailments.length; ++a){
+                if(arr.indexOf(ailments[i]) === -1){
+                    containsAll = false; break;
+                }
+            }
+            return containsAll;
+        }
+
+        function contains_all_stat_reductions(arr){
+            var containsAll = true;
+            var ailments = ['atk down', 'def down', 'rec down'];
+            for (let a = 0; a < ailments.length; ++a) {
+                if (arr.indexOf(ailments[i]) === -1) {
+                    containsAll = false; break;
+                }
+            }
+            return containsAll;
+        }
+
+        var msg = "";
+        if(ailments_array.length === 9){
+            msg += "all ailments";
+        }else if(ailments_array.length === 6 && contains_all_status_ailments(ailments_array)){
+            msg += "all status ailments";
+        }else if(ailments_array.length === 3 && contains_all_stat_reductions(ailments_array)){
+            msg += "all status reductions";
+        }else{
+            msg += ailments_array.join("/");
+        }
+        return msg;
+    }
+
+    function ailment_null_handler(effects) {
+        var ailments = ["injury%", "poison%", "sick%", "weaken%", "curse%", "paralysis%"];
+        var ailments_full_name = ["resist injury% (33)", "resist poison% (30)", "resist sick% (32)", "resist weaken% (31)", "resist curse% (34)", "resist paralysis% (35)"];
+        var values = {};
+        var msg = "";
+        //sort values by proc chance
+        for (var i = 0; i < ailments.length; ++i) {
+            var curAilment = effects[ailments_full_name[i]];
+            console.log(ailments_full_name[i], curAilment);
+            if (curAilment) {
+                // console.log(ailments[i], curAilment);
+                if (!values[curAilment.toString()]) {
+                    values[curAilment.toString()] = [];
+                }
+                values[curAilment.toString()].push(ailments[i].replace('%', ""));
+            }
+        }
+
+        // console.log(values);
+
+        for (var a in values) {
+            if (msg.length > 0) msg += ", ";
+
+            if(a === '100'){
+                msg += "Negates ";
+            }else{
+                msg += a + "% chance to resist ";
+            }
+            if (values[a].length === ailments.length) {
+                msg += "all status ailments"
+            } else {
+                for (var ailment = 0; ailment < values[a].length; ++ailment) {
+                    msg += values[a][ailment];
+                    if (ailment !== values[a].length - 1) {
+                        msg += "/";
+                    }
+                }
+            }
+        }
+        return msg;
+    }
+
+    function bc_hc_items_handler(bc,hc,item){
+        var msg = "";
+        if (bc && hc && item) {
+            if (bc === hc) {
+                if (bc === item) { //equal tri-stat
+                    msg = get_polarized_number(bc) + "% BC/HC/Item";
+                } else {//eq bc and hc, but not item
+                    msg = get_polarized_number(bc) + "% BC/HC, " + get_polarized_number(item) + "% Item";
+                }
+            } else if (bc === item) { //eq bc and item, but not hc
+                msg = get_polarized_number(bc) + "% BC/Item, " + get_polarized_number(hc) + "% HC";
+            } else if (hc === item) { //eq hc and item, but not item
+                msg = get_polarized_number(hc) + "% HC/Item, " + get_polarized_number(bc) + "% BC";
+            } else { //all unequal
+                msg = get_polarized_number(bc) + "% BC, " + get_polarized_number(hc) + "% HC, " + get_polarized_number(item) + "% Item";
+            }
+        } else if (bc && hc) {
+            if (bc === hc) {
+                msg = get_polarized_number(bc) + "% BC/HC";
+            } else {
+                msg = get_polarized_number(bc) + "% BC, " + get_polarized_number(hc) + "% HC";
+            }
+        } else if (bc && item) {
+            if (bc === item) {
+                msg = get_polarized_number(bc) + "% BC/Item";
+            } else {
+                msg = get_polarized_number(bc) + "% BC, " + get_polarized_number(item) + "% Item";
+            }
+        } else if (hc && item) {
+            if (hc === item) {
+                msg = get_polarized_number(hc) + "% HC/Item";
+            } else {
+                msg = get_polarized_number(hc) + "% HC, " + get_polarized_number(item) + "% Item";
+            }
+        } else if (bc) {
+            msg = get_polarized_number(bc) + "% BC";
+        } else if (hc) {
+            msg = get_polarized_number(hc) + "% HC";
+        } else if (item) {
+            msg = get_polarized_number(item) + "% Item";
+        }
+        if (msg.length === 0) {
+            console.log("Missed a combo of bc,hc,item (" + bc + "," + hc + "," + item);
+        }
+        return msg;
+    }
+
     function get_duration_and_target(turns, area, type) {
         var msg = "";
         //first param is an effects object
         if ((typeof turns).toLowerCase() === 'object') {
-            area = turns["target area"]
-            type = turns["target type"]
-            turns = turns["buff turns"]
+            area = turns["target area"];
+            type = turns["target type"];
+            turns = turns["buff turns"];
+        } else if ((typeof area).toLowerCase() === 'object') {
+            type = area["target type"];
+            area = area["target area"];
         }
         if(turns) msg += " for " + turns + (turns === 1 ? " turn" : " turns");
         msg += " (" + area + "," + type + ")";
@@ -302,7 +463,7 @@ var buff_processor = (function(){
                 var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
                 msg += effects["bb atk%"] + "% ";
                 msg += (effects["target area"].toUpperCase() === "SINGLE") ? "ST" : effects["target area"].toUpperCase();
-                if (effects["bb flat atk"]) msg += " (+" + effects["bb flat atk"] + ")";
+                if (effects["bb flat atk"]) msg += " (+" + effects["bb flat atk"] + " flat ATK)";
                 if (effects["bb bc%"]) msg += ", innate +" + effects["bb bc%"] + "% BC drop rate";
                 if (effects["bb crit%"]) msg += ", innate +" + effects["bb crit%"] + "% crit rate";
                 if (effects["bb hc%"]) msg += ", innate +" + effects["bb hc%"] + "% HC drop rate";
@@ -390,6 +551,15 @@ var buff_processor = (function(){
                 return msg;
             }
         },
+        '6': {
+            desc: "BC/HC/Item Drop Rate",
+            type: ["buff"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = bc_hc_items_handler(effects["bc drop rate% buff (10)"], effects["hc drop rate% buff (9)"], effects["item drop rate% buff (11)"]) + " droprate";
+                msg += get_duration_and_target(effects["drop rate buff turns"],effects);
+                return msg;
+            }
+        },
         '8': {
             desc: "Increase Max HP",
             type: ["buff"],
@@ -428,6 +598,40 @@ var buff_processor = (function(){
                 if (msg.length === 0) throw "Message length is 0";
                 return msg;
             }
+        },
+        '13': {
+            desc: "Random Target (RT) Attack",
+            type: ["attack"],
+            func: function (effects, damage_frames, base_element) {
+                var numHits = effects.hits;
+                var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
+                msg += effects["bb atk%"] + "% ";
+                if(effects["random attack"] === false) msg += (effects["target area"].toUpperCase() === "SINGLE") ? "ST" : effects["target area"].toUpperCase();
+                else msg += "RT";
+                if (effects["bb flat atk"]) msg += " (+" + effects["bb flat atk"] + " flat ATK)";
+                if (effects["bb bc%"]) msg += ", innate +" + effects["bb bc%"] + "% BC drop rate";
+                if (effects["bb crit%"]) msg += ", innate +" + effects["bb crit%"] + "% crit rate";
+                if (effects["bb hc%"]) msg += ", innate +" + effects["bb hc%"] + "% HC drop rate";
+                return msg;
+            }
+        },
+        '17': {
+            desc: "Status Negation/Resistance",
+            type: ["buff"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = ailment_null_handler(effects);
+                msg += get_duration_and_target(effects["resist status ails turns"], effects);
+                return msg;
+            }
+        },
+        '18': {
+            desc: "Mitigation",
+            type: ["buff"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = `${effects["dmg% reduction"]}% mitigation`;
+                msg += get_duration_and_target(effects["dmg% reduction turns (36)"], effects["target area"], effects["target type"]);
+                return msg;
+            }  
         },
         '19': {
             desc: "BC Fill per Turn",
@@ -481,6 +685,7 @@ var buff_processor = (function(){
         },
         '29': {
             desc: "Multi-Elemental Attack",
+            notes: ["These elements are added onto the attack of the unit's base element"],
             type: ["attack"],
             func: function (effects, damage_frames, base_element) {
                 var numHits = damage_frames.hits;
@@ -491,7 +696,7 @@ var buff_processor = (function(){
                     msg += "/" + to_proper_case(effects["bb elements"][e]);
                 }
                 msg += " " + ((effects["target area"].toUpperCase() === "SINGLE") ? "ST" : effects["target area"].toUpperCase());
-                if (effects["bb flat atk"]) msg += " (+" + effects["bb flat atk"] + ")";
+                if (effects["bb flat atk"]) msg += " (+" + effects["bb flat atk"] + " flat ATK)";
                 return msg;
             }
         },
@@ -504,12 +709,39 @@ var buff_processor = (function(){
                 return msg;
             }
         },
+        '38': {
+            desc: "Status Cleanse (Ailments and/or Stat Reductions)",
+            notes: ["Status ailments refers to the basic 6 paralysis,injury,etc.", "Stat reductions refer to ATK/DEF/REC down", "Ailments refers to both status ailments and stat reductions"],
+            type: ["effect"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = "Clears " + ailments_cured_handler(effects["ailments cured"]);
+                msg += get_duration_and_target(undefined,effects["target area"], effects["target type"]);
+                return msg;
+            }
+        },
         '31': {
             desc: "BC Insta-fill/Flat BB Gauge Increase",
             type: ["effect"],
             func: function (effects, damage_frames, base_element) {
                 var msg = `${get_polarized_number(effects["increase bb gauge"])} BC fill`;
                 msg += get_duration_and_target(undefined, effects['target area'], effects['target type']);
+                return msg;
+            }
+        },
+        '40': {
+            desc: "Status Ailment Inflict When Attacking",
+            type: ["buff"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = ailment_buff_handler(effects);
+                msg += get_duration_and_target(effects);
+                return msg;
+            }
+        },
+        '43': {
+            desc: "Burst OD Fill",
+            type: ["effect"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = `${get_polarized_number(effects["increase od gauge%"])}% OD gauge fill`;
                 return msg;
             }
         },
@@ -541,6 +773,23 @@ var buff_processor = (function(){
                     throw "Message length is 0";
                 }
                 msg += get_duration_and_target(effects["buff turns (72)"], effects["target area"], effects["target type"]);
+                return msg;
+            }
+        },
+        '47': {
+            desc: "HP Scaling Attack",
+            type: ["attack"],
+            func: function (effects, damage_frames, base_element) {
+                var numHits = damage_frames.hits;
+                var max_total = parseInt(effects["bb base atk%"]) + parseInt(effects["bb added atk% based on hp"]);
+                var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
+                msg += `${get_formatted_minmax(effects["bb base atk%"],max_total)}% `;
+                msg += (effects["target area"].toUpperCase() === "SINGLE") ? "ST" : effects["target area"].toUpperCase();
+                if (effects["bb flat atk"]) msg += ` (based on HP ${effects["bb added atk% proportional to hp"]}, +` + effects["bb flat atk"] + " flat ATK)";
+                else msg += ` (based on HP ${effects["bb added atk% proportional to hp"]})`;
+                if (effects["bb bc%"]) msg += ", innate +" + effects["bb bc%"] + "% BC drop rate";
+                if (effects["bb crit%"]) msg += ", innate +" + effects["bb crit%"] + "% crit rate";
+                // if (effects["bb hc%"]) msg += ", innate +" + effects["bb hc%"] + "% HC drop rate";
                 return msg;
             }
         },
@@ -611,6 +860,32 @@ var buff_processor = (function(){
                 return msg;
             }
         },
+        '64': {
+            desc: "Consective Use Boosting Attack",
+            type: ["attack"],
+            notes: ["This refers to attacks whose power increases on consecutive use"],
+            func: function (effects, damage_frames, base_element) {
+                var numHits = damage_frames.hits;
+                var max_total = parseInt(effects["bb base atk%"]) + parseInt(effects["bb atk% inc per use"]) * parseInt(effects["bb atk% max number of inc"]);
+                var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
+                // msg += effects["bb atk%"] + "% ";
+                msg += `${get_formatted_minmax(effects["bb base atk%"], max_total)}% `;
+                msg += (effects["target area"].toUpperCase() === "SINGLE") ? "ST" : effects["target area"].toUpperCase();
+                if (effects["bb flat atk"]) msg += ` (+${effects["bb atk% inc per use"]}%/use, max ${effects["bb atk% max number of inc"]} uses, +` + effects["bb flat atk"] + " flat ATK)";
+                else msg += ` (+${effects["bb atk% inc per use"]}%/use, max ${effects["bb atk% max number of inc"]} uses)`;
+                if (effects["bb bc%"]) msg += ", innate +" + effects["bb bc%"] + "% BC drop rate";
+                return msg;
+            }
+        },
+        '65': {
+            desc: "Damage Boost to Status Afflicted Foes",
+            type: ["buff"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = `${get_polarized_number(effects["atk% buff when enemy has ailment"])}% ATK to status afflicted foes`;
+                msg += get_duration_and_target(effects["atk% buff turns (110)"],effects);
+                return msg;
+            }
+        },
         '66': {
             desc: "Revive Allies",
             type: ["effect"],
@@ -646,7 +921,36 @@ var buff_processor = (function(){
                 if (msg.length === 0) {
                     throw "Message length is 0";
                 }
-                msg += get_duration_and_target(effects["self stat buff turns"], effects["target area"], effects["target type"]);
+                //insert own into message
+                if(effects["target area"] === 'single' && effects["target type"] === "self"){
+                        while(msg.indexOf("% ") > -1){
+                            msg = msg.replace("% ", "# own ");
+                        }
+                        while(msg.indexOf("# ") > -1){
+                            msg = msg.replace("# ", "% ");
+                        }
+                        msg += ` for ${effects["self stat buff turns"]} turns`;
+                }else{
+                    msg += get_duration_and_target(effects["self stat buff turns"], effects["target area"], effects["target type"]);
+                }
+                return msg;
+            }
+        },
+        '83': {
+            desc: "Spark Critical",
+            type: ["buff"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = `${effects["spark dmg inc chance%"]}% chance for a ${get_polarized_number(effects["spark dmg inc% buff"])}% spark critical`;
+                msg += get_duration_and_target(effects["spark dmg inc buff turns (131)"], effects);
+                return msg;
+            }
+        },
+        '84': {
+            desc: "OD Fill Rate",
+            type: ["buff"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = `${get_polarized_number(effects["od fill rate% buff"])}% OD gauge fill rate`;
+                msg += get_duration_and_target(effects["od fill rate buff turns (132)"], effects);
                 return msg;
             }
         },
@@ -660,7 +964,22 @@ var buff_processor = (function(){
                 msg += get_duration_and_target(effects["hp recover from dmg buff turns (133)"], effects["target area"], effects["target type"]);
                 return msg;
             }
-        }
+        },
+        '88': {
+            desc: "Spark Damage (Self)",
+            type: ["buff"],
+            notes: ["Should stack with other spark buffs (such as 23)"],
+            func: function (effects, damage_frames, base_element) {
+                var msg = get_polarized_number(effects["spark dmg inc%"]);
+                
+                if(effects["target area"] === "single" && effects["target type"] === "self"){
+                    msg += `% own spark DMG for ${effects["spark dmg inc% turns (136)"]} turns`;
+                }else{
+                    msg += `% spark DMG${get_duration_and_target(effects["spark dmg inc% turns (136)"],effects)}`;
+                }
+                return msg;
+            }
+        },
 
 
     };//end proc_buffs
@@ -671,7 +990,8 @@ var buff_processor = (function(){
         // console.log(JSON.stringify(proc_buffs,null,2));
         try{
             if(proc_buffs[id] !== undefined){
-                console.log(msg,proc_buffs[id].desc);
+                if (proc_buffs[id].notes) console.log(msg, proc_buffs[id].desc,"\n ",proc_buffs[id].notes.join(" / "));
+                else    console.log(msg,proc_buffs[id].desc);
                 return proc_buffs[id].func(effects,damage_frames,base_element);
             }else{
                 console.log(msg);
@@ -712,6 +1032,7 @@ var buff_processor = (function(){
 
     return {
         print_buff: print_buff,
+        proc_buffs: proc_buffs
     };
 })();
 
@@ -853,11 +1174,12 @@ var itemQuery = {
 
 var unitQuery = {
     // unit_name_id: "neferet",
-    unit_name_id: "nyami",
+    unit_name_id: "ceulfan",
     strict: "false",
     // server: "JP",
-    // rarity: 8
-    // element: 'thunder'
+    // rarity: 8,
+    // element: 'light'
+    // verbose: 'true'
 };
 
 client.searchUnit(unitQuery)
@@ -865,10 +1187,11 @@ client.searchUnit(unitQuery)
         if(result.length === 1){
             return client.getUnit(result[0]).then(function(unit){
                 var burst_type = "bb";
-                console.log(unit.name, unit.id);
-                console.log(unit[burst_type].desc);
                 console.log(unit[burst_type]["damage frames"]);
                 console.log(unit[burst_type].levels[0].effects);
+                if(unit.translated_name) console.log(unit.translated_name);
+                console.log(unit.name, unit.id);
+                console.log(unit[burst_type].desc);
                 return printBurst(unit, burst_type);
                 // console.log(unit);
                 // return print_evo(unit);
@@ -881,5 +1204,6 @@ client.searchUnit(unitQuery)
         // console.log(result.split('\n\n'));
         // console.log(result.length,result);
         console.log(result);
+        // console.log(JSON.stringify(buff_processor.proc_buffs,null,2));
     })
     .catch(console.log);
