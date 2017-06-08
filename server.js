@@ -1,6 +1,7 @@
 //for File management
 var fs = require('fs');
 var request = require('request');
+var rp = require('request-promise');
 
 var underscore = require('underscore'); //for search functions
 var translate = require('google-translate-api');
@@ -47,9 +48,7 @@ app.use(allowCrossDomain);
 //on-going database that is a combination of 3 other databases (GL,EU,JP)
 var master_list = {
     unit: {},
-    translated_units: {},
     item: {},
-    translated_items: {},
 };
 
 //statistics of the server
@@ -594,6 +593,9 @@ app.get('/reload', function(request,response){
             var translations = [translate_jp_units(), translate_jp_items()];
             Promise.all(translations)
                 .then(function (result) {
+                    send_updates().then(function (results) {
+                        console.log("Sent update hooks");
+                    });
                     console.log("Finished reloading database");
                 });
         }
@@ -602,9 +604,7 @@ app.get('/reload', function(request,response){
 });
 
 app.get('/unit/:id', function(request, response){
-    var unit = master_list.translated_units[request.params.id];
-    if(unit === undefined)
-        unit = master_list.unit[request.params.id];
+    var unit = master_list.unit[request.params.id];
     if(unit === undefined)  
         response.end(JSON.stringify({error: request.params.id + " is not found"}));
     else
@@ -612,9 +612,7 @@ app.get('/unit/:id', function(request, response){
 });
 
 app.get('/item/:id', function(request,response){
-    var item = master_list.translated_items[request.params.id];
-    if(item === undefined)
-        item = master_list.item[request.params.id];
+    var item = master_list.item[request.params.id];
     if (item === undefined)
         response.end(JSON.stringify({ error: request.params.id + " is not found" }));
     else
@@ -641,13 +639,7 @@ function get_unit_query_value(queryField, unit){
     try{
         switch(queryField){
             case 'unit_name_id': 
-                if(master_list.translated_units[unit.id] === undefined )
-                    return unit["guide_id"] + ": " + unit["name"].toLowerCase() + " (" + unit["id"]+")";
-                else{
-                    var tempUnit = master_list.translated_units[unit.id];
-                    return tempUnit["guide_id"] + ": " + tempUnit["name"].toLowerCase() + " (" + tempUnit["id"] + ")";
-                }
-                break;
+                    return unit["guide_id"] + ": " + unit["name"].toLowerCase() + (unit.translated_name ? (" " + unit.translated_name.toLowerCase()) : "") + " (" + unit["id"]+")";
             case 'rarity': return unit["rarity"].toString();
             case 'element': return unit["element"].toLowerCase();
             case 'gender': return unit["gender"].toLowerCase();
@@ -776,14 +768,17 @@ function get_evo_line(unit_id){
 
 //shorten results to a single unit IFF only one type of unit exists in the list
 //assumption: result_arr has at least one element in it
-function shorten_results(result_arr){
+function shorten_results(result_arr, verbose){
     var last_evo = get_evo_line(result_arr[0]);
-    var last_guide_id = last_evo[0].guide_id;
+    var last_guide_id = master_list.unit[last_evo[0].toString()].guide_id;
+    if(verbose) console.log("last_evo", last_evo, "last_guide", last_guide_id);
     //check for uniqueness, return original array if not unique
     for(var u = 1; u < result_arr.length; ++u){
         var cur_evo = get_evo_line(result_arr[u]);
-        var cur_guide_id = cur_evo[0].guide_id;
-        if(cur_evo.length !== last_evo.length || cur_evo[0].id !== last_evo[0].id || cur_guide_id !== last_guide_id){
+        var cur_guide_id = master_list.unit[cur_evo[0].toString()].guide_id;
+        if(verbose) console.log("cur_evo",u, cur_evo, "cur_guide", cur_guide_id);
+        if(cur_evo.length !== last_evo.length || cur_evo[0] !== last_evo[0] || cur_guide_id !== last_guide_id){
+            if(verbose) console.log("found first mismatch");
             return result_arr;
         }
     }
@@ -856,7 +851,7 @@ app.get('/search/unit/options', function(request,response){
         if(query.verbose == true || query.verbose == 'true'){
             console.log("Results before shorten",results);
         }
-        results = shorten_results(results);
+        results = shorten_results(results, query.verbose == true || query.verbose == 'true');
     }
     if (query.verbose == true || query.verbose == 'true') console.log("Search results",results);
     response.end(JSON.stringify(results));
@@ -866,12 +861,7 @@ function get_item_query_value(queryField, item){
     try {
         switch (queryField) {
             case 'item_name_id': 
-                if(master_list.translated_units[item.id] === undefined)
-                    return item["id"] + ": " + item["name"].toLowerCase();
-                else{
-                    var tempItem = master_list.translated_units[item.id];
-                    return tempItem.id + ": " + tempItem.name.toLowerCase();
-                }
+                return item["name"].toLowerCase() + + (item.translated_name ? (" " + item.translated_name.toLowerCase()) : "") + `(${item["id"]})`;
             case 'item_desc': return item["desc"].toLowerCase();
             case 'rarity': return item["rarity"].toString();
             case 'type': return item["type"].toLowerCase();
@@ -976,10 +966,9 @@ app.get('/list/units', function(request,response){
                         isTraversing = true;
                     }
                     if(isTraversing){//save unit name
-                        var unit = master_list.translated_units[tempList[u]];
-                        if(unit === undefined)
-                            unit = master_list.unit[tempList[u]];
-                        resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
+                        var unit = master_list.unit[tempList[u]];
+                        var name = (unit.translated_name ? unit.translated_name : unit.name); 
+                        resultList.push(unit["guide_id"] + ": " + name + " (" + unit["id"] + ")");
                     }
                     if(end != -1 && parseInt(tempList[u]) >= end){ //stop once we reach our end position
                         isTraversing = false;
@@ -1004,14 +993,13 @@ app.get('/list/units', function(request,response){
 
                 //traverse
                 for (u in tempList) {
-                    var unit = master_list.translated_units[tempList[u]];
-                    if (unit === undefined)
-                        unit = master_list.unit[tempList[u]];
+                    var unit = master_list.unit[tempList[u]];
+                    var name = (unit.translated_name) ? unit.translated_name : unit.name;
                     if (unit["guide_id"] >= start) { //start saving once we reach start position
                         isTraversing = true;
                     }
                     if (isTraversing) {//save unit name
-                        resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
+                        resultList.push(unit["guide_id"] + ": " + name + " (" + unit["id"] + ")");
                     }
                     if (end != -1 && unit["guide_id"] >= (end)) { //stop once we reach our end position
                         // console.log(unit["id"]);
@@ -1050,10 +1038,9 @@ app.get('/list/units', function(request,response){
                         break;
                     }
                     if (isTraversing) {//save unit name
-                        var unit = master_list.translated_units[tempList[u]];
-                        if (unit === undefined)
-                            unit = master_list.unit[tempList[u]];
-                        resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
+                        var unit = master_list.unit[tempList[u]];
+                        var name = (unit.translated_name) ? unit.translated_name : unit.name;
+                        resultList.push(unit["guide_id"] + ": " + name + " (" + unit["id"] + ")");
                         c++;
                     }
                 }//end traverse
@@ -1077,10 +1064,9 @@ app.get('/list/units', function(request,response){
 
                 // console.log(start + " to " + count);
                 for (var c = start; c != (count) && c < tempList.length; ++c) {
-                    var unit = master_list.translated_units[tempList[c]];
-                    if(unit === undefined)
-                        unit = master_list.unit[tempList[c]];
-                    resultList.push(unit["guide_id"] + ": " + unit["name"] + " (" + unit["id"] + ")");
+                    unit = master_list.unit[tempList[c]];
+                    var name = (unit.translated_name) ? unit.translated_name : unit.name;
+                    resultList.push(unit["guide_id"] + ": " + name + " (" + unit["id"] + ")");
                 }//end traverse
             } else {
                 throw "Query Type " + query.type + " is not valid";
@@ -1147,7 +1133,7 @@ function translate_unit_name(unit) {
     }
 
     function translate_unit_name_helper(unit){
-        return (translate_to_english(unit.name,[],"name"));
+        return (translate_to_english(unit.name,[],"translated_name"));
     }
 
     //merge the data of the sub_object into the fields of the main_object
@@ -1171,6 +1157,7 @@ function translate_unit_name(unit) {
             for (var r in translated_objects) {
                 merge_field(new_unit, translated_objects[r]);
             }
+            // console.log(new_unit);
             return new_unit;
         });
 }
@@ -1205,7 +1192,7 @@ function translate_jp_items(){
                 // console.log(results);
                 for(var r in results){
                     var curItem = results[r];
-                    master_list.translated_items[curItem.id] = curItem;
+                    master_list.item[curItem.id] = curItem;
                 }
             })
             .then(function(){
@@ -1240,7 +1227,7 @@ function translate_jp_units(){
                 console.log("Putting translated JP units into list now.");
                 for(var r in results){
                     var curUnit = results[r];
-                    master_list.translated_units[curUnit.id] = curUnit;
+                    master_list.unit[curUnit.id] = curUnit;
                 }
             })
             .then(function(){
@@ -1260,6 +1247,9 @@ var server = app.listen(argv["port"], argv["ip"], function(){
                     var translations = [translate_jp_units(),translate_jp_items()];
                     Promise.all(translations)
                         .then(function(result){
+                            send_updates().then(function (results) {
+                                console.log("Sent update hooks");
+                            });
                             console.log("Finished reloading database");
                             console.log("Ready! Server listening at http://%s:%s", host, port);
                         });
@@ -1453,10 +1443,178 @@ function getBuffDataForAll(units, items){
     return result;
 }
 
+function send_updates(){
+    function create_sectional_messages(data_arr,msg_len,acc_limit){
+        var msg_arr = [];
+        var curMsg = "";
+        var local_data = data_arr.slice();
+        while(local_data.length > 0){
+            //reached max limit, push and continue
+            if(curMsg.length + local_data[0].length > msg_len){
+                if(msg_arr.length === acc_limit - 2){
+                    curMsg += `...and ${local_data.length} more.`;
+                    msg_arr.push(curMsg);
+                    curMsg = "";
+                    break;
+                }else{
+                    msg_arr.push(curMsg);
+                    curMsg = "";
+                }
+            }else{ //keep adding to curMsg
+                curMsg += local_data.shift();
+            }
+        }
+
+        if(curMsg.length > 0){
+            msg_arr.push(curMsg);
+        }
+
+        return msg_arr;
+    }
+    //given a server name (GL,EU,JP) and type (Units or Items)
+    //return an array of field objects with keys title and value
+    function get_server_statistics(stats, server_name, type){
+        var newest = stats[`newest_${type.toLowerCase()}`];
+        var field_title = `${server_name} Server - ${type}`;
+        var msg = `${server_name} has ` + stats[`num_${type.toLowerCase()}`] + ` ${type}.`;
+        if(newest.length > 0){
+            msg += `The ${newest.length} new ${type.toLowerCase()} are:\n`;
+        }else{
+            msg += `There are ${newest.length} new ${type.toLowerCase()}`;
+            return [
+                {
+                    title: field_title,
+                    value: msg
+                }
+            ];
+        }
+
+        var parsed_newest = [];
+        if(type === "Units"){
+            for(let u = 0; u < newest.length; ++u){
+                let curUnit = master_list.unit[newest[u]];
+                let name = (curUnit.translated_name) ? curUnit.translated_name : curUnit.name;
+                parsed_newest.push(`${name} (${curUnit.id})\n`);
+            }
+        }else if(type === "Items"){
+            for(let i = 0; i < newest.length; ++i){
+                let curItem = master_list.item[newest[i]];
+                let name = (curItem.translated_name) ? curItem.translated_name : curItem.name;
+                parsed_newest.push(`${name} (${curItem.id})\n`);
+            }
+        }else{
+            msg += "Error: Unknown type " + type;
+            return [
+                {
+                    title: field_title,
+                    value: msg
+                }
+            ];
+        }
+
+
+        var msg_arr = create_sectional_messages(parsed_newest,900,20);
+        var field_arr = [
+            {
+                title: `${field_title} - 1`,
+                value: msg_arr[0]
+            }
+        ];
+
+        for(let m = 1; m < msg_arr.length; ++m){
+            field_arr.push({
+                title: `${field_title} - ${m+1}`,
+                value: msg_arr[0]
+            });
+        }
+        return field_arr;
+    }
+
+    //create payload for discord webhook
+    function create_update_payload(){
+        var mapping = {
+            gl: "Global",
+            jp: "Japan",
+            eu: "Europe"
+        }
+
+        var types = ["Units", "Items"];
+
+        var fields = [];
+        for(let m in mapping){
+            for(let t = 0; t < types.length; ++t){
+                fields.push(get_server_statistics(stats[m],mapping[m],types[t]));
+            }
+        }
+        
+        var payload = {
+            username: "Bluubot DB Update",
+            text: "This message is sent whenever the database server for Bluubot is updated",
+            attachments: [
+                {
+                    color: '#3498DB',
+                    fields: [
+                    ]
+                }
+            ]
+        };
+
+        for(let f = 0; f < fields.length; ++f){
+            for(let m = 0; m < fields[f].length; ++m){
+                payload.attachments[0].fields.push(fields[f][m]);
+            }
+        }
+
+        console.log(JSON.stringify(payload,null,2));
+        return payload;
+    }
+
+    function send_webhook_post(url, payload){
+        var send_options = {
+            method: "POST",
+            uri: url,
+            json: payload
+        };
+        return rp(send_options)
+            .then(function(result){
+                console.log("Successfully sent to " + url);
+            }).catch(function(err){
+                console.log(err);
+                console.log("Error with " + url);
+            });
+    }
+    var webhooks;
+    try{
+        webhooks = fs.readFileSync('./webhooks.txt','utf8');
+        while(webhooks.indexOf('\r') > -1){
+            webhooks = webhooks.replace('\r','\n');
+        }
+        webhooks = webhooks.split('\n');
+    }catch(err){
+        console.log(err);
+        return;
+    }
+
+    console.log("Webhook found:",webhooks);
+    var payload = create_update_payload();
+    var promises = [];
+    for(var i = 0; i < webhooks.length; ++i){
+        if(webhooks[i].length > 0){
+            console.log("Sending payload to " + webhooks[i]);
+            promises.push(send_webhook_post(webhooks[i] + "/slack",payload));
+        }
+    }
+
+    return Promise.all(promises);
+}
+
 function test_function(){
     console.log("Entered test function");
     
-    var result = getBuffDataForAll(master_list.unit,master_list.item);
-    fs.writeFileSync("./all_buff_id.json", JSON.stringify(result));
+    send_updates().then(function(results){
+        console.log("Sent update hooks");
+    });
+    // var result = getBuffDataForAll(master_list.unit,master_list.item);
+    // fs.writeFileSync("./all_buff_id.json", JSON.stringify(result));
     console.log("Done");
 }

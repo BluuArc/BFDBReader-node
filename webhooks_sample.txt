@@ -1,0 +1,3 @@
+https://discordapp.com/api/webhooks/channel_id1/token1
+https://discordapp.com/api/webhooks/channel_id2/token2
+https://discordapp.com/api/webhooks/channel_id3/token3
