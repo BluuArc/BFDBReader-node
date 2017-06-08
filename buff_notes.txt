@@ -1,3 +1,24 @@
+//unit
+[ 'proc id',
+  'passive id',
+  'unknown passive id',
+  'unknown proc id',
+  'unknown buff id' ]
+unit.bb/sbb/sbb[endLevel].effects
+unit["leader skill"].effects
+unit["extra skill"].effects
+unit["ai"] (already effects array)
+unit.skills[index].skill.effects
+
+//item
+var effect_list = (item.effect.effect !== undefined) ? item.effect.effect : item.effect;
+[ 'proc id',
+  'passive id',
+  'unknown passive id',
+  'unknown buff id',
+  'unknown proc id' ]
+
+
 unit.proc
     all - covers bb/sbb/ubb
     55 - FWETLD corresponds to fire, water, earth, thunder, light, and dark, respectively
