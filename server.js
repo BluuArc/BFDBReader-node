@@ -928,6 +928,53 @@ app.get('/search/item/options', function (request, response) {
     response.end(JSON.stringify(results));
 });
 
+app.get('/list/items', function(request,response){
+    var query = request.query;
+
+    query.verbose = query.verbose == true || query.verbose == 'true';
+
+    if(query.verbose)
+        console.log(query);
+
+    var list = [];
+
+    for(let i in master_list.item){
+        var name = master_list.item[i].translated_name || master_list.item[i].name;
+        list.push({
+            id: parseInt(master_list.item[i].id),
+            name: `${name} (${master_list.item[i].id})`
+        });
+    }
+
+    try{
+        var start = (query.start) ? parseInt(query.start) : -1;
+        var end = (query.end) ? parseInt(query.end) : -1;
+
+        list = list.filter(function(d){
+            let id = parseInt(d.id);
+            if(start !== -1 && end !== -1){
+                return id >= start && id <= end;
+            }else if(start === -1){
+                return id <= end;
+            }else if(end === -1){
+                return id >= start;
+            }else{
+                return true; //get everything, since both are -1
+            }
+        });
+
+
+        list = list.map(function(d){
+            return d.name;
+        });
+
+        response.end(JSON.stringify(list));
+    }catch(err){
+        console.log(err);
+        response.end(JSON.stringify(err));
+    }
+});
+
 //given a start and end range, list unit names in that range
 app.get('/list/units', function(request,response){
     var query = request.query;
