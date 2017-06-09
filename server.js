@@ -963,7 +963,7 @@ app.get('/list/items', function(request,response){
             }
         });
 
-
+        //convert array to array of names
         list = list.map(function(d){
             return d.name;
         });
@@ -982,155 +982,71 @@ app.get('/list/units', function(request,response){
     /*//expected format for query
         query = {
             type: "unit_id" || "guide_id",
-            list_type: "range" || "amount"
-            start: "10011" || "1" || null (defaults to one of the first two depending on type),
+            start: "-1" || null (defaults to -1 to start from the very beginning),
             end: "-1" || some number || null (defaults to -1 to print all values); only for range,
-            count: "-1" || some number || null (refaults to -1 to print all values); only for amount
+            verbose: true || false || 'true' || 'false'
         }
     */
-    //build temporary list to sort through
-    var tempList = [];
-    var resultList = []; //to be returned
-    for(u in master_list.unit){
-        tempList.push(master_list.unit[u]["id"].toString());
+
+    if (query.verbose)
+        console.log(query);
+    
+    var list = [];
+    for (let u in master_list.unit) {
+        var name = master_list.unit[u].translated_name || master_list.unit[u].name;
+        list.push({
+            id: parseInt(master_list.unit[u].id),
+            guide_id: parseInt(master_list.unit[u].guide_id),
+            name: `${master_list.unit[u].guide_id}: ${name} (${master_list.unit[u].id})`
+        });
     }
+
     try{
-        var start;
-        var isTraversing = false;
-        if(query.list_type == "range"){ //print units within a range [from start to end inclusive]
-            var end;
-            if(query.type == "unit_id"){
-                //no sort since it's sorted by ID by default
+        var start = (query.start) ? parseInt(query.start) : -1;
+        var end = (query.end) ? parseInt(query.end) : -1;
+        if(query.type == "unit_id"){
+            list = list.filter(function (d) {
+                let id = parseInt(d.id);
+                if (start !== -1 && end !== -1) {
+                    return id >= start && id <= end;
+                } else if (start === -1) {
+                    return id <= end;
+                } else if (end === -1) {
+                    return id >= start;
+                } else {
+                    return true; //get everything, since both are -1
+                }
+            });
 
-                //set traversal options
-                if(query.start != undefined)
-                    start = parseInt(query.start.toString());
-                else
-                    start = "10011";
+        }else if(query.type == "guide_id"){
+            list.sort(function(a,b){
+                return a.guide_id - b.guide_id;
+            });
 
-                if(query.end != undefined)
-                    end = parseInt(query.end.toString());
-                else
-                    end = -1;
-
-                //traverse
-                for(u in tempList){
-                    if(parseInt(tempList[u]) >= start){ //start saving once we reach start position
-                        isTraversing = true;
-                    }
-                    if(isTraversing){//save unit name
-                        var unit = master_list.unit[tempList[u]];
-                        var name = (unit.translated_name ? unit.translated_name : unit.name); 
-                        resultList.push(unit["guide_id"] + ": " + name + " (" + unit["id"] + ")");
-                    }
-                    if(end != -1 && parseInt(tempList[u]) >= end){ //stop once we reach our end position
-                        isTraversing = false;
-                        break;
-                    }
-                }//end traverse
-            }else if(query.type == "guide_id"){
-                tempList = underscore.sortBy(tempList, function (id) { 
-                    var unit = master_list.unit[id];
-                    return unit["guide_id"];
-                });
-                //set traversal options
-                if (query.start != undefined)
-                    start = parseInt(query.start.toString());
-                else
-                    start = 1;
-
-                if (query.end != undefined)
-                    end = parseInt(query.end.toString());
-                else
-                    end = -1;
-
-                //traverse
-                for (u in tempList) {
-                    var unit = master_list.unit[tempList[u]];
-                    var name = (unit.translated_name) ? unit.translated_name : unit.name;
-                    if (unit["guide_id"] >= start) { //start saving once we reach start position
-                        isTraversing = true;
-                    }
-                    if (isTraversing) {//save unit name
-                        resultList.push(unit["guide_id"] + ": " + name + " (" + unit["id"] + ")");
-                    }
-                    if (end != -1 && unit["guide_id"] >= (end)) { //stop once we reach our end position
-                        // console.log(unit["id"]);
-                        isTraversing = false;
-                        break;
-                    }
-                }//end traverse
-            }else{
-                throw "Query Type " + query.type + " is not valid"; 
-            }
-            response.end(JSON.stringify(resultList));
-        }else if(query.list_type == "amount"){//print X amount of units
-            var count;
-            if (query.type == "unit_id") {
-                //no sort since it's sorted by ID by default
-
-                //set traversal options
-                if (query.start != undefined)
-                    start = parseInt(query.start.toString());
-                else
-                    start = "10011";
-
-                if (query.count != undefined)
-                    count = parseInt(query.count.toString());
-                else
-                    count = "-1";
-
-                //traverse
-                var c = 0;
-                for (u in tempList) {
-                    if (tempList[u] == start) { //start saving once we reach start position
-                        isTraversing = true;
-                    }
-                    if (c == count) { //stop once we reach our end position
-                        isTraversing = false;
-                        break;
-                    }
-                    if (isTraversing) {//save unit name
-                        var unit = master_list.unit[tempList[u]];
-                        var name = (unit.translated_name) ? unit.translated_name : unit.name;
-                        resultList.push(unit["guide_id"] + ": " + name + " (" + unit["id"] + ")");
-                        c++;
-                    }
-                }//end traverse
-            } else if (query.type == "guide_id") {
-                // console.log("entered amount, guide_id");
-                tempList = underscore.sortBy(tempList, function (id) {
-                    var unit = master_list.unit[id];
-                    return unit["guide_id"];
-                });
-
-                //set traversal options
-                if (query.start != undefined)
-                    start = parseInt(query.start.toString());
-                else
-                    start = 0;
-
-                if (query.count != undefined)
-                    count = parseInt(query.count.toString());
-                else
-                    count = -1;
-
-                // console.log(start + " to " + count);
-                for (var c = start; c != (count) && c < tempList.length; ++c) {
-                    unit = master_list.unit[tempList[c]];
-                    var name = (unit.translated_name) ? unit.translated_name : unit.name;
-                    resultList.push(unit["guide_id"] + ": " + name + " (" + unit["id"] + ")");
-                }//end traverse
-            } else {
-                throw "Query Type " + query.type + " is not valid";
-            }
-            response.end(JSON.stringify(resultList));
+            list = list.filter(function (d) {
+                let id = parseInt(d.guide_id);
+                if (start !== -1 && end !== -1) {
+                    return id >= start && id <= end;
+                } else if (start === -1) {
+                    return id <= end;
+                } else if (end === -1) {
+                    return id >= start;
+                } else {
+                    return true; //get everything, since both are -1
+                }
+            }); 
         }else{
-            throw "Query List Type " + query.list_type + " is not valid"; 
+            throw "Query Type " + query.type + " is not valid"; 
         }
+
+        //convert array to array of names
+        list = list.map(function (d) {
+            return d.name;
+        });
+        response.end(JSON.stringify(list));
     }catch(err){
         console.log(err);
-        response.end(JSON.stringify([err])); //return an empty array
+        response.end(JSON.stringify(err)); //return an empty array
     }
 });
 
