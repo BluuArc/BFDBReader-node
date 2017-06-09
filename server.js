@@ -460,11 +460,14 @@ function update_statistics(){
 
             //save differences, if any
             if (unit_data.last_loaded.length != stats[server].num_units || unit_data.last_loaded[0] !== unit_id[0]) {
+                if (unit_data.last_loaded.length != stats[server].num_units) console.log(server,"unit last length", unit_data.last_loaded.length, "unit current length", stats[server].num_units);
+                else if (unit_data.last_loaded[0] !== unit_id[0]) console.log(server, "unit last loaded[0]", unit_data.last_loaded[0], "unit current loaded[0]", unit_id[0]);
                 unit_data.newest = get_db_diffs(unit_data.last_loaded, unit_id);
                 unit_data.last_loaded = unit_id;
                 updater.save('stats-unit-' + server + '.json', JSON.stringify(unit_data));
             }
         } catch (err) { //file doesn't exist
+            console.log("Creating new unit stats file for ",server);
             unit_data = {
                 newest: unit_id,
                 last_loaded: unit_id
@@ -479,11 +482,14 @@ function update_statistics(){
 
             //save differences, if any
             if (item_data.last_loaded.length != stats[server].num_items || item_data.last_loaded[0] !== item_id[0]) {
+                if (item_data.last_loaded.length != stats[server].num_items) console.log(server,"item last length", item_data.last_loaded.length, "item cur length", stats[server].num_items);
+                else if (item_data.last_loaded[0] !== item_id[0]) console.log(server,"item last loaded[0]", item_data.last_loaded[0], "item current loaded[0]", item_id[0]);
                 item_data.newest = get_db_diffs(item_data.last_loaded, item_id);
                 item_data.last_loaded = item_id;
                 updater.save('stats-item-' + server + '.json', JSON.stringify(item_data));
             }
         } catch (err) { //file doesn't exist
+            console.log("Creating new item stats file for ", server);
             item_data = {
                 newest: item_id,
                 last_loaded: item_id
