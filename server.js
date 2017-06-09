@@ -1454,7 +1454,7 @@ function send_updates(){
         while(local_data.length > 0){
             //reached max limit, push and continue
             if(curMsg.length + local_data[0].length > msg_len){
-                if(msg_arr.length === acc_limit - 2){
+                if(msg_arr.length === acc_limit - 1){
                     curMsg += `...and ${local_data.length} more.`;
                     msg_arr.push(curMsg);
                     curMsg = "";
@@ -1516,18 +1516,18 @@ function send_updates(){
         }
 
 
-        var msg_arr = create_sectional_messages(parsed_newest,900,20);
+        var msg_arr = create_sectional_messages(parsed_newest,900,5);
         var field_arr = [
             {
                 title: `${field_title} - 1`,
-                value: msg_arr[0]
+                value: msg+msg_arr[0]
             }
         ];
 
         for(let m = 1; m < msg_arr.length; ++m){
             field_arr.push({
                 title: `${field_title} - ${m+1}`,
-                value: msg_arr[0]
+                value: msg_arr[m]
             });
         }
         return field_arr;
@@ -1589,6 +1589,7 @@ function send_updates(){
     var webhooks;
     try{
         webhooks = fs.readFileSync('./webhooks.txt','utf8');
+        //clean input
         while(webhooks.indexOf('\r') > -1){
             webhooks = webhooks.replace('\r','\n');
         }
