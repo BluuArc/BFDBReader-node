@@ -1254,6 +1254,9 @@ var server = app.listen(argv["port"], argv["ip"], function(){
                             console.log("Ready! Server listening at http://%s:%s", host, port);
                         });
                 }else{
+                    send_updates().then(function (results) {
+                        console.log("Sent update hooks");
+                    });
                     console.log("Finished reloading database");
                     console.log("Ready! Server listening at http://%s:%s", host, port);
                 }
