@@ -413,6 +413,15 @@ function get_db_diffs(db_old, db_new){
 
 //update statistics for all servers
 function update_statistics(){
+    function get_ids_from_server(server, db) {
+        var result = [];
+        for (let i in db) {
+            if (db[i].server.indexOf(server) > -1) {
+                result.push(i); //i is ID of current object
+            }
+        }
+        return result;
+    }
     function update_statistics_per_server(server) {
         //holds local file load/save functions
         var updater = {
@@ -440,18 +449,12 @@ function update_statistics(){
         };
 
         console.log("Updating " + server.toUpperCase() + " statistics...");
-        var unit_list = underscore.filter(master_list.unit, function (unit) {
-            return unit.server.indexOf(server) > -1;
-        });
-        var item_list = underscore.filter(master_list.item, function (item) {
-            return item.server.indexOf(server) > -1;
-        });
-
         //gather basic statistics
-        var unit_id = create_id_array(unit_list);
-        var item_id = create_id_array(item_list);
-        stats[server].num_units = underscore.size(unit_id);
-        stats[server].num_items = underscore.size(item_id);
+        var unit_id = get_ids_from_server(server,master_list.unit);
+        var item_id = get_ids_from_server(server,master_list.item);
+        console.log(server,"current unit count", unit_id.length,"/ current item count", item_id.length);
+        stats[server].num_units = unit_id.length;
+        stats[server].num_items = item_id.length;
 
         //load previous data, if it exists
         var unit_data;
@@ -459,15 +462,15 @@ function update_statistics(){
             unit_data = updater.load('stats-unit-' + server + ".json");
 
             //save differences, if any
-            if (unit_data.last_loaded.length != stats[server].num_units || unit_data.last_loaded[0] !== unit_id[0]) {
-                if (unit_data.last_loaded.length != stats[server].num_units) console.log(server,"unit last length", unit_data.last_loaded.length, "unit current length", stats[server].num_units);
-                else if (unit_data.last_loaded[0] !== unit_id[0]) console.log(server, "unit last loaded[0]", unit_data.last_loaded[0], "unit current loaded[0]", unit_id[0]);
+            if (unit_data.last_loaded.length !== stats[server].num_units || unit_data.last_loaded[0] !== unit_id[0]) {
+                if (unit_data.last_loaded.length !== stats[server].num_units) console.log(server,"unit last length", unit_data.last_loaded.length, "/ unit current length", stats[server].num_units);
+                else if (unit_data.last_loaded[0] !== unit_id[0]) console.log(server, "unit last loaded[0]", unit_data.last_loaded[0], "/ unit current loaded[0]", unit_id[0]);
                 unit_data.newest = get_db_diffs(unit_data.last_loaded, unit_id);
                 unit_data.last_loaded = unit_id;
                 updater.save('stats-unit-' + server + '.json', JSON.stringify(unit_data));
             }
         } catch (err) { //file doesn't exist
-            console.log("Creating new unit stats file for ",server);
+            console.log("Creating new unit stats file for",server);
             unit_data = {
                 newest: unit_id,
                 last_loaded: unit_id
@@ -481,15 +484,15 @@ function update_statistics(){
             item_data = updater.load('stats-item-' + server + ".json");
 
             //save differences, if any
-            if (item_data.last_loaded.length != stats[server].num_items || item_data.last_loaded[0] !== item_id[0]) {
-                if (item_data.last_loaded.length != stats[server].num_items) console.log(server,"item last length", item_data.last_loaded.length, "item cur length", stats[server].num_items);
-                else if (item_data.last_loaded[0] !== item_id[0]) console.log(server,"item last loaded[0]", item_data.last_loaded[0], "item current loaded[0]", item_id[0]);
+            if (item_data.last_loaded.length !== stats[server].num_items || item_data.last_loaded[0] !== item_id[0]) {
+                if (item_data.last_loaded.length !== stats[server].num_items) console.log(server,"item last length", item_data.last_loaded.length, "/ item cur length", stats[server].num_items);
+                else if (item_data.last_loaded[0] !== item_id[0]) console.log(server,"item last loaded[0]", item_data.last_loaded[0], "/ item current loaded[0]", item_id[0]);
                 item_data.newest = get_db_diffs(item_data.last_loaded, item_id);
                 item_data.last_loaded = item_id;
                 updater.save('stats-item-' + server + '.json', JSON.stringify(item_data));
             }
         } catch (err) { //file doesn't exist
-            console.log("Creating new item stats file for ", server);
+            console.log("Creating new item stats file for", server);
             item_data = {
                 newest: item_id,
                 last_loaded: item_id
@@ -497,10 +500,11 @@ function update_statistics(){
             updater.save('stats-item-' + server + '.json', JSON.stringify(item_data));
         }
 
-        //keep track of newest units on server
+        //keep track of newest on server
         stats[server].newest_units = unit_data.newest;
         stats[server].newest_items = item_data.newest;
     }
+
     console.log("Updating statistics...");
     var servers = ['gl','jp','eu'];
     stats.last_update = new Date().toUTCString();
@@ -1237,12 +1241,13 @@ var server = app.listen(argv["port"], argv["ip"], function(){
             .then(function(){
                 if (!argv.notranslate) {
                     var translations = [translate_jp_units(), translate_jp_items()];
-                    Promise.all(translations)
+                    return Promise.all(translations)
                         .then(function (result) {
                             console.log("Ready! Server listening at http://%s:%s", host, port);
                         });
                 } else {
                     console.log("Ready! Server listening at http://%s:%s", host, port);
+                    return;
                 }
             })
             .catch(function(err){
@@ -1584,9 +1589,11 @@ function send_updates(){
 function test_function(){
     console.log("Entered test function");
     
-    send_updates().then(function(results){
-        console.log("Sent update hooks");
-    });
+    // send_updates().then(function(results){
+    //     console.log("Sent update hooks");
+    // });
+    var unit_list = get_ids_from_server('jp', master_list.item);
+    console.log(unit_list.length, unit_list[unit_list.length - 1]);
     // var result = getBuffDataForAll(master_list.unit,master_list.item);
     // fs.writeFileSync("./all_buff_id.json", JSON.stringify(result));
     console.log("Done");
