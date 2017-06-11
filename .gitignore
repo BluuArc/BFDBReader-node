@@ -1,4 +1,4 @@
 json
 !json/stats-*.json
-node_modules
+node_modules/*
 webhooks.txt
