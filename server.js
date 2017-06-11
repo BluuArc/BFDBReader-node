@@ -3,7 +3,7 @@ var fs = require('fs');
 var request = require('request');
 var rp = require('request-promise');
 
-var underscore = require('underscore'); //for search functions
+var _ = require('lodash'); //for search functions
 var translate = require('google-translate-api');
 
 //for server setup 
@@ -49,6 +49,7 @@ app.use(allowCrossDomain);
 var master_list = {
     unit: {},
     item: {},
+    es: {}
 };
 
 //statistics of the server
@@ -57,31 +58,29 @@ var stats = {
     gl: {
         num_units: 0,
         num_items: 0,
+        num_es: 0,
         newest_units: [],
-        newest_items: []
+        newest_items: [],
+        newest_es: []
     },
     jp: {
         num_units: 0,
         num_items: 0,
+        num_es: 0,
         newest_units: [],
-        newest_items: []
+        newest_items: [],
+        newest_es: []
     },
     eu: {
         num_units: 0,
         num_items: 0,
+        num_es: 0,
         newest_units: [],
-        newest_items: []
+        newest_items: [],
+        newest_es: []
     }
     
 };
-
-function create_id_array(json_obj){
-    var array = [];
-    for(var o in json_obj){
-        array.push(json_obj[o].id.toString());
-    }
-    return array;
-}
 
 //donwnload a single file
 function json_download_promisified(url,local_name){
@@ -313,6 +312,11 @@ function single_server_db_load(server){
             .then(function (result) {
                 mini_db.evo = result;
             }).catch(reject);
+
+        var es_promise = load_json_promisified('es-' + server + '.json', ['evo_list-' + server + '-old.json'])
+            .then(function (result) {
+                mini_db.es = result;
+            }).catch(reject);
         
         var item_promise = load_json_promisified('items-' + server + '.json', ['items-' + server + '-old.json'])
             .then(function (result) {
@@ -320,7 +324,7 @@ function single_server_db_load(server){
             }).catch(reject);
         
         //process files once finished loading
-        Promise.all([main_promise, sp_promise, evo_promise])
+        Promise.all([main_promise, sp_promise, evo_promise, es_promise, item_promise])
             .then(function(results){ //finished loading JSON files
                 console.log("Successfully opened files for " + server, "\nProceeding to load them now.");
                 //merge into one database object
@@ -334,10 +338,22 @@ function single_server_db_load(server){
                     unit1.skills = unit2.skills;
                 });
 
+                var present_IDs = get_es_ids(mini_db.main);
+                // console.log(present_IDs);
+                for(let e in mini_db.es){
+                    // console.log(e);
+                    //remove ES already in in main unit DB
+                    if(_.sortedIndexOf(present_IDs,parseInt(e)) > -1){
+                        delete mini_db.es[e];
+                        // console.log("Removing ES",e);
+                    }
+                }
+
                 //return merged databases
                 fulfill({
                     unit: mini_db.main,
-                    item: mini_db.items
+                    item: mini_db.items,
+                    es: mini_db.es
                 });
             }).catch(reject);
     });
@@ -368,6 +384,7 @@ function load_database(master){
     return new Promise(function(fulfill,reject){
         master.unit = {};
         master.item = {};
+        master.es = {};
 
         console.log("Loading individual databases");
         var global = single_server_db_load('gl').catch(reject);
@@ -386,6 +403,11 @@ function load_database(master){
                 master.item = merge_databases(master.item, results[0].item, 'gl');
                 master.item = merge_databases(master.item, results[2].item, 'eu');
                 master.item = merge_databases(master.item, results[1].item, 'jp');
+
+                console.log("Merging ES databases...");
+                master.es = merge_databases(master.es, results[0].es, 'gl');
+                master.es = merge_databases(master.es, results[2].es, 'eu');
+                master.es = merge_databases(master.es, results[1].es, 'jp');
 
                 translate_recipes(master.item);
                 get_item_usage(master.item);
@@ -452,9 +474,11 @@ function update_statistics(){
         //gather basic statistics
         var unit_id = get_ids_from_server(server,master_list.unit);
         var item_id = get_ids_from_server(server,master_list.item);
-        console.log(server,"current unit count", unit_id.length,"/ current item count", item_id.length);
+        var es_id = get_ids_from_server(server, master_list.es);
+        console.log(server,"current unit count", unit_id.length,"/ current item count", item_id.length, '/ current es count', es_id.length);
         stats[server].num_units = unit_id.length;
         stats[server].num_items = item_id.length;
+        stats[server].num_es = es_id.length;
 
         //load previous data, if it exists
         var unit_data;
@@ -500,9 +524,31 @@ function update_statistics(){
             updater.save('stats-item-' + server + '.json', JSON.stringify(item_data));
         }
 
+        var es_data;
+        try {
+            es_data = updater.load('stats-es-' + server + ".json");
+
+            //save differences, if any
+            if (es_data.last_loaded.length !== stats[server].num_es || es_data.last_loaded[0] !== es_id[0]) {
+                if (es_data.last_loaded.length !== stats[server].num_es) console.log(server, "es last length", es_data.last_loaded.length, "/ es cur length", stats[server].num_ess);
+                else if (es_data.last_loaded[0] !== es_id[0]) console.log(server, "es last loaded[0]", es_data.last_loaded[0], "/ es current loaded[0]", es_id[0]);
+                es_data.newest = get_db_diffs(es_data.last_loaded, es_id);
+                es_data.last_loaded = es_id;
+                updater.save('stats-es-' + server + '.json', JSON.stringify(es_data));
+            }
+        } catch (err) { //file doesn't exist
+            console.log("Creating new es stats file for", server);
+            es_data = {
+                newest: es_id,
+                last_loaded: es_id
+            };
+            updater.save('stats-es-' + server + '.json', JSON.stringify(es_data));
+        }
+
         //keep track of newest on server
         stats[server].newest_units = unit_data.newest;
         stats[server].newest_items = item_data.newest;
+        stats[server].newest_es = es_data.newest;
     }
 
     console.log("Updating statistics...");
@@ -520,7 +566,7 @@ function reload_database(){
         console.log("Preparing to reload database...");
 
         console.log("Saving old files");
-        var db_type = ['info','feskills','items','evo_list'];
+        var db_type = ['info','feskills','items','evo_list','es'];
         var servers = ['gl','jp','eu'];
 
         var promises = [];
@@ -543,6 +589,7 @@ function reload_database(){
                 // var sp_requests = [];
                 var other_requests = [];
                 var completed = 0;
+                //generate URLs to download from
                 for(var d = 0; d < db_type.length; ++d){
                     for(var s = 0; s < servers.length; ++s){
                         var url = main_url;
@@ -600,7 +647,7 @@ app.get('/status', function(request,response){
 app.get('/reload', function(request,response){
     reload_database().then(function(){
         if (!argv.notranslate) {
-            var translations = [translate_jp_units(), translate_jp_items()];
+            var translations = [translate_jp_units(), translate_jp_items(), translate_jp_es()];
             Promise.all(translations)
                 .then(function (result) {
                     send_updates().then(function (results) {
@@ -627,7 +674,15 @@ app.get('/item/:id', function(request,response){
         response.end(JSON.stringify({ error: request.params.id + " is not found" }));
     else
         response.end(JSON.stringify(item));
-})
+});
+
+app.get('/es/:id', function(request,response){
+    var es = master_list.es[request.params.id];
+    if (es === undefined)
+        response.end(JSON.stringify({ error: request.params.id + " is not found" }));
+    else
+        response.end(JSON.stringify(es));
+});
 
 function safe_json_get(json_obj, fields_arr, default_return){
     var curValue = json_obj;
@@ -932,6 +987,95 @@ app.get('/search/item/options', function (request, response) {
     response.end(JSON.stringify(results));
 });
 
+
+function get_es_query_value(queryField, es) {
+    try {
+        switch (queryField) {
+            case 'es_name_id':
+                return es["name"].toLowerCase() + + (es.translated_name ? (" " + es.translated_name.toLowerCase()) : "") + `(${es["id"]})`;
+            case 'es_desc': return es["desc"].toLowerCase();
+            case 'effects': return JSON.stringify(es["effects"]);
+            case 'server': return JSON.stringify(es["server"]);
+            default: return "";
+        }
+    } catch (err) {
+        // console.log(err);
+        return "";
+    }
+}
+
+
+//returns true if all non-empty query values are in the given ES
+function contains_es_query(query, es) {
+    var ignored_fields = ['strict', 'translate', 'verbose'];
+    for (var q in query) {
+        var curQuery = query[q].toLowerCase();
+        //wildcard queries
+        if (curQuery == '' || (q == 'type' && curQuery == 'any') ||
+            (q == 'sphere_type' && curQuery == 'any') ||
+            (q == 'server' && curQuery == 'any') || ignored_fields.indexOf(q) > -1) {
+            continue;
+        }
+
+        try {
+            var esValue = get_es_query_value(q, es).toString();
+            if (esValue.indexOf(curQuery) == -1) {
+                return false; //stop if any part of query is not in es
+            }
+        } catch (err) { //only occurs if requested field is empty in es
+            return false;
+        }
+    }
+    return true;
+}
+
+app.get('/search/es/options',function(request,response){
+    var query = request.query;
+    if (query.verbose == true || query.verbose == 'true')
+        console.log("Query", query);
+    var results = [];
+    for(let e in master_list.es){
+        var es = master_list.es[e];
+        if(contains_es_query(query,es))
+            results.push(es["id"]);
+    }
+    if (query.verbose == true || query.verbose == 'true')
+        console.log("Search results", results);
+    response.end(JSON.stringify(results));
+});
+
+//arr - array where each index has 2 fields: id (search attribute) and name
+//start/end - start and end values to filter from arr
+//comparatorFn - function used to filter (optional)
+function get_list(arr,start,end,comparatorFn){
+    function default_comparator(d){
+        let id = parseInt(d.id);
+        if (start !== -1 && end !== -1) {
+            return id >= start && id <= end;
+        } else if (end !== -1) {
+            return id <= end;
+        } else if (start !== -1) {
+            return id >= start;
+        } else {
+            return true; //get everything, since both are -1
+        }
+    }
+
+    try {
+        let comparator = comparatorFn || default_comparator;
+        var list = arr.filter(comparator);
+
+        //convert array to array of names
+        list = list.map(function (d) {
+            return d.name;
+        });
+
+        return list;
+    } catch (err) {
+        throw err;
+    }
+}
+
 app.get('/list/items', function(request,response){
     var query = request.query;
 
@@ -954,28 +1098,49 @@ app.get('/list/items', function(request,response){
         var start = (query.start) ? parseInt(query.start) : -1;
         var end = (query.end) ? parseInt(query.end) : -1;
 
-        list = list.filter(function(d){
-            let id = parseInt(d.id);
-            if(start !== -1 && end !== -1){
-                return id >= start && id <= end;
-            }else if(start === -1){
-                return id <= end;
-            }else if(end === -1){
-                return id >= start;
-            }else{
-                return true; //get everything, since both are -1
-            }
-        });
+        if (query.verbose)
+            console.log("start:", start, "end:", end);
 
-        //convert array to array of names
-        list = list.map(function(d){
-            return d.name;
-        });
+        var result = get_list(list,start,end);
 
-        response.end(JSON.stringify(list));
+        response.end(JSON.stringify(result));
     }catch(err){
         console.log(err);
-        response.end(JSON.stringify(err));
+        response.end(JSON.stringify([err]));
+    }
+});
+
+app.get('/list/es', function(request,response){
+    var query = request.query;
+
+    query.verbose = query.verbose == true || query.verbose == 'true';
+
+    if (query.verbose)
+        console.log(query);
+
+    var list = [];
+
+    for (let i in master_list.es) {
+        var name = master_list.es[i].translated_name || master_list.es[i].name;
+        list.push({
+            id: parseInt(master_list.es[i].id),
+            name: `${name} (${master_list.es[i].id})`
+        });
+    }
+
+    try {
+        var start = (query.start) ? parseInt(query.start) : -1;
+        var end = (query.end) ? parseInt(query.end) : -1;
+
+        if(query.verbose)
+            console.log("start:",start,"end:",end);
+
+        var result = get_list(list, start, end);
+
+        response.end(JSON.stringify(result));
+    } catch (err) {
+        console.log(err);
+        response.end(JSON.stringify([err]));
     }
 });
 
@@ -1008,26 +1173,23 @@ app.get('/list/units', function(request,response){
     try{
         var start = (query.start) ? parseInt(query.start) : -1;
         var end = (query.end) ? parseInt(query.end) : -1;
+        var result;
+        if (query.verbose)
+            console.log("start:", start, "end:", end);
+
         if(query.type == "unit_id"){
-            list = list.filter(function (d) {
-                let id = parseInt(d.id);
-                if (start !== -1 && end !== -1) {
-                    return id >= start && id <= end;
-                } else if (start === -1) {
-                    return id <= end;
-                } else if (end === -1) {
-                    return id >= start;
-                } else {
-                    return true; //get everything, since both are -1
-                }
-            });
+            result = get_list(list, start, end);
 
         }else if(query.type == "guide_id"){
             list.sort(function(a,b){
                 return a.guide_id - b.guide_id;
             });
 
-            list = list.filter(function (d) {
+            if (query.verbose)
+                console.log("start:", start, "end:", end);
+
+            //custom function due to guide_id
+            result = get_list(list, start, end,function (d) {
                 let id = parseInt(d.guide_id);
                 if (start !== -1 && end !== -1) {
                     return id >= start && id <= end;
@@ -1043,11 +1205,7 @@ app.get('/list/units', function(request,response){
             throw "Query Type " + query.type + " is not valid"; 
         }
 
-        //convert array to array of names
-        list = list.map(function (d) {
-            return d.name;
-        });
-        response.end(JSON.stringify(list));
+        response.end(JSON.stringify(result));
     }catch(err){
         console.log(err);
         response.end(JSON.stringify(err)); //return an empty array
@@ -1139,6 +1297,40 @@ function isJapaneseText(name) {
     return name.search(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/) > -1;
 }
 
+function translate_jp_es() {
+    return new Promise(function (fulfill, reject) {
+        var es_to_translate = [];
+        var count_finished = 0;
+        for (var i in master_list.es) {
+            var curES = master_list.es[i];
+            if (isJapaneseText(curES.name)) {
+                es_to_translate.push(curES);
+            }
+        }
+        console.log("Translating " + es_to_translate.length + " ES");
+        // Promise.all(promises)
+        do_n_at_a_time(es_to_translate, 10, function (es) {
+            return translate_unit_name(es)
+                .then(function (translated_es) {
+                    console.log("Translated es " + translated_es.id + " (" + (++count_finished) + "/" + es_to_translate.length + ")");
+                    return translated_es;
+                })
+        }).then(function (results) {
+            //put translated ES into master list
+            console.log("Putting translated JP ES into list now.");
+            // console.log(results);
+            for (var r in results) {
+                var curES = results[r];
+                master_list.es[curES.id] = curES;
+            }
+        })
+            .then(function () {
+                console.log("Finished translating JP ES.");
+                fulfill();
+            }).catch(reject);
+    });
+}
+
 function translate_jp_items(){
     return new Promise(function(fulfill,reject){
         // console.log("Translating items");
@@ -1217,7 +1409,7 @@ var server = app.listen(argv["port"], argv["ip"], function(){
                 var host = server.address().address;
                 var port = server.address().port;
                 if (!argv.notranslate){
-                    var translations = [translate_jp_units(),translate_jp_items()];
+                    var translations = [translate_jp_units(), translate_jp_items(), translate_jp_es()];
                     Promise.all(translations)
                         .then(function(result){
                             send_updates().then(function (results) {
@@ -1240,7 +1432,7 @@ var server = app.listen(argv["port"], argv["ip"], function(){
         load_database(master_list)
             .then(function(){
                 if (!argv.notranslate) {
-                    var translations = [translate_jp_units(), translate_jp_items()];
+                    var translations = [translate_jp_units(), translate_jp_items(), translate_jp_es()];
                     return Promise.all(translations)
                         .then(function (result) {
                             console.log("Ready! Server listening at http://%s:%s", host, port);
@@ -1328,6 +1520,7 @@ function wiki_move(server){
     console.log("Done");
 }
 
+//generate a all_buff_id.json
 function getBuffDataForAll(units, items){
     function mergeArrays(main,sub){
         for(var i = 0; i < sub.length; ++i){
@@ -1420,6 +1613,7 @@ function getBuffDataForAll(units, items){
     return result;
 }
 
+//send database statistics to Discord webhooks
 function send_updates(){
     function create_sectional_messages(data_arr,msg_len,acc_limit){
         var msg_arr = [];
@@ -1453,11 +1647,11 @@ function send_updates(){
     function get_server_statistics(stats, server_name, type){
         var newest = stats[`newest_${type.toLowerCase()}`];
         var field_title = `${server_name} Server - ${type}`;
-        var msg = `${server_name} has ` + stats[`num_${type.toLowerCase()}`] + ` ${type}.`;
-        if(newest.length > 0){
+        var msg = `${server_name} has ` + stats[`num_${type.toLowerCase()}`] + ` ${type}. `;
+        if(newest.length > 0 && newest.length !== stats[`num_${type.toLowerCase()}`]){
             msg += `The ${newest.length} new ${type.toLowerCase()} are:\n`;
         }else{
-            msg += `There are ${newest.length} new ${type.toLowerCase()}`;
+            msg += `There are ${newest.length} new ${type.toLowerCase()}.`;
             return [
                 {
                     title: field_title,
@@ -1478,6 +1672,12 @@ function send_updates(){
                 let curItem = master_list.item[newest[i]];
                 let name = (curItem.translated_name) ? curItem.translated_name : curItem.name;
                 parsed_newest.push(`${name} (${curItem.id})\n`);
+            }
+        }else if(type === "ES"){
+            for (let i = 0; i < newest.length; ++i) {
+                let curES = master_list.es[newest[i]];
+                let name = (curES.translated_name) ? curES.translated_name : curES.name;
+                parsed_newest.push(`${name} (${curES.id})\n`);
             }
         }else{
             msg += "Error: Unknown type " + type;
@@ -1515,7 +1715,7 @@ function send_updates(){
             eu: "Europe"
         }
 
-        var types = ["Units", "Items"];
+        var types = ["Units", "Items", "ES"];
 
         var fields = [];
         for(let m in mapping){
@@ -1586,14 +1786,28 @@ function send_updates(){
     return Promise.all(promises);
 }
 
+function get_es_ids(unit_db){
+    var ids = [];
+    //get all ES IDs
+    for(let u in unit_db){
+        if(unit_db[u]["extra skill"])
+            ids.push(parseInt(unit_db[u]["extra skill"].id));
+    }
+
+    //sort for easier searching
+    ids.sort(function(a,b){
+        return a - b;
+    });
+    return ids;
+}
+
 function test_function(){
     console.log("Entered test function");
     
     // send_updates().then(function(results){
     //     console.log("Sent update hooks");
     // });
-    var unit_list = get_ids_from_server('jp', master_list.item);
-    console.log(unit_list.length, unit_list[unit_list.length - 1]);
+    // console.log(master_list.es);
     // var result = getBuffDataForAll(master_list.unit,master_list.item);
     // fs.writeFileSync("./all_buff_id.json", JSON.stringify(result));
     console.log("Done");

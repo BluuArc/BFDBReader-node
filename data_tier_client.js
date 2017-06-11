@@ -168,7 +168,7 @@ function bfdb_client(){
     //get multiple items by ID
     this.getItems = function(id_arr){
         return do_n_at_a_time(id_arr,5,getItem);
-    }
+    };
 
     //search for an item given a set of parameters
     this.searchItem = function (query) {
@@ -214,6 +214,80 @@ function bfdb_client(){
         });
     };
 
+    function getExtraSkill(id){
+        return new Promise(function (fulfill, reject) {
+            //check if all parameters are properly set
+            if (address === undefined || address.length === 0) {
+                reject("Error: No URL specified. Use .setAddress(url) to fix.");
+            } else if (id === undefined || id.length === 0) {
+                reject("Error: No ID specified.");
+            } else {
+
+                var options = {
+                    method: 'GET',
+                    uri: address + "/es/" + id
+                };
+
+                request(options)
+                    .then(function (response) {
+                        fulfill(JSON.parse(response));
+                    }).catch(reject);
+            }
+        });
+    }
+    this.getExtraSkill = getExtraSkill;
+
+    //get multiple extra skills by ID
+    this.getExtraSkills = function (id_arr) {
+        return do_n_at_a_time(id_arr, 5, getExtraSkill);
+    };
+
+    //search for an item given a set of parameters
+    this.searchExtraSkill = function (query) {
+        function extraSkillQueryValid(query) {
+            var isValid = false;
+            var validKeys = Object.keys({
+                es_name_id: "",
+                es_desc: "",
+                effects: "",
+                server: "",
+                translate: "",
+            });
+            var queryKeys = Object.keys(query);
+            for (var i = 0; i < queryKeys.length; ++i) {
+                if (validKeys.indexOf(queryKeys[i]) > -1) {
+                    isValid = true;
+                }
+            }
+            return isValid;
+        }
+        return new Promise(function (fulfill, reject) {
+            //check if all parameters are properly set
+            if (address === undefined || address.length === 0) {
+                reject("Error: No URL specified. Use .setAddress(url) to fix.");
+            } else if (query === undefined) {
+                reject("Error: No query specified.");
+            } else if (!extraSkillQueryValid(query)) {
+                reject("Error: Query isn't valid.");
+            } else {
+                var options = {
+                    method: 'GET',
+                    uri: encodeURI(address + "/search/es/options?" + get_request_options(query))
+                };
+
+                if(query.verbose){
+                    console.log("Given",query);
+                    console.log("Searching with",options.uri);
+                }
+
+                request(options)
+                    .then(function (response) {
+                        fulfill(JSON.parse(response));
+                    }).catch(reject);
+            }
+        });
+    };
+
     this.getStatus = function(){
         return new Promise(function (fulfill, reject) {
             //check if all parameters are properly set
@@ -231,7 +305,7 @@ function bfdb_client(){
                     }).catch(reject);
             }
         });
-    }
+    };
 }
 
 var client = new bfdb_client();
