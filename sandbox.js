@@ -1188,15 +1188,17 @@ function doUnitTest(){
 }
 
 var BuffScraper = function(){
-    var result_obj = undefined;
+    var result_obj;
     //object_id: ID of unit/item
     //cur_object: object currently being analyzed
     //acc_object: object to store all the data (pass in result_obj)
     //object_type: unit or item
     function getBuffData (object_id, cur_object, acc_object, object_type) {
         function addObjectToAccumulator(object_id, cur_object, index_object, object_type) {
-            let gray_listed = ["hit dmg% distribution", "hit dmg% distribution (total)", "frame times"];
-            let black_listed = ['proc id', 'passive id']; //prevent duplicate info
+            let gray_listed = ["hit dmg% distribution", "frame times"];
+            let black_listed = ['proc id', 'passive id']; //prevent duplicate info`
+            let type_value = `${object_type}_value`;
+            let type_id = `${object_type}_id`;
             //for every field in cur_object
             for (let f in cur_object) {
                 if (black_listed.indexOf(f) > -1) continue; //ignore blacklisted fields
@@ -1211,30 +1213,37 @@ var BuffScraper = function(){
                 //result_object.proc["proc_id_1"][f]["unit" or "item"] = {
                 //  values:[], id: []
                 //}
-                if (index_object[f][object_type] === undefined) {
-                    index_object[f][object_type] = {
-                        values: [],
-                        id: []
-                    };
-                }
+                
                 //if it's not a graylisted type
                 if (gray_listed.indexOf(f) === -1) {
+                    if (index_object[f][type_value] === undefined) {
+                        index_object[f][type_value] = {};
+                    }
                     let field_value = (function (value) {
                         if (typeof value === "object" || value instanceof Array) {
                             return JSON.stringify(value);
+                        }else if(typeof value !== "string"){
+                            return value.toString();
                         } else {
                             return value;
                         }
-                    })(cur_object[f])
+                    })(cur_object[f]);
                     //if there's a unique value, add it to the index_object
-                    if (index_object[f][object_type].values.indexOf(field_value) === -1 && index_object[f][object_type].id.indexOf(object_id) === -1) {
-                        index_object[f][object_type].values.push(field_value);
-                        index_object[f][object_type].id.push(object_id);
+                    // if (index_object[f][object_type].values.indexOf(field_value) === -1 && index_object[f][object_type].id.indexOf(object_id) === -1) {
+                    //     index_object[f][object_type].values.push(field_value);
+                    //     index_object[f][object_type].id.push(object_id);
+                    // }
+                    if (index_object[f][type_value][field_value] === undefined){
+                        index_object[f][type_value][field_value] = object_id;
                     }
                 } else { //add to the IDs list if length is less than 5 and object_id is not in list yet
-                    if (index_object[f][object_type].id.length < 5 && index_object[f][object_type].id.indexOf(object_id) === -1) {
-                        index_object[f][object_type].id.push(object_id);
+                    if (index_object[f][type_id] === undefined) {
+                        index_object[f][type_id] = [];
                     }
+                    if (index_object[f][type_id].length < 5 && index_object[f][type_id].indexOf(object_id) === -1) {
+                        index_object[f][type_id].push(object_id);
+                    }
+                    
                 }
             }
             return;
