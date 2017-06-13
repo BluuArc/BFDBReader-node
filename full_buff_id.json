@@ -1,0 +1,1326 @@
+{
+    "unknown_buff_id_21": {
+        "buff turns (21)": {
+            "items": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "21"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "20"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_22": {
+        "buff turns (22)": {
+            "items": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "22"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "20"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_23": {
+        "buff turns (23)": {
+            "items": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "23"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "20"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_24": {
+        "buff turns (24)": {
+            "items": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "24"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "20"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_25": {
+        "buff turns (25)": {
+            "items": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "25"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "20"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_26": {
+        "buff turns (26)": {
+            "items": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "26"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "20"
+                ],
+                "id": [
+                    "62300"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_46": {
+        "buff turns (46)": {
+            "es": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "730216"
+                ]
+            },
+            "info": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "730216"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "es": {
+                "values": [
+                    "46"
+                ],
+                "id": [
+                    "730216"
+                ]
+            },
+            "info": {
+                "values": [
+                    "46"
+                ],
+                "id": [
+                    "730216"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "es": {
+                "values": [
+                    "2&50"
+                ],
+                "id": [
+                    "730216"
+                ]
+            },
+            "info": {
+                "values": [
+                    "2&50"
+                ],
+                "id": [
+                    "730216"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_51": {
+        "buff turns (51)": {
+            "items": {
+                "values": [
+                    "2",
+                    "3"
+                ],
+                "id": [
+                    "48900",
+                    "62240"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "51"
+                ],
+                "id": [
+                    "48900"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "0"
+                ],
+                "id": [
+                    "48900"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_52": {
+        "buff turns (52)": {
+            "items": {
+                "values": [
+                    "2",
+                    "3"
+                ],
+                "id": [
+                    "48900",
+                    "62240"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "52"
+                ],
+                "id": [
+                    "48900"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "0"
+                ],
+                "id": [
+                    "48900"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_53": {
+        "buff turns (53)": {
+            "items": {
+                "values": [
+                    "2",
+                    "3"
+                ],
+                "id": [
+                    "48900",
+                    "62240"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "53"
+                ],
+                "id": [
+                    "48900"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "0"
+                ],
+                "id": [
+                    "48900"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_54": {
+        "buff turns (54)": {
+            "items": {
+                "values": [
+                    "2",
+                    "3"
+                ],
+                "id": [
+                    "48900",
+                    "62240"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "54"
+                ],
+                "id": [
+                    "48900"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "0"
+                ],
+                "id": [
+                    "48900"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_55": {
+        "buff turns (55)": {
+            "items": {
+                "values": [
+                    "3"
+                ],
+                "id": [
+                    "819006"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "55"
+                ],
+                "id": [
+                    "819006"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "0"
+                ],
+                "id": [
+                    "819006"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_56": {
+        "buff turns (56)": {
+            "items": {
+                "values": [
+                    "3"
+                ],
+                "id": [
+                    "819007"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "56"
+                ],
+                "id": [
+                    "819007"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "0"
+                ],
+                "id": [
+                    "819007"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_74": {
+        "buff turns (74)": {
+            "es": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "22000"
+                ]
+            },
+            "info": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "30517"
+                ]
+            },
+            "items": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "49960"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "1932"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "es": {
+                "values": [
+                    "74"
+                ],
+                "id": [
+                    "22000"
+                ]
+            },
+            "info": {
+                "values": [
+                    "74"
+                ],
+                "id": [
+                    "30517"
+                ]
+            },
+            "items": {
+                "values": [
+                    "74"
+                ],
+                "id": [
+                    "49960"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "74"
+                ],
+                "id": [
+                    "1932"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "es": {
+                "values": [
+                    "-20&30&1"
+                ],
+                "id": [
+                    "22000"
+                ]
+            },
+            "info": {
+                "values": [
+                    "-20&30&1"
+                ],
+                "id": [
+                    "30517"
+                ]
+            },
+            "items": {
+                "values": [
+                    "-25&40&1"
+                ],
+                "id": [
+                    "49960"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "-20&30&1"
+                ],
+                "id": [
+                    "1932"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_75": {
+        "buff turns (75)": {
+            "es": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "22000"
+                ]
+            },
+            "info": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "50945"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "1932"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "es": {
+                "values": [
+                    "75"
+                ],
+                "id": [
+                    "22000"
+                ]
+            },
+            "info": {
+                "values": [
+                    "75"
+                ],
+                "id": [
+                    "50945"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "75"
+                ],
+                "id": [
+                    "1932"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "es": {
+                "values": [
+                    "-20&30&1"
+                ],
+                "id": [
+                    "22000"
+                ]
+            },
+            "info": {
+                "values": [
+                    "-20&30&1"
+                ],
+                "id": [
+                    "50945"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "-20&30&1"
+                ],
+                "id": [
+                    "1932"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_77": {
+        "buff turns (77)": {
+            "info": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "740237"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "info": {
+                "values": [
+                    "77"
+                ],
+                "id": [
+                    "740237"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "info": {
+                "values": [
+                    "10000"
+                ],
+                "id": [
+                    "740237"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_84": {
+        "buff turns (84)": {
+            "es": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "740146"
+                ]
+            },
+            "info": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "730186"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "730186"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "es": {
+                "values": [
+                    "84"
+                ],
+                "id": [
+                    "740146"
+                ]
+            },
+            "info": {
+                "values": [
+                    "84"
+                ],
+                "id": [
+                    "730186"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "84"
+                ],
+                "id": [
+                    "730186"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "es": {
+                "values": [
+                    "1.5"
+                ],
+                "id": [
+                    "740146"
+                ]
+            },
+            "info": {
+                "values": [
+                    "1.5"
+                ],
+                "id": [
+                    "730186"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "1.5"
+                ],
+                "id": [
+                    "730186"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_99": {
+        "buff turns (99)": {
+            "items": {
+                "values": [
+                    "-1"
+                ],
+                "id": [
+                    "62310"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "99"
+                ],
+                "id": [
+                    "62310"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "5&2000&2000&0&100"
+                ],
+                "id": [
+                    "62310"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_110": {
+        "buff turns (110)": {
+            "items": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "701015"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "110"
+                ],
+                "id": [
+                    "701015"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "50"
+                ],
+                "id": [
+                    "701015"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_123": {
+        "buff turns (123)": {
+            "es": {
+                "values": [
+                    "1"
+                ],
+                "id": [
+                    "720216"
+                ]
+            },
+            "info": {
+                "values": [
+                    "1"
+                ],
+                "id": [
+                    "720216"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "es": {
+                "values": [
+                    "123"
+                ],
+                "id": [
+                    "720216"
+                ]
+            },
+            "info": {
+                "values": [
+                    "123"
+                ],
+                "id": [
+                    "720216"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "es": {
+                "values": [
+                    "1&100"
+                ],
+                "id": [
+                    "720216"
+                ]
+            },
+            "info": {
+                "values": [
+                    "1&100"
+                ],
+                "id": [
+                    "720216"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_131": {
+        "buff turns (131)": {
+            "info": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "40916"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "1956"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "info": {
+                "values": [
+                    "131"
+                ],
+                "id": [
+                    "40916"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "131"
+                ],
+                "id": [
+                    "1956"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "info": {
+                "values": [
+                    "20&50",
+                    "10&50",
+                    "15&50"
+                ],
+                "id": [
+                    "40916",
+                    "40946",
+                    "40947"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "20&50"
+                ],
+                "id": [
+                    "1956"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_132": {
+        "buff turns (132)": {
+            "es": {
+                "values": [
+                    "1",
+                    "3"
+                ],
+                "id": [
+                    "16800",
+                    "1015830"
+                ]
+            },
+            "info": {
+                "values": [
+                    "2",
+                    "1"
+                ],
+                "id": [
+                    "30897",
+                    "40776"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "10133"
+                ]
+            },
+            "items": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "701020"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "es": {
+                "values": [
+                    "132"
+                ],
+                "id": [
+                    "16800"
+                ]
+            },
+            "info": {
+                "values": [
+                    "132"
+                ],
+                "id": [
+                    "30897"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "132"
+                ],
+                "id": [
+                    "10133"
+                ]
+            },
+            "items": {
+                "values": [
+                    "132"
+                ],
+                "id": [
+                    "701020"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "es": {
+                "values": [
+                    "300&1&0",
+                    "10&3&50",
+                    "150&1&0",
+                    "200&1&0"
+                ],
+                "id": [
+                    "16800",
+                    "1015830",
+                    "740196",
+                    "740197"
+                ]
+            },
+            "info": {
+                "values": [
+                    "20&2&0",
+                    "300&1&0",
+                    "150&1&0",
+                    "200&1&0"
+                ],
+                "id": [
+                    "30897",
+                    "40776",
+                    "740196",
+                    "740197"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "20&2&0"
+                ],
+                "id": [
+                    "10133"
+                ]
+            },
+            "items": {
+                "values": [
+                    "20"
+                ],
+                "id": [
+                    "701020"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_133": {
+        "buff turns (133)": {
+            "items": {
+                "values": [
+                    "0"
+                ],
+                "id": [
+                    "47214"
+                ]
+            },
+            "info": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "720216"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "720216"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "133"
+                ],
+                "id": [
+                    "47214"
+                ]
+            },
+            "info": {
+                "values": [
+                    "133"
+                ],
+                "id": [
+                    "720216"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "133"
+                ],
+                "id": [
+                    "720216"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "10&20&100"
+                ],
+                "id": [
+                    "47214"
+                ]
+            },
+            "info": {
+                "values": [
+                    "10&10&100"
+                ],
+                "id": [
+                    "720216"
+                ]
+            },
+            "ls": {
+                "values": [
+                    "10&10&100"
+                ],
+                "id": [
+                    "720216"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_143": {
+        "buff turns (143)": {
+            "es": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "1028300"
+                ]
+            },
+            "items": {
+                "values": [
+                    "1"
+                ],
+                "id": [
+                    "62310"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "es": {
+                "values": [
+                    "143"
+                ],
+                "id": [
+                    "1028300"
+                ]
+            },
+            "items": {
+                "values": [
+                    "143"
+                ],
+                "id": [
+                    "62310"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "es": {
+                "values": [
+                    "100&100&100"
+                ],
+                "id": [
+                    "1028300"
+                ]
+            },
+            "items": {
+                "values": [
+                    "100&100&100"
+                ],
+                "id": [
+                    "62310"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_144": {
+        "buff turns (144)": {
+            "es": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "1028300"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "es": {
+                "values": [
+                    "144"
+                ],
+                "id": [
+                    "1028300"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "es": {
+                "values": [
+                    "100&100"
+                ],
+                "id": [
+                    "1028300"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_145": {
+        "buff turns (145)": {
+            "es": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "1028300"
+                ]
+            },
+            "items": {
+                "values": [
+                    "1"
+                ],
+                "id": [
+                    "62310"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "es": {
+                "values": [
+                    "145"
+                ],
+                "id": [
+                    "1028300"
+                ]
+            },
+            "items": {
+                "values": [
+                    "145"
+                ],
+                "id": [
+                    "62310"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "es": {
+                "values": [
+                    "100&100"
+                ],
+                "id": [
+                    "1028300"
+                ]
+            },
+            "items": {
+                "values": [
+                    "100&100"
+                ],
+                "id": [
+                    "62310"
+                ]
+            }
+        }
+    },
+    "unknown_buff_id_153": {
+        "buff turns (153)": {
+            "items": {
+                "values": [
+                    "0"
+                ],
+                "id": [
+                    "47214"
+                ]
+            },
+            "info": {
+                "values": [
+                    "2"
+                ],
+                "id": [
+                    "61185"
+                ]
+            }
+        },
+        "unknown buff id": {
+            "items": {
+                "values": [
+                    "153"
+                ],
+                "id": [
+                    "47214"
+                ]
+            },
+            "info": {
+                "values": [
+                    "153"
+                ],
+                "id": [
+                    "61185"
+                ]
+            }
+        },
+        "unknown buff params": {
+            "items": {
+                "values": [
+                    "-30&50&2"
+                ],
+                "id": [
+                    "47214"
+                ]
+            },
+            "info": {
+                "values": [
+                    "-10&20&2"
+                ],
+                "id": [
+                    "61185"
+                ]
+            }
+        }
+    }
+}
