@@ -1,4 +1,5 @@
 var client = require('./data_tier_client.js');
+var fs = require('fs');
 
 client.setAddress("http://127.0.0.1:8081");
 
@@ -1127,48 +1128,50 @@ var itemQuery = {
     verbose: true
 };
 
-// client.searchItem(itemQuery)
-    // .then(function(results){
-    //     if(results.length === 1){
-    //         // console.log(results);
-    //         // return client.getItem(result[0]);
-    //         return client.getItem(results[0]).then(function(item){
-    //             // console.log(JSON.stringify(item,null,'  '));
-    //             return get_full_usage(results[0]).then(function(result){
-    //                 // return JSON.stringify(result,null,'  ');
-    //                 var msg = `${item.name} (${item.id}) can be used to immediately make:\n`;
-    //                 for(let i = 0; i < result.immediate.length; ++i){
-    //                     msg += result.immediate[i] + "\n";
-    //                 }
+function doItemTest(){
+    return client.searchItem(itemQuery)
+        .then(function(results){
+            if(results.length === 1){
+                // console.log(results);
+                // return client.getItem(result[0]);
+                return client.getItem(results[0]).then(function(item){
+                    // console.log(JSON.stringify(item,null,'  '));
+                    return get_full_usage(results[0]).then(function(result){
+                        // return JSON.stringify(result,null,'  ');
+                        var msg = `${item.name} (${item.id}) can be used to immediately make:\n`;
+                        for(let i = 0; i < result.immediate.length; ++i){
+                            msg += result.immediate[i] + "\n";
+                        }
 
-    //                 msg += "\nIt is also a material for the following other items:\n";
-    //                 for(let i = 0; i < result.end.length; ++i){
-    //                     msg += result.end[i] + "\n";
-    //                 }
+                        msg += "\nIt is also a material for the following other items:\n";
+                        for(let i = 0; i < result.end.length; ++i){
+                            msg += result.end[i] + "\n";
+                        }
 
-    //                 return msg;
-    //             });
-    //             // return get_full_recipe(results[0]).then(function(result){
-    //             //     // var msg = "To make " + item.name + " you need:\n";
-    //             //     var msg = `To make ${item.name} (${item.id}) you need the following base materials:\n`;
-    //                 // for(var i = 0; i < result.length; ++i){
-    //                 //     // var count = result.counts[i];
-    //                 //     // var mat = result.result_str[i];
-    //                 //     // msg += count + "x " + mat + "\n";
-    //                 //     msg += `${result[i].count}x ${result[i].name}\n`;
-    //                 // }
-    //             //     return msg;
-    //             // });
-    //         });
-    //     }else{
-    //         return results;
-    //     }
-    // })
-    // .then(function (result) {
-    //     console.log(result);
-    //     // console.log(result.recipe.materials);
-    // })
-    // .catch(console.log);
+                        return msg;
+                    });
+                    // return get_full_recipe(results[0]).then(function(result){
+                    //     // var msg = "To make " + item.name + " you need:\n";
+                    //     var msg = `To make ${item.name} (${item.id}) you need the following base materials:\n`;
+                        // for(var i = 0; i < result.length; ++i){
+                        //     // var count = result.counts[i];
+                        //     // var mat = result.result_str[i];
+                        //     // msg += count + "x " + mat + "\n";
+                        //     msg += `${result[i].count}x ${result[i].name}\n`;
+                        // }
+                    //     return msg;
+                    // });
+                });
+            }else{
+                return results;
+            }
+        })
+        .then(function (result) {
+            console.log(result);
+            // console.log(result.recipe.materials);
+        })
+        .catch(console.log);
+}
 
 
 
@@ -1182,28 +1185,228 @@ var unitQuery = {
     // verbose: 'true'
 };
 
-client.searchUnit(unitQuery)
-    .then(function (result) {
-        if(result.length === 1){
-            return client.getUnit(result[0]).then(function(unit){
-                var burst_type = "bb";
-                console.log(unit[burst_type]["damage frames"]);
-                console.log(unit[burst_type].levels[0].effects);
-                if(unit.translated_name) console.log(unit.translated_name);
-                console.log(unit.name, unit.id);
-                console.log(unit[burst_type].desc);
-                return printBurst(unit, burst_type);
-                // console.log(unit);
-                // return print_evo(unit);
-            });
-        }else{
-            return result;
+function doUnitTest(){
+    return client.searchUnit(unitQuery)
+        .then(function (result) {
+            if(result.length === 1){
+                return client.getUnit(result[0]).then(function(unit){
+                    var burst_type = "bb";
+                    console.log(unit[burst_type]["damage frames"]);
+                    console.log(unit[burst_type].levels[0].effects);
+                    if(unit.translated_name) console.log(unit.translated_name);
+                    console.log(unit.name, unit.id);
+                    console.log(unit[burst_type].desc);
+                    return printBurst(unit, burst_type);
+                    // console.log(unit);
+                    // return print_evo(unit);
+                });
+            }else{
+                return result;
+            }
+        })
+        .then(function(result){
+            // console.log(result.split('\n\n'));
+            // console.log(result.length,result);
+            console.log(result);
+            // console.log(JSON.stringify(buff_processor.proc_buffs,null,2));
+        })
+        .catch(console.log);
+}
+
+var BuffScraper = function(){
+    var result_obj = undefined;
+    //object_id: ID of unit/item
+    //cur_object: object currently being analyzed
+    //acc_object: object to store all the data (pass in result_obj)
+    //object_type: unit or item
+    function getBuffData (object_id, cur_object, acc_object, object_type) {
+        function addObjectToAccumulator(object_id, cur_object, index_object, object_type) {
+            let gray_listed = ["hit dmg% distribution", "hit dmg% distribution (total)", "frame times"];
+            let black_listed = ['proc id', 'passive id']; //prevent duplicate info
+            //for every field in cur_object
+            for (let f in cur_object) {
+                if (black_listed.indexOf(f) > -1) continue; //ignore blacklisted fields
+
+                //if if doesn't exist, make it
+                if (index_object[f] === undefined) {
+                    index_object[f] = {}
+                }
+
+                //if unit or item array doesn't exist, create it
+                //e.g. if index_object is result_object.proc["proc_id_1"], then format is
+                //result_object.proc["proc_id_1"][f]["unit" or "item"] = {
+                //  values:[], id: []
+                //}
+                if (index_object[f][object_type] === undefined) {
+                    index_object[f][object_type] = {
+                        values: [],
+                        id: []
+                    };
+                }
+                //if it's not a graylisted type
+                if (gray_listed.indexOf(f) === -1) {
+                    let field_value = (function (value) {
+                        if (typeof value === "object" || value instanceof Array) {
+                            return JSON.stringify(value);
+                        } else {
+                            return value;
+                        }
+                    })(cur_object[f])
+                    //if there's a unique value, add it to the index_object
+                    if (index_object[f][object_type].values.indexOf(field_value) === -1 && index_object[f][object_type].id.indexOf(object_id) === -1) {
+                        index_object[f][object_type].values.push(field_value);
+                        index_object[f][object_type].id.push(object_id);
+                    }
+                } else { //add to the IDs list if length is less than 5 and object_id is not in list yet
+                    if (index_object[f][object_type].id.length < 5 && index_object[f][object_type].id.indexOf(object_id) === -1) {
+                        index_object[f][object_type].id.push(object_id);
+                    }
+                }
+            }
+            return;
         }
-    })
-    .then(function(result){
-        // console.log(result.split('\n\n'));
-        // console.log(result.length,result);
-        console.log(result);
-        // console.log(JSON.stringify(buff_processor.proc_buffs,null,2));
-    })
-    .catch(console.log);
+        //for every field in the object
+        for (let i in cur_object) {
+            //look for ID field in cur_object, then push cur_object if ID field exists
+            if (typeof cur_object[i] !== "object") {
+                //check for presence of IDs
+                let unique_index = "", property_type = ""
+                if (i.indexOf("unknown passive id") > -1) {
+                    property_type = "passive";
+                    unique_index = "unknown_passive_id_" + cur_object[i];
+                } else if (i.indexOf("passive id") > -1) {
+                    property_type = "passive";
+                    unique_index = "passive_id_" + cur_object[i];
+                } else if (i.indexOf("unknown proc id") > -1) {
+                    property_type = "proc";
+                    unique_index = "unknown_proc_id_" + cur_object[i];
+                } else if (i.indexOf("proc id") > -1) {
+                    property_type = "proc";
+                    unique_index = "proc_id_" + cur_object[i];
+                } else if (i.indexOf("unknown buff id") > -1) {
+                    property_type = "buff";
+                    unique_index = "unknown_buff_id_" + cur_object[i];
+                } else if (i.indexOf("buff id") > -1) {
+                    property_type = "buff";
+                    unique_index = "buff_id_" + cur_object[i];
+                }
+
+                //add current ID to list of property_type is found
+                if (property_type.length > 0) {
+                    //create index if it doesn't exist yet
+                    if (acc_object[property_type][unique_index] === undefined) {
+                        acc_object[property_type][unique_index] = {}
+                    }
+
+                    //add cur_object's keys, values, and ID to acc_object
+                    addObjectToAccumulator(object_id, cur_object, acc_object[property_type][unique_index], object_type);
+                }
+            } else {
+                //recursively look for data
+                if (typeof cur_object[i] === "object") {
+                    getBuffData(object_id, cur_object[i], acc_object, object_type);
+                } else if (cur_object[i] instanceof Array) {//traverse the array in reverse order
+                    let length = cur_object[i].length;
+                    for (let l = length - 1; l >= 0; --l) {
+                        getBuffData(object_id, cur_object[i][l], acc_object, object_type);
+                    }
+                }
+            }
+        }
+    }
+    this.getBuffData = getBuffData;
+
+    //array of objects where each index has two keys
+    //name and db
+    function getBuffDataForAllinDB(database, database_name) {
+        if(result_obj === undefined){
+            result_obj = {
+                passive: { },
+                proc: { },
+                buff: { }
+            };
+        }
+
+        //get buff data of all units
+        for(let id in database){
+            getBuffData(id,database[id],result_obj,database_name);
+        }
+
+        
+        // fs.writeFileSync("./test_buff_id.json", JSON.stringify(result_obj, null, "\t"));
+        // return result_obj;
+    }
+    this.getBuffDataForAllinDB = getBuffDataForAllinDB;
+
+    this.getResult = function(){
+        //sort each object in result_obj
+        let fields = Object.keys(result_obj);
+        for (let f = 0; f < fields.length; ++f) {
+            var sort_arr = [];
+            //put everything into an array
+            for (let id_field in result_obj[fields[f]]) {
+                sort_arr.push({
+                    prefix: id_field.split("id_")[0],
+                    id: id_field.split("id_")[1],
+                    data: result_obj[fields[f]][id_field]
+                });
+            }
+            //sort in ascending order
+            sort_arr.sort(function (a, b) {
+                let idA, idB;
+                try {
+                    idA = parseInt(a.id);
+                } catch (err) {
+                    //erroneous data should go at beginning of array
+                    return -1;
+                }
+
+                try {
+                    idB = parseInt(b.id);
+                } catch (err) {
+                    //b is erroneous, so a should go after it
+                    return 1;
+                }
+
+                //default sort in ascending order
+                return idA - idB;
+            });
+
+            //replace with sorted field
+            result_obj[fields[f]] = {};
+            for (let i = 0; i < sort_arr.length; ++i) {
+                result_obj[fields[f]][`${sort_arr[i].prefix}id_${sort_arr[i].id}`] = sort_arr[i].data;
+            }
+        }
+        return result_obj;
+    }
+
+}
+
+
+//scan all files and get buff data
+function getBuffDataForAll(){
+    let buff_scraper = new BuffScraper();
+    let db_types = ['bbs','es','feskills','info','items','ls'];
+    let servers = ['gl','eu','jp'];
+
+    for(let s = 0; s < servers.length; ++s){
+        for(let d = 0; d < db_types.length; ++d){
+            console.log(`Scraping ${db_types[d]}-${servers[s]}.json`);
+            let db = JSON.parse(fs.readFileSync(`./sandbox_data/${db_types[d]}-${servers[s]}.json`, 'utf8'));
+            buff_scraper.getBuffDataForAllinDB(db,db_types[d]);
+        }
+    }
+
+    var result = buff_scraper.getResult();
+    for(let f in result){
+        let filename = `./full_${f}_id.json`;
+        console.log("Saving",filename)
+        fs.writeFileSync(filename, JSON.stringify(result[f], null, 4));
+    }
+    
+    console.log("done");
+}
+
+
+// getBuffDataForAll();
