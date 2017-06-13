@@ -3,7 +3,7 @@ var fs = require('fs');
 
 client.setAddress("http://127.0.0.1:8081");
 
-var buff_processor = (function(){
+var BuffProcessor = function(){
     //helper functions
     function print_effect_legacy(effects) {
         var print_array = function (arr) {
@@ -1031,11 +1031,12 @@ var buff_processor = (function(){
         return msg;
     }
 
-    return {
-        print_buff: print_buff,
-        proc_buffs: proc_buffs
-    };
-})();
+    this.print_buff = print_buff;
+    this.proc_buffs = proc_buffs;
+};
+
+var buff_processor = new BuffProcessor();
+
 
 function print_effects_legacy(effects) {
     var print_array = function(arr) {
@@ -1075,33 +1076,6 @@ function print_effects_legacy(effects) {
         if (i + 1 != text_arr.length) text += " / ";
     }
     return text + "";
-}
-
-//given an effects object, print get its effects
-function printBuffs(effects, damage_frames, element){
-    var msg = "";
-    var id;
-    // console.log("Received " + effects);
-    if(effects["proc id"] !== undefined){
-        msg = proc_handler(effects,damage_frames, element);
-    }else if(effects["passive id"] !== undefined){
-        id = effects["passive id"];
-        msg += "Passive ID " + id + " is not supported yet.";
-    }else if(effects["unknown proc id"] !== undefined){
-        id = effects["unknown proc id"];
-        msg += "Proc ID " + id + " is not supported yet.";
-    }else if(effects["unknown passive id"] !== undefined){
-        id = effects["unknown proc id"];
-        msg += "Passive ID " + id + " is not supported yet.";
-    }else if(effects["unknown buff id"] !== undefined){
-        id = effects["unkown buff id"];
-        msg += "Buff ID " + id + " is not supported yet.";
-    }else{
-        console.log("Unkown effects object. Using legacy printer.");
-        // console.log(effects);
-        msg = print_effects_legacy(effects);
-    }
-    return msg;
 }
 
 function printBurst(unit, burst_type){
@@ -1409,4 +1383,4 @@ function getBuffDataForAll(){
 }
 
 
-// getBuffDataForAll();
+getBuffDataForAll();
