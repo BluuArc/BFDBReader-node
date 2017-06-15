@@ -449,25 +449,63 @@ var BuffProcessor = function(){
         return msg;
     }
 
+    function get_target(area,type){
+        if(typeof area === "object"){
+            type = area["target type"];
+            area = area["target area"];
+        }
+
+        if(area === "single" && type === "self"){
+            return " to self";
+        }else if(area === "aoe" && type === "party"){
+            return " to allies";
+        }else if(area === "aoe" && type === "enemy"){
+            return " to enemies";
+        }else if(area === "single" && type === "enemy"){
+            return " to an enemy";
+        }else if(area === "single" && type === "party"){
+            return " to an ally";
+        }else{
+            return ` (${area},${type})`;
+        }
+    }
+
+    function regular_atk_helper(effect){
+        let msg = "";
+        // if (effect["bb flat atk"]) msg += " (+" + effect["bb flat atk"] + " flat ATK)";
+        if (effect["bb bc%"]) msg += ", innate +" + effect["bb bc%"] + "% BC drop rate";
+        if (effect["bb crit%"]) msg += ", innate +" + effect["bb crit%"] + "% crit rate";
+        if (effect["bb hc%"]) msg += ", innate +" + effect["bb hc%"] + "% HC drop rate";
+        return msg;
+    }
+
     var buff_types = {
         attack: `unit attacks enemy`,
         buff: `unit gains some sort of enhancement to their stats or attacks, can last more than one turn`,
         debuff: `unit's attack inflicts some ailment onto the enemy`,
-        effect: `buff does something directly to the unit(s) on that turn; multiple instances of itself on the same turn will stack`
+        effect: `buff does something directly to the unit(s) on that turn; multiple instances of itself on the same turn will stack`,
+        none: `buff doesn't do anything; either bugged or developer value`
     }; 
     var proc_buffs = {
         '1': {
             desc: "Regular Attack",
             type: ["attack"],
-            func: function(effects,damage_frames,base_element){
-                var numHits = damage_frames.hits;
+            notes: ["Unless otherwise specified, the attack will always be toward the enemy"],
+            func: function(effect,other_data){
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
                 var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
-                msg += effects["bb atk%"] + "% ";
-                msg += (effects["target area"].toUpperCase() === "SINGLE") ? "ST" : effects["target area"].toUpperCase();
-                if (effects["bb flat atk"]) msg += " (+" + effects["bb flat atk"] + " flat ATK)";
-                if (effects["bb bc%"]) msg += ", innate +" + effects["bb bc%"] + "% BC drop rate";
-                if (effects["bb crit%"]) msg += ", innate +" + effects["bb crit%"] + "% crit rate";
-                if (effects["bb hc%"]) msg += ", innate +" + effects["bb hc%"] + "% HC drop rate";
+                if (effect["bb dmg%"]) msg += effect["bb dmg%"] + "% "; //case when using a burst from bbs.json
+                else msg += effect["bb atk%"] + "% ";
+                msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                let extra = [];
+                if (effect["bb flat atk"]) extra.push("+" + effect["bb flat atk"] + " flat ATK");
+                if (effect["hit dmg% distribution (total)"] && effect["hit dmg% distribution (total)"] !== 100) extra.push(`at ${effect["hit dmg% distribution (total)"]}% power`);
+               if(extra.length > 0) msg += ` (${extra.join(", ")})`;
+                msg += regular_atk_helper(effect);
+
+                if(effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
                 return msg;
             }
         },
@@ -475,23 +513,28 @@ var BuffProcessor = function(){
             desc: "Burst Heal",
             type: ["effect"],
             notes: ["if no hits are mentioned, then the burst heal happens all at once", "over multiple hits means that for every hit, units heal a fraction of the burst heal"],
-            func: function (effects, damage_frames, base_element){
-                var msg = get_formatted_minmax(effects['heal low'], effects['heal high']) + " HP burst heal ";
-                msg += "(+" + effects['rec added% (from healer)'] + "% healer REC)";
+            func: function (effect, other_data){
+                let damage_frames = other_data.damage_frames || {};
+                var msg = get_formatted_minmax(effect['heal low'], effect['heal high']) + " HP burst heal ";
+                msg += "(+" + effect['rec added% (from healer)'] + "% healer REC)";
                 if (damage_frames.hits > 1)
                     msg += " over " + damage_frames.hits + " hits";
-                msg += " (" + effects["target area"] + "," + effects["target type"] + ")";
+                // msg += " (" + effect["target area"] + "," + effect["target type"] + ")";
+                msg += get_target(effect);
                 return msg;
             }
         },
         '3': {
             desc: "Heal over Time (HoT)",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element){
-                var msg = get_formatted_minmax(effects["gradual heal low"], effects["gradual heal high"]) + " HP HoT";
-                msg += " (+" + effects["rec added% (from target)"] + "% target REC)";
+            func: function (effect, other_data){
+                other_data = other_data || {};
+                var msg = get_formatted_minmax(effect["gradual heal low"], effect["gradual heal high"]) + " HP HoT";
+                msg += " (+" + effect["rec added% (from target)"] + "% target REC)";
+                msg += ` for ${effect["gradual heal turns (8)"]} ${(effect["gradual heal turns (8)"] === 1 ? "turn" : "turns")}`;
 
-                msg += get_duration_and_target(effects["gradual heal turns (8)"], effects["target area"], effects["target type"]);
+                if(effect["target area"] && effect["target type"]) msg += get_target(effect);
+                else msg += get_target(other_data);
                 return msg;
             }
         },
@@ -981,121 +1024,402 @@ var BuffProcessor = function(){
                 return msg;
             }
         },
-
-
     };//end proc_buffs
 
-    function proc_handler(effects, damage_frames, base_element) {
-        var id = effects["proc id"].toString();
-        var msg = `Received ${id}`;
-        // console.log(JSON.stringify(proc_buffs,null,2));
+    var unknown_proc_buffs = {
+        '0': {
+            desc: "None",
+            type: ["none"],
+            notes: ["First found on itme 800104"],
+            func: function (effect) {
+                return "No effect";
+            }
+        },
+        '2-5': {
+            desc: "Greatly replenishes a Unit's HP & boosts DEF and REC for 2 turns",
+            type: ["effect"],
+            notes: ["First found on item Nian Gao (800305)"],
+            func: function (effect, other_data) {
+                let params = effect["unknown proc param"].split(",");
+                // let params = effect["unknown proc param"].split("-");
+                // let params2 = params[0].split(","), params5 = params[1].split(",");
+                // let proc2 = {
+                //     "heal low": params2[0],
+                //     "heal high": params2[1],
+                //     "rec added% (from healer)": params[2],
+                //     "target area": (params2[3] === 0) ? "single" : "aoe",
+                //     "target type": (params2[3] === 0) ? "self" : "party"
+                // };
+                // let proc5 = {
+
+                // }
+                let [min_heal,max_heal,def,rec,turns] = [params[0],params[1],params[5],params[6],params[8]];
+                let msg = `${get_formatted_minmax(min_heal,max_heal)} HP burst heal and ${adr_buff_handler(undefined,def,rec)} for ${turns} turns`;
+                msg += get_target(other_data);
+                return msg;
+            }
+        }
+    };
+
+    var passive_buffs = {
+
+    };
+
+    var unknown_passive_buffs = {
+
+    };
+
+    var unknown_buffs = {
+
+    }
+
+    var buff_list = {
+        proc: proc_buffs,
+        unknown_proc: unknown_proc_buffs,
+        passive: passive_buffs,
+        unknown_passive: unknown_passive_buffs,
+        unknown_buff: unknown_buffs
+    }
+
+    //effects - regular effects object with buff ID and other related buff info
+    //other_data - other data needed to print effects, if any
+    //type - one of the keys in buff_list
+    function general_handler(effects, other_data, type){
+        other_data = other_data || {};
+        let handler = buff_list[type.replace(" ","_")], id = effects[`${type} id`];
+        if(!handler || !id){
+            if(!id) console.log("Couldn't find ID in", type);
+            return `Unknown buff type "${type}"`;
+        }
+
         try{
-            if(proc_buffs[id] !== undefined){
-                if (proc_buffs[id].notes) console.log(msg, proc_buffs[id].desc,"\n ",proc_buffs[id].notes.join(" / "));
-                else    console.log(msg,proc_buffs[id].desc);
-                return proc_buffs[id].func(effects,damage_frames,base_element);
+            let msg = `Received ${type} id ${id} `;
+            if(handler[id]){
+                msg += `${handler[id].desc}`;
+                if(handler[id].notes) msg += "\n  " + handler[id].notes.join(" / ");
+                console.log(msg);
+
+                return handler[id].func(effects, other_data);
             }else{
                 console.log(msg);
-                return `Proc ID ${id} is not supported yet`;
+                return `${to_proper_case(type)} ID ${id} is not supported yet`;
             }
         }catch(err){
-            console.log(`Error at Proc ${id}:`,err);
-            return `Proc ID ${id} has an error`;
+            console.log(`Error at ${to_proper_case(type)} ${id} =>`,err);
+            return `${to_proper_case(type)} ID ${id} has an error`;
         }
     }
 
     //given an effects object, print get its effects
-    function print_buff(effects, damage_frames, element) {
+    function print_buff(effect, other_data) {
         var msg = "";
-        var id;
         // console.log("Received " + effects);
-        if (effects["proc id"] !== undefined) {
-            msg = proc_handler(effects, damage_frames, element);
-        } else if (effects["passive id"] !== undefined) {
-            id = effects["passive id"];
-            msg += "Passive ID " + id + " is not supported yet.";
-        } else if (effects["unknown proc id"] !== undefined) {
-            id = effects["unknown proc id"];
-            msg += "Proc ID " + id + " is not supported yet.";
-        } else if (effects["unknown passive id"] !== undefined) {
-            id = effects["unknown proc id"];
-            msg += "Passive ID " + id + " is not supported yet.";
-        } else if (effects["unknown buff id"] !== undefined) {
-            id = effects["unkown buff id"];
-            msg += "Buff ID " + id + " is not supported yet.";
+        if (effect["proc id"]) {
+            msg = general_handler(effect,other_data,"proc");
+        } else if (effect["passive id"]) {
+            msg = general_handler(effect, other_data, "passive");
+        } else if (effect["unknown proc id"]) {
+            msg = general_handler(effect, other_data, "unknown proc");
+        } else if (effect["unknown passive id"]) {
+            msg = general_handler(effect, other_data, "unknown passive");
+        } else if (effect["unknown buff id"]) {
+            msg = general_handler(effect, other_data, "unknown buff");
         } else {
-            console.log("Unkown effects object. Using legacy printer.");
-            // console.log(effects);
-            msg = print_effect_legacy(effects);
+            console.log("Unknown effect object. Using legacy printer.");
+            msg = print_effect_legacy(effect);
         }
         return msg;
     }
 
     this.print_buff = print_buff;
-    this.proc_buffs = proc_buffs;
+    this.buff_list = buff_list;
 };
 
 var buff_processor = new BuffProcessor();
 
+function UnitEffectPrinter(unit){
+    const buff_processor = new BuffProcessor();
 
-function print_effects_legacy(effects) {
-    var print_array = function(arr) {
-        var text = "[";
-
-        for (var i in arr) {
-            if (arr[i] instanceof Array) text += print_array(arr[i]);
-            else if (arr[i] instanceof Object) text += JSON.stringify(arr[i]); //most likely a JSON object
-            else text += arr[i];
-
-            text += ",";
+    //arr - array of effects
+    //other_data_function - given an index, return the data for the other_data field, if any
+    //returns a string of translated buffs
+    function process_effects(effects,other_data_function){
+        let translated_buffs = [];
+        let other_data;
+        console.log("UnitEffectPrinter.process_effects: Received effects =>",effects);
+        if (other_data_function) console.log("UnitEffectPrinter.process_effects: Other data looks like =>",other_data_function(0))
+        for(let e = 0; e < effects.length; ++e){
+            if(other_data_function) other_data = other_data_function(e);
+            translated_buffs.push(buff_processor.print_buff(effects[e], other_data));
         }
-
-        if (text.length > 1) {
-            text = text.substring(0, text.length - 1); //remove last comma
-        }
-
-        text += "]";
-        return text;
+        return translated_buffs.join(" / ");
     }
-    var text_arr = [];
-    //convert each effect into its own string
-    for (var param in effects) {
-        if (param !== "passive id" && param !== "effect delay time(ms)\/frame") {
-            var tempText = effects[param];
-            if (effects[param] instanceof Array) tempText = print_array(effects[param]); //parse array
-            else if (effects[param] instanceof Object) tempText = JSON.stringify(effects[param]); //parse JSON object
-            text_arr.push("" + param + ": " + tempText);
-        }
+    this.process_effects = process_effects;
+    //burst_type - bb, sbb, or ubb
+    function printBurst(burst_type){
+        console.log("UnitEffectPrinter.printBurst: received",burst_type);
+        let burst_object ;
+        if(typeof burst_type === "string"){
+            if(!unit) throw "No unit specified";
+            burst_object = unit[burst_type];
+        }else if(typeof burst_type === "object")
+            burst_object = burst_type;
+        else
+            throw `Unknown input for burst_type ${burst_type}`;
+        if(!burst_object) return `No ${burst_type.toUpperCase()} data found`;
+        let numLevels = burst_object.levels.length, burst_effects = burst_object.levels[numLevels - 1].effects;
+        return process_effects(burst_effects,function(i){
+            return {
+                damage_frames: burst_object["damage frames"][i],
+                element: unit.element
+            }
+        });
     }
+    this.printBurst = printBurst;
 
-    //convert array into a single string
-    var i = 0;
-    var text = "";
-    for (i = 0; i < text_arr.length; ++i) {
-        text += text_arr[i];
-        if (i + 1 != text_arr.length) text += " / ";
+    function printLS(){
+        if (!unit) throw "No unit specified";
+        let ls_object = unit["leader skill"];
+        if(!ls_object) return `No Leader Skill data found`;
+        return process_effects(ls_object.effects);
     }
-    return text + "";
+    this.printLS = printLS;
+
+    function printES(){
+        if (!unit) throw "No unit specified";
+        let es_object = unit["extra skill"];
+        if(!es_object) return `No Extra Skill data found`;
+        return process_effects(es_object.effects);
+    }
+    this.printES = printES;
+
+    function printSP(){
+        if (!unit) throw "No unit specified";
+        return "Printing SP effects is not supported yet"
+    }
+    this.printSP = printSP;
 }
 
-function printBurst(unit, burst_type){
-    var burst_object = unit[burst_type];
-    var msg = "";
-    var numLevels = burst_object.levels.length;
-    var burst_effects = burst_object.levels[numLevels-1];
-    // console.log(burst_effects);
-    for(var i = 0; i < burst_effects.effects.length; ++i){
-        // msg += printBuffs(burst_effects.effects[i], burst_object["damage frames"][i], unit.element);
-        msg += buff_processor.print_buff(burst_effects.effects[i], burst_object["damage frames"][i], unit.element);
-        if(i !== burst_effects.effects.length-1){
-            msg += " / ";
+function printItem(item){
+    let process_effects = new UnitEffectPrinter({}).process_effects;
+    var effects = item.effect.effect || item.effect;
+    return process_effects(effects,function(){
+        return {
+            "target area": item.effect.target_area,
+            "target type": item.effect.target_type
+        }
+    });
+}
+
+//scan all files and get buff data
+function getBuffDataForAll() {
+    var BuffScraper = function () {
+        var result_obj;
+        //object_id: ID of unit/item
+        //cur_object: object currently being analyzed
+        //acc_object: object to store all the data (pass in result_obj)
+        //object_type: unit or item
+        function getBuffData(object_id, cur_object, acc_object, object_type) {
+            function addObjectToAccumulator(object_id, cur_object, index_object, object_type) {
+                let gray_listed = ["hit dmg% distribution", "frame times"];
+                let black_listed = ['proc id', 'passive id']; //prevent duplicate info`
+                let type_value = `${object_type}_value`;
+                let type_id = `${object_type}_id`;
+                //for every field in cur_object
+                for (let f in cur_object) {
+                    if (black_listed.indexOf(f) > -1) continue; //ignore blacklisted fields
+
+                    //if if doesn't exist, make it
+                    if (index_object[f] === undefined) {
+                        index_object[f] = {}
+                    }
+
+                    //if unit or item array doesn't exist, create it
+                    //e.g. if index_object is result_object.proc["proc_id_1"], then format is
+                    //result_object.proc["proc_id_1"][f]["unit" or "item"] = {
+                    //  values:[], id: []
+                    //}
+
+                    //if it's not a graylisted type
+                    if (gray_listed.indexOf(f) === -1) {
+                        if (index_object[f][type_value] === undefined) {
+                            index_object[f][type_value] = {};
+                        }
+                        let field_value = (function (value) {
+                            if (typeof value === "object" || value instanceof Array) {
+                                return JSON.stringify(value);
+                            } else if (typeof value !== "string") {
+                                return value.toString();
+                            } else {
+                                return value;
+                            }
+                        })(cur_object[f]);
+                        //if there's a unique value, add it to the index_object
+                        // if (index_object[f][object_type].values.indexOf(field_value) === -1 && index_object[f][object_type].id.indexOf(object_id) === -1) {
+                        //     index_object[f][object_type].values.push(field_value);
+                        //     index_object[f][object_type].id.push(object_id);
+                        // }
+                        if (index_object[f][type_value][field_value] === undefined) {
+                            index_object[f][type_value][field_value] = object_id;
+                        }
+                    } else { //add to the IDs list if length is less than 5 and object_id is not in list yet
+                        if (index_object[f][type_id] === undefined) {
+                            index_object[f][type_id] = [];
+                        }
+                        if (index_object[f][type_id].length < 5 && index_object[f][type_id].indexOf(object_id) === -1) {
+                            index_object[f][type_id].push(object_id);
+                        }
+
+                    }
+                }
+                return;
+            }
+            //for every field in the object
+            for (let i in cur_object) {
+                //look for ID field in cur_object, then push cur_object if ID field exists
+                if (typeof cur_object[i] !== "object") {
+                    //check for presence of IDs
+                    let unique_index = "", property_type = "";
+                    var known_id_fields = ['id', 'guide_id', 'raid', 'invalidate LS chance%', 'invalidate LS turns (60)'];
+                    if (i.indexOf("unknown passive id") > -1) {
+                        property_type = "passive";
+                        unique_index = "unknown_passive_id_" + cur_object[i];
+                    } else if (i.indexOf("passive id") > -1) {
+                        property_type = "passive";
+                        unique_index = "passive_id_" + cur_object[i];
+                    } else if (i.indexOf("unknown proc id") > -1) {
+                        property_type = "proc";
+                        unique_index = "unknown_proc_id_" + cur_object[i];
+                    } else if (i.indexOf("proc id") > -1) {
+                        property_type = "proc";
+                        unique_index = "proc_id_" + cur_object[i];
+                    } else if (i.indexOf("unknown buff id") > -1) {
+                        property_type = "buff";
+                        unique_index = "unknown_buff_id_" + cur_object[i];
+                    } else if (i.indexOf("buff id") > -1) {
+                        property_type = "buff";
+                        unique_index = "buff_id_" + cur_object[i];
+                    } else if (i.indexOf("id") > -1 && known_id_fields.indexOf(i) === -1 && i.indexOf("angel idol") === -1) { //print out any missing ID field names
+                        console.log(i);
+                    }
+
+                    //add current ID to list of property_type is found
+                    if (property_type.length > 0) {
+                        //create index if it doesn't exist yet
+                        if (acc_object[property_type][unique_index] === undefined) {
+                            acc_object[property_type][unique_index] = {}
+                        }
+
+                        //add cur_object's keys, values, and ID to acc_object
+                        addObjectToAccumulator(object_id, cur_object, acc_object[property_type][unique_index], object_type);
+                    }
+                } else {
+                    //recursively look for data
+                    if (typeof cur_object[i] === "object") {
+                        getBuffData(object_id, cur_object[i], acc_object, object_type);
+                    } else if (cur_object[i] instanceof Array) {//traverse the array in reverse order
+                        let length = cur_object[i].length;
+                        for (let l = length - 1; l >= 0; --l) {
+                            getBuffData(object_id, cur_object[i][l], acc_object, object_type);
+                        }
+                    }
+                }
+            }
+        }
+        this.getBuffData = getBuffData;
+
+        //array of objects where each index has two keys
+        //name and db
+        function getBuffDataForAllinDB(database, database_name) {
+            if (result_obj === undefined) {
+                result_obj = {
+                    passive: {},
+                    proc: {},
+                    buff: {}
+                };
+            }
+
+            //get buff data of all units
+            for (let id in database) {
+                getBuffData(id, database[id], result_obj, database_name);
+            }
+
+
+            // fs.writeFileSync("./test_buff_id.json", JSON.stringify(result_obj, null, "\t"));
+            // return result_obj;
+        }
+        this.getBuffDataForAllinDB = getBuffDataForAllinDB;
+
+        this.getResult = function () {
+            //sort each object in result_obj
+            let fields = Object.keys(result_obj);
+            for (let f = 0; f < fields.length; ++f) {
+                var sort_arr = [];
+                //put everything into an array
+                for (let id_field in result_obj[fields[f]]) {
+                    sort_arr.push({
+                        prefix: id_field.split("id_")[0],
+                        id: id_field.split("id_")[1],
+                        data: result_obj[fields[f]][id_field]
+                    });
+                }
+                //sort in ascending order
+                sort_arr.sort(function (a, b) {
+                    let idA, idB;
+                    try {
+                        idA = parseInt(a.id);
+                    } catch (err) {
+                        //erroneous data should go at beginning of array
+                        return -1;
+                    }
+
+                    try {
+                        idB = parseInt(b.id);
+                    } catch (err) {
+                        //b is erroneous, so a should go after it
+                        return 1;
+                    }
+
+                    //default sort in ascending order
+                    return idA - idB;
+                });
+
+                //replace with sorted field
+                result_obj[fields[f]] = {};
+                for (let i = 0; i < sort_arr.length; ++i) {
+                    result_obj[fields[f]][`${sort_arr[i].prefix}id_${sort_arr[i].id}`] = sort_arr[i].data;
+                }
+            }
+            return result_obj;
+        }
+
+    }
+    let buff_scraper = new BuffScraper();
+    let db_types = ['bbs', 'es', 'feskills', 'info', 'items', 'ls'];
+    let servers = ['gl', 'eu', 'jp'];
+
+    for (let s = 0; s < servers.length; ++s) {
+        for (let d = 0; d < db_types.length; ++d) {
+            console.log(`Scraping ${db_types[d]}-${servers[s]}.json`);
+            let db = JSON.parse(fs.readFileSync(`./sandbox_data/${db_types[d]}-${servers[s]}.json`, 'utf8'));
+            buff_scraper.getBuffDataForAllinDB(db, db_types[d]);
         }
     }
-    return msg;
+
+    var result = buff_scraper.getResult();
+    for (let f in result) {
+        let filename = `./full_${f}_id.json`;
+        console.log("Saving", filename)
+        fs.writeFileSync(filename, JSON.stringify(result[f], null, 4));
+    }
+
+    console.log("done");
 }
+
+
 
 var itemQuery = {
-    item_name_id: "honor claw",
+    item_name_id: "20102",
     // effect: "resist curse%"
     // rarity: 0,
     // strict: "true"
@@ -1109,32 +1433,10 @@ function doItemTest(){
                 // console.log(results);
                 // return client.getItem(result[0]);
                 return client.getItem(results[0]).then(function(item){
-                    // console.log(JSON.stringify(item,null,'  '));
-                    return get_full_usage(results[0]).then(function(result){
-                        // return JSON.stringify(result,null,'  ');
-                        var msg = `${item.name} (${item.id}) can be used to immediately make:\n`;
-                        for(let i = 0; i < result.immediate.length; ++i){
-                            msg += result.immediate[i] + "\n";
-                        }
-
-                        msg += "\nIt is also a material for the following other items:\n";
-                        for(let i = 0; i < result.end.length; ++i){
-                            msg += result.end[i] + "\n";
-                        }
-
-                        return msg;
-                    });
-                    // return get_full_recipe(results[0]).then(function(result){
-                    //     // var msg = "To make " + item.name + " you need:\n";
-                    //     var msg = `To make ${item.name} (${item.id}) you need the following base materials:\n`;
-                        // for(var i = 0; i < result.length; ++i){
-                        //     // var count = result.counts[i];
-                        //     // var mat = result.result_str[i];
-                        //     // msg += count + "x " + mat + "\n";
-                        //     msg += `${result[i].count}x ${result[i].name}\n`;
-                        // }
-                    //     return msg;
-                    // });
+                    let msg = printItem(item);
+                    console.log(JSON.stringify(item, null, 2));
+                    console.log(item.name,"-",item.desc);
+                    return msg;
                 });
             }else{
                 return results;
@@ -1151,10 +1453,10 @@ function doItemTest(){
 
 var unitQuery = {
     // unit_name_id: "neferet",
-    unit_name_id: "ceulfan",
+    unit_name_id: "60116",
     strict: "false",
     // server: "JP",
-    // rarity: 8,
+    // rarity: 7,
     // element: 'light'
     // verbose: 'true'
 };
@@ -1164,15 +1466,13 @@ function doUnitTest(){
         .then(function (result) {
             if(result.length === 1){
                 return client.getUnit(result[0]).then(function(unit){
-                    var burst_type = "bb";
-                    console.log(unit[burst_type]["damage frames"]);
-                    console.log(unit[burst_type].levels[0].effects);
-                    if(unit.translated_name) console.log(unit.translated_name);
+                    let unit_printer = new UnitEffectPrinter(unit);
+                    let msg = unit_printer.printBurst("ubb");
+
+                    if (unit.translated_name) console.log(unit.translated_name);
                     console.log(unit.name, unit.id);
-                    console.log(unit[burst_type].desc);
-                    return printBurst(unit, burst_type);
-                    // console.log(unit);
-                    // return print_evo(unit);
+                    // console.log(JSON.stringify(unit, null, 2));
+                    return msg;
                 });
             }else{
                 return result;
@@ -1187,209 +1487,23 @@ function doUnitTest(){
         .catch(console.log);
 }
 
-var BuffScraper = function(){
-    var result_obj;
-    //object_id: ID of unit/item
-    //cur_object: object currently being analyzed
-    //acc_object: object to store all the data (pass in result_obj)
-    //object_type: unit or item
-    function getBuffData (object_id, cur_object, acc_object, object_type) {
-        function addObjectToAccumulator(object_id, cur_object, index_object, object_type) {
-            let gray_listed = ["hit dmg% distribution", "frame times"];
-            let black_listed = ['proc id', 'passive id']; //prevent duplicate info`
-            let type_value = `${object_type}_value`;
-            let type_id = `${object_type}_id`;
-            //for every field in cur_object
-            for (let f in cur_object) {
-                if (black_listed.indexOf(f) > -1) continue; //ignore blacklisted fields
+function doBurstTest(){
+    var bursts = JSON.parse(fs.readFileSync('./sandbox_data/bbs-eu.json','utf8'));
+    let printBurst = new UnitEffectPrinter({}).printBurst;
 
-                //if if doesn't exist, make it
-                if (index_object[f] === undefined) {
-                    index_object[f] = {}
-                }
 
-                //if unit or item array doesn't exist, create it
-                //e.g. if index_object is result_object.proc["proc_id_1"], then format is
-                //result_object.proc["proc_id_1"][f]["unit" or "item"] = {
-                //  values:[], id: []
-                //}
-                
-                //if it's not a graylisted type
-                if (gray_listed.indexOf(f) === -1) {
-                    if (index_object[f][type_value] === undefined) {
-                        index_object[f][type_value] = {};
-                    }
-                    let field_value = (function (value) {
-                        if (typeof value === "object" || value instanceof Array) {
-                            return JSON.stringify(value);
-                        }else if(typeof value !== "string"){
-                            return value.toString();
-                        } else {
-                            return value;
-                        }
-                    })(cur_object[f]);
-                    //if there's a unique value, add it to the index_object
-                    // if (index_object[f][object_type].values.indexOf(field_value) === -1 && index_object[f][object_type].id.indexOf(object_id) === -1) {
-                    //     index_object[f][object_type].values.push(field_value);
-                    //     index_object[f][object_type].id.push(object_id);
-                    // }
-                    if (index_object[f][type_value][field_value] === undefined){
-                        index_object[f][type_value][field_value] = object_id;
-                    }
-                } else { //add to the IDs list if length is less than 5 and object_id is not in list yet
-                    if (index_object[f][type_id] === undefined) {
-                        index_object[f][type_id] = [];
-                    }
-                    if (index_object[f][type_id].length < 5 && index_object[f][type_id].indexOf(object_id) === -1) {
-                        index_object[f][type_id].push(object_id);
-                    }
-                    
-                }
-            }
-            return;
-        }
-        //for every field in the object
-        for (let i in cur_object) {
-            //look for ID field in cur_object, then push cur_object if ID field exists
-            if (typeof cur_object[i] !== "object") {
-                //check for presence of IDs
-                let unique_index = "", property_type = ""
-                if (i.indexOf("unknown passive id") > -1) {
-                    property_type = "passive";
-                    unique_index = "unknown_passive_id_" + cur_object[i];
-                } else if (i.indexOf("passive id") > -1) {
-                    property_type = "passive";
-                    unique_index = "passive_id_" + cur_object[i];
-                } else if (i.indexOf("unknown proc id") > -1) {
-                    property_type = "proc";
-                    unique_index = "unknown_proc_id_" + cur_object[i];
-                } else if (i.indexOf("proc id") > -1) {
-                    property_type = "proc";
-                    unique_index = "proc_id_" + cur_object[i];
-                } else if (i.indexOf("unknown buff id") > -1) {
-                    property_type = "buff";
-                    unique_index = "unknown_buff_id_" + cur_object[i];
-                } else if (i.indexOf("buff id") > -1) {
-                    property_type = "buff";
-                    unique_index = "buff_id_" + cur_object[i];
-                }
-
-                //add current ID to list of property_type is found
-                if (property_type.length > 0) {
-                    //create index if it doesn't exist yet
-                    if (acc_object[property_type][unique_index] === undefined) {
-                        acc_object[property_type][unique_index] = {}
-                    }
-
-                    //add cur_object's keys, values, and ID to acc_object
-                    addObjectToAccumulator(object_id, cur_object, acc_object[property_type][unique_index], object_type);
-                }
-            } else {
-                //recursively look for data
-                if (typeof cur_object[i] === "object") {
-                    getBuffData(object_id, cur_object[i], acc_object, object_type);
-                } else if (cur_object[i] instanceof Array) {//traverse the array in reverse order
-                    let length = cur_object[i].length;
-                    for (let l = length - 1; l >= 0; --l) {
-                        getBuffData(object_id, cur_object[i][l], acc_object, object_type);
-                    }
-                }
-            }
-        }
-    }
-    this.getBuffData = getBuffData;
-
-    //array of objects where each index has two keys
-    //name and db
-    function getBuffDataForAllinDB(database, database_name) {
-        if(result_obj === undefined){
-            result_obj = {
-                passive: { },
-                proc: { },
-                buff: { }
-            };
-        }
-
-        //get buff data of all units
-        for(let id in database){
-            getBuffData(id,database[id],result_obj,database_name);
-        }
-
-        
-        // fs.writeFileSync("./test_buff_id.json", JSON.stringify(result_obj, null, "\t"));
-        // return result_obj;
-    }
-    this.getBuffDataForAllinDB = getBuffDataForAllinDB;
-
-    this.getResult = function(){
-        //sort each object in result_obj
-        let fields = Object.keys(result_obj);
-        for (let f = 0; f < fields.length; ++f) {
-            var sort_arr = [];
-            //put everything into an array
-            for (let id_field in result_obj[fields[f]]) {
-                sort_arr.push({
-                    prefix: id_field.split("id_")[0],
-                    id: id_field.split("id_")[1],
-                    data: result_obj[fields[f]][id_field]
-                });
-            }
-            //sort in ascending order
-            sort_arr.sort(function (a, b) {
-                let idA, idB;
-                try {
-                    idA = parseInt(a.id);
-                } catch (err) {
-                    //erroneous data should go at beginning of array
-                    return -1;
-                }
-
-                try {
-                    idB = parseInt(b.id);
-                } catch (err) {
-                    //b is erroneous, so a should go after it
-                    return 1;
-                }
-
-                //default sort in ascending order
-                return idA - idB;
-            });
-
-            //replace with sorted field
-            result_obj[fields[f]] = {};
-            for (let i = 0; i < sort_arr.length; ++i) {
-                result_obj[fields[f]][`${sort_arr[i].prefix}id_${sort_arr[i].id}`] = sort_arr[i].data;
-            }
-        }
-        return result_obj;
-    }
-
+    let id = "3116";
+    let burst_object = bursts[id];
+    console.log(JSON.stringify(burst_object,null,2));
+    if(burst_object){
+        let msg = printBurst(burst_object);
+        console.log(burst_object.name);
+        console.log(msg);
+    } else 
+        console.log("No burst found with ID",id);
 }
 
-
-//scan all files and get buff data
-function getBuffDataForAll(){
-    let buff_scraper = new BuffScraper();
-    let db_types = ['bbs','es','feskills','info','items','ls'];
-    let servers = ['gl','eu','jp'];
-
-    for(let s = 0; s < servers.length; ++s){
-        for(let d = 0; d < db_types.length; ++d){
-            console.log(`Scraping ${db_types[d]}-${servers[s]}.json`);
-            let db = JSON.parse(fs.readFileSync(`./sandbox_data/${db_types[d]}-${servers[s]}.json`, 'utf8'));
-            buff_scraper.getBuffDataForAllinDB(db,db_types[d]);
-        }
-    }
-
-    var result = buff_scraper.getResult();
-    for(let f in result){
-        let filename = `./full_${f}_id.json`;
-        console.log("Saving",filename)
-        fs.writeFileSync(filename, JSON.stringify(result[f], null, 4));
-    }
-    
-    console.log("done");
-}
-
-
-getBuffDataForAll();
+// getBuffDataForAll();
+doItemTest();
+// doUnitTest();
+// doBurstTest();
