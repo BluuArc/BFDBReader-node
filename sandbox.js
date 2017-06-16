@@ -58,51 +58,108 @@ var BuffProcessor = function(){
         return min + "-" + max;
     }
 
-    function adr_buff_handler(atk, def, rec) {
-        var msg = "";
-        if (atk && def && rec) {
-            if (atk === def) {
-                if (atk === rec) { //equal tri-stat
-                    msg = get_polarized_number(atk) + "% ATK/DEF/REC";
-                } else {//eq atk and def, but not rec
-                    msg = get_polarized_number(atk) + "% ATK/DEF, " + get_polarized_number(rec) + "% REC";
-                }
-            } else if (atk === rec) { //eq atk and rec, but not def
-                msg = get_polarized_number(atk) + "% ATK/REC, " + get_polarized_number(def) + "% DEF";
-            } else if (def === rec) { //eq def and rec, but not rec
-                msg = get_polarized_number(def) + "% DEF/REC, " + get_polarized_number(atk) + "% ATK";
-            } else { //all unequal
-                msg = get_polarized_number(atk) + "% ATK, " + get_polarized_number(def) + "% DEF, " + get_polarized_number(rec) + "% REC";
+    function multi_param_buff_handler(options) {
+        /*
+        options = {
+            all: array of objects with keys values and name; e.g. {value:50, name: "ATK"}
+            values: array of values, can contain indices of undefined
+            names: array of names for each value
+            special_case: {
+                isSpecialCase(value,names_array): given a value or names_array, return a bool for if params are a special case
+                func(value,names_array): handle the special case and return a string
             }
-        } else if (atk && def) {
-            if (atk === def) {
-                msg = get_polarized_number(atk) + "% ATK/DEF";
-            } else {
-                msg = get_polarized_number(atk) + "% ATK, " + get_polarized_number(def) + "% DEF";
-            }
-        } else if (atk && rec) {
-            if (atk === rec) {
-                msg = get_polarized_number(atk) + "% ATK/REC";
-            } else {
-                msg = get_polarized_number(atk) + "% ATK, " + get_polarized_number(rec) + "% REC";
-            }
-        } else if (def && rec) {
-            if (def === rec) {
-                msg = get_polarized_number(def) + "% DEF/REC";
-            } else {
-                msg = get_polarized_number(def) + "% DEF, " + get_polarized_number(rec) + "% REC";
-            }
-        } else if (atk) {
-            msg = get_polarized_number(atk) + "% ATK";
-        } else if (def) {
-            msg = get_polarized_number(def) + "% DEF";
-        } else if (rec) {
-            msg = get_polarized_number(rec) + "% REC";
+            prefix: string to be put before every value
+            numberFn(number): special function to get a specific formatted string for a value (like returning polarity or percent with number)
+            suffix(names_arr) || suffix: if function, return a formatted string for a given array of names
+                if string, then this will be appended after joining of names_arr
+            buff_separator: separator between buff names, default is "/"
+            message_separator: separator between different value strings, default is ", "
         }
-        if (msg.length === 0) {
-            console.log("Missed a combo of atk,def,rec (" + atk + "," + def + "," + rec);
+        required: all or (values and names), special_case.func if special_case.isSpecialCase() is used
+        all else is optional
+        */
+        if (!options) throw "multi_param_buff_handler: No options defined";
+        if (options.all) { //array of objects with keys value and name
+            options.values = [];
+            options.names = [];
+            for (let i = 0; i < options.all.length; ++i) {
+                let [curValue, curName] = [options.all[i]["value"], options.all[i]["name"]];
+                options.values.push(curValue);
+                options.names.push(curName);
+            }
         }
-        return msg;
+        if (!options.values || !options.names) throw "multi_param_buff_handler: No values, names, or all array defined";
+
+        //create a JSON object keyed by buff values
+        let common_values = {}, msg = "";
+        for (let i = 0; i < options.values.length; ++i) {
+            if (options.values[i]) { //in case some values are undefined
+                let curValue = options.values[i].toString();
+                if (!common_values[curValue]) {
+                    common_values[curValue] = [];
+                };
+                //value of each key is an array of names with that shared value
+                common_values[curValue].push(options.names[i]);
+            }
+        }
+
+        //create a string from common_values object
+        var msg_arr = []; //array of shared values
+        for (let v in common_values) {
+            let msg = "";
+            //handle special cases
+            if (options.special_case && options.special_case.isSpecialCase(v, common_values[v])) {
+                msg = options.special_case.func(v, common_values[v]);
+                if (msg.length > 0) msg_arr.push(msg);
+                continue;
+            }
+            //format output according to options
+            if (options.prefix) msg += options.prefix;
+            if (options.numberFn) msg += options.numberFn(v);
+            else msg += v;
+            if (typeof options.suffix === "function") msg += options.suffix(common_values[v]);
+            else {
+                msg += common_values[v].join(options.buff_separator || "/");
+                if (typeof options.suffix === "string") msg += options.suffix;
+            }
+            msg_arr.push(msg);
+        }
+
+        let result_msg = "";
+        result_msg += msg_arr.join(options.message_separator || ", ");
+        return result_msg;
+    }
+    this.multi_param_buff_handler = multi_param_buff_handler;
+
+    function hp_adr_buff_handler(hp,atk,def,rec, options){
+        options = options || {};
+        options.all = [
+            {value: hp, name: "HP"},
+            {value: atk, name: "ATK"},
+            {value: def, name: "DEF"},
+            {value: rec, name: "REC"}
+        ];
+
+        options.numberFn = function(number){
+            return `${get_polarized_number(number)}% `;
+        };
+
+        return multi_param_buff_handler(options);
+    }
+
+    function bc_hc_items_handler(bc,hc,item,options){
+        options = options || {};
+        options.all = [
+            { value: bc, name: "BC" },
+            { value: hc, name: "HC" },
+            { value: item, name: "Item" },
+        ];
+
+        options.numberFn = function (number) {
+            return `${get_polarized_number(number)}% `;
+        };
+
+        return multi_param_buff_handler(options);
     }
 
     function bb_atk_buff_handler(bb, sbb, ubb) {
@@ -386,53 +443,6 @@ var BuffProcessor = function(){
         return msg;
     }
 
-    function bc_hc_items_handler(bc,hc,item){
-        var msg = "";
-        if (bc && hc && item) {
-            if (bc === hc) {
-                if (bc === item) { //equal tri-stat
-                    msg = get_polarized_number(bc) + "% BC/HC/Item";
-                } else {//eq bc and hc, but not item
-                    msg = get_polarized_number(bc) + "% BC/HC, " + get_polarized_number(item) + "% Item";
-                }
-            } else if (bc === item) { //eq bc and item, but not hc
-                msg = get_polarized_number(bc) + "% BC/Item, " + get_polarized_number(hc) + "% HC";
-            } else if (hc === item) { //eq hc and item, but not item
-                msg = get_polarized_number(hc) + "% HC/Item, " + get_polarized_number(bc) + "% BC";
-            } else { //all unequal
-                msg = get_polarized_number(bc) + "% BC, " + get_polarized_number(hc) + "% HC, " + get_polarized_number(item) + "% Item";
-            }
-        } else if (bc && hc) {
-            if (bc === hc) {
-                msg = get_polarized_number(bc) + "% BC/HC";
-            } else {
-                msg = get_polarized_number(bc) + "% BC, " + get_polarized_number(hc) + "% HC";
-            }
-        } else if (bc && item) {
-            if (bc === item) {
-                msg = get_polarized_number(bc) + "% BC/Item";
-            } else {
-                msg = get_polarized_number(bc) + "% BC, " + get_polarized_number(item) + "% Item";
-            }
-        } else if (hc && item) {
-            if (hc === item) {
-                msg = get_polarized_number(hc) + "% HC/Item";
-            } else {
-                msg = get_polarized_number(hc) + "% HC, " + get_polarized_number(item) + "% Item";
-            }
-        } else if (bc) {
-            msg = get_polarized_number(bc) + "% BC";
-        } else if (hc) {
-            msg = get_polarized_number(hc) + "% HC";
-        } else if (item) {
-            msg = get_polarized_number(item) + "% Item";
-        }
-        if (msg.length === 0) {
-            console.log("Missed a combo of bc,hc,item (" + bc + "," + hc + "," + item);
-        }
-        return msg;
-    }
-
     function get_duration_and_target(turns, area, type) {
         var msg = "";
         //first param is an effects object
@@ -446,13 +456,18 @@ var BuffProcessor = function(){
         }
         if(turns) msg += " for " + turns + (turns === 1 ? " turn" : " turns");
         msg += " (" + area + "," + type + ")";
+        msg += " duration and target".toUpperCase(); //remove once all buffs stop using this function
         return msg;
     }
 
     function get_target(area,type){
-        if(typeof area === "object"){
+        // console.log("Received target data",area,type);
+        if(typeof area === "object" && area["target type"] && area["target area"]){
             type = area["target type"];
             area = area["target area"];
+        }else if(typeof type === "object" && type["target type"] && type["target area"]){
+            area = type["target area"];
+            type = type["target type"];
         }
 
         if(area === "single" && type === "self"){
@@ -520,7 +535,7 @@ var BuffProcessor = function(){
                 if (damage_frames.hits > 1)
                     msg += " over " + damage_frames.hits + " hits";
                 // msg += " (" + effect["target area"] + "," + effect["target type"] + ")";
-                msg += get_target(effect);
+                msg += get_target(effect,other_data);
                 return msg;
             }
         },
@@ -533,90 +548,117 @@ var BuffProcessor = function(){
                 msg += " (+" + effect["rec added% (from target)"] + "% target REC)";
                 msg += ` for ${effect["gradual heal turns (8)"]} ${(effect["gradual heal turns (8)"] === 1 ? "turn" : "turns")}`;
 
-                if(effect["target area"] && effect["target type"]) msg += get_target(effect);
-                else msg += get_target(other_data);
+                msg += get_target(effect, other_data);
                 return msg;
             }
         },
         '4': {
             desc: "BB Gauge Refill",
             type: ["effect"],
-            notes: ["This effect is similar to the regular BC insta-fill buff (proc 31), but has the option of filling a percentage of the BB gauge", "Filling 100% of own BB gauge meanse that the gauge will be refilled to SBB if it's unlocked"],
-            func: function (effects, damage_frames, base_element) {
+            notes: ["This effect is similar to the regular BC insta-fill buff (proc 31), but has the option of filling a percentage of the BB gauge", "Filling 100% of own BB gauge means that the gauge will be refilled to SBB if it's unlocked"],
+            func: function (effect,other_data) {
                 var msg = "Fills ";
-                if(effects["bb bc fill%"]){
-                    msg += `${effects["bb bc fill%"]}%`;
+                if(effect["bb bc fill%"]){
+                    msg += `${effect["bb bc fill%"]}%`;
                 }
 
-                if(effects["bb bc fill"]){
-                    if (effects["bb bc fill%"]) msg += " and ";
-                    msg += `${effects["bb bc fill"]} BC`;
+                if(effect["bb bc fill"]){
+                    if (effect["bb bc fill%"]) msg += " and ";
+                    msg += `${effect["bb bc fill"]} BC`;
                 }
 
-                if(effects["target area"] === "single" && effects["target type"] === "self")
+                let [area,type] = [effect["target area"], effect["target type"]];
+                if(!area && !type){
+                    [area, type] = [other_data["target area"], other_data["target type"]];
+                }
+                if (area === "single" && type === "self") {
                     msg += " of own BB gauge";
-                else
-                    msg += get_duration_and_target(undefined, effects["target area"], effects["target type"]);
+                } else if (area === "aoe" && type === "party") {
+                    msg += " of allies' BB gauges";
+                } else if (area === "aoe" && type === "enemy") {
+                    msg += " of enemies' BB gauges";
+                } else if (area === "single" && type === "enemy") {
+                    msg += " of an enemy's BB gauge";
+                } else if (area === "single" && type === "party") {
+                    msg += " of an ally's BB guage";
+                } else {
+                    msg += ` of BB gauge (${area},${type})`;
+                }
+
                 return msg;
             }
         },
         '5': {
             desc: "Regular and Elemental ATK/DEF/REC/Crit Rate",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element){
+            func: function (effect, other_data){
                 var msg = "";
-                if (effects["atk% buff (1)"] || effects["def% buff (3)"] || effects["rec% buff (5)"]) { //regular tri-stat
-                    msg += adr_buff_handler(effects["atk% buff (1)"], effects["def% buff (3)"], effects["rec% buff (5)"]);
+                if (effect["atk% buff (1)"] || effect["def% buff (3)"] || effect["rec% buff (5)"]) { //regular tri-stat
+                    msg += hp_adr_buff_handler(undefined,effect["atk% buff (1)"], effect["def% buff (3)"], effect["rec% buff (5)"]);
                 }
-                if (effects["crit% buff (7)"]) {//crit rate buff
+                if (effect["crit% buff (7)"]) {//crit rate buff
                     if (msg.length > 0) msg += ", ";
-                    msg += "+" + effects["crit% buff (7)"] + "% crit rate";
+                    msg += get_polarized_number(effect["crit% buff (7)"]) + "% crit rate";
                 }
 
-                if (effects["def% buff (4)"]) {//decreased def buff (EU)
+                if (effect["atk% buff (2)"] || effect["def% buff (4)"] || effect["rec% buff (6)"]) {//decreased buffs
                     if (msg.length > 0) msg += ", ";
-                    msg += (effects["def% buff (4)"] < 0 ? effects["def% buff (4)"] : ("+" + effects["def% buff (4)"])) + "% DEF";
+                    msg += hp_adr_buff_handler(undefined, effect["atk% buff (2)"], effect["def% buff (4)"], effect["rec% buff (6)"]);
                 }
 
-                if (effects["atk% buff (13)"] || effects["def% buff (14)"] || effects["rec% buff (15)"]) { //elemental tri-stat
-                    msg += adr_buff_handler(effects["atk% buff (13)"], effects["def% buff (14)"], effects["rec% buff (15)"]);
+                if (effect["atk% buff (13)"] || effect["def% buff (14)"] || effect["rec% buff (15)"]) { //elemental tri-stat
+                    msg += hp_adr_buff_handler(undefined,effect["atk% buff (13)"], effect["def% buff (14)"], effect["rec% buff (15)"]);
                 }
-                if (effects["crit% buff (16)"]) { //elemental crit buff
+                if (effect["crit% buff (16)"]) { //elemental crit buff
                     if (msg.length > 0) msg += ", ";
-                    msg += "+" + effects["crit% buff (16)"] + "% crit rate";
+                    msg += get_polarized_number(effect["crit% buff (16)"]) + "% crit rate";
                 }
-                if (effects['element buffed'] !== "all") {
-                    msg += " to " + effects['element buffed'];
+                if (effect['element buffed'] !== "all") {
+                    msg += " to " + to_proper_case(effect['element buffed']);
                 }
-                if (msg.length === 0) {
-                    throw "Message length is 0";
-                }
-                msg += get_duration_and_target(effects);
+
+                if(msg.length === 0) throw "Message length is 0";
+                msg += get_target(effect,other_data);
+                if (effect["buff turns"]) msg += " for " + effect["buff turns"] + (effect["buff turns"] === 1 ? " turn" : " turns");
                 return msg;
             }
         },
         '6': {
             desc: "BC/HC/Item Drop Rate",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
-                var msg = bc_hc_items_handler(effects["bc drop rate% buff (10)"], effects["hc drop rate% buff (9)"], effects["item drop rate% buff (11)"]) + " droprate";
-                msg += get_duration_and_target(effects["drop rate buff turns"],effects);
+            func: function (effect, other_data) {
+                var msg = bc_hc_items_handler(effect["bc drop rate% buff (10)"], effect["hc drop rate% buff (9)"], effect["item drop rate% buff (11)"]) + " droprate";
+                msg += get_target(effect, other_data);
+                msg += ` for ${effect["drop rate buff turns"]} turns`;
+                return msg;
+            }
+        },
+        '7': {
+            desc: "Angel Idol (AI)",
+            type: ["buff"],
+            notes: ["This is the one that is guaranteed to work; no chance of failing", "if you see false in the result, be sure to let the developer (BluuArc) know"],
+            func: function (effect, other_data) {
+                var info_arr = [];
+                if (effect["angel idol buff (12)"] !== true) info_arr.push(effect["angel idol buff (12)"]);
+                info_arr.push(`recover ${effect["angel idol recover hp%"] || 100}% HP on use`);
+                let msg = `gives Angel Idol (${info_arr.join(", ")})`;
+                msg += get_target(effect, other_data);
                 return msg;
             }
         },
         '8': {
             desc: "Increase Max HP",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
-                var msg = `+${effects["max hp% increase"]}% Max HP`;
-                msg += get_duration_and_target(effects);
+            func: function (effects, other_data) {
+                var msg = `${get_polarized_number(effects["max hp% increase"])}% Max HP`;
+                msg += get_target(effects);
                 return msg;
             }
         },
         '9': {
             desc: "ATK/DEF down to enemy",
             type: ["debuff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = "";
                 if (effects['buff #1']) {
                     var atk_debuff = effects['buff #1'];
@@ -637,7 +679,7 @@ var BuffProcessor = function(){
         '11': {
             desc: "Inflict Ailment on Enemy",
             type: ["debuff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = ailment_inflict_handler(effects);
                 if (msg.length === 0) throw "Message length is 0";
                 return msg;
@@ -646,7 +688,7 @@ var BuffProcessor = function(){
         '13': {
             desc: "Random Target (RT) Attack",
             type: ["attack"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var numHits = effects.hits;
                 var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
                 msg += effects["bb atk%"] + "% ";
@@ -662,7 +704,7 @@ var BuffProcessor = function(){
         '17': {
             desc: "Status Negation/Resistance",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = ailment_null_handler(effects);
                 msg += get_duration_and_target(effects["resist status ails turns"], effects);
                 return msg;
@@ -671,7 +713,7 @@ var BuffProcessor = function(){
         '18': {
             desc: "Mitigation",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = `${effects["dmg% reduction"]}% mitigation`;
                 msg += get_duration_and_target(effects["dmg% reduction turns (36)"], effects["target area"], effects["target type"]);
                 return msg;
@@ -680,7 +722,7 @@ var BuffProcessor = function(){
         '19': {
             desc: "BC Fill per Turn",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = effects["increase bb gauge gradual"] + " BC/turn";
 
                 msg += get_duration_and_target(effects["increase bb gauge gradual turns (37)"], effects["target area"], effects["target type"]);
@@ -690,7 +732,7 @@ var BuffProcessor = function(){
         '20': {
             desc: "BC Fill on Hit",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = `${effects["bc fill when attacked%"]}% chance to fill ${get_formatted_minmax(effects["bc fill when attacked low"],effects["bc fill when attacked high"])} BC when hit`;
                 msg += get_duration_and_target(effects["bc fill when attacked turns (38)"], effects["target area"], effects["target type"]);
                 return msg;
@@ -699,7 +741,7 @@ var BuffProcessor = function(){
         '22': {
             desc: "Defense Ignore",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = `${effects['defense% ignore']}% DEF ignore`;
                 msg += get_duration_and_target(effects["defense% ignore turns (39)"], effects["target area"], effects["target type"]);
                 return msg;
@@ -708,7 +750,7 @@ var BuffProcessor = function(){
         '23': {
             desc: "Spark Damage",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = get_polarized_number(effects["spark dmg% buff (40)"]) + "% spark DMG";
 
                 msg += get_duration_and_target(effects);
@@ -718,7 +760,7 @@ var BuffProcessor = function(){
         '24': {
             desc: "Stat Conversion",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var buff = adr_buff_handler(effects['atk% buff (46)'], effects['def% buff (47)'], effects['rec% buff (48)']);
                 var source_buff = effects['converted attribute'].toUpperCase().slice(0, 3);
                 if(source_buff === "ATT") source_buff = "ATK";
@@ -731,7 +773,7 @@ var BuffProcessor = function(){
             desc: "Multi-Elemental Attack",
             notes: ["These elements are added onto the attack of the unit's base element"],
             type: ["attack"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var numHits = damage_frames.hits;
                 var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
                 msg += effects["bb atk%"] + "% ";
@@ -747,7 +789,7 @@ var BuffProcessor = function(){
         '30': {
             desc: "Elemental Buffs",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = elemental_buff_handler(effects);
                 msg += get_duration_and_target(effects["elements added turns"], effects["target area"], effects["target type"]);
                 return msg;
@@ -757,7 +799,7 @@ var BuffProcessor = function(){
             desc: "Status Cleanse (Ailments and/or Stat Reductions)",
             notes: ["Status ailments refers to the basic 6 paralysis,injury,etc.", "Stat reductions refer to ATK/DEF/REC down", "Ailments refers to both status ailments and stat reductions"],
             type: ["effect"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = "Clears " + ailments_cured_handler(effects["ailments cured"]);
                 msg += get_duration_and_target(undefined,effects["target area"], effects["target type"]);
                 return msg;
@@ -766,7 +808,7 @@ var BuffProcessor = function(){
         '31': {
             desc: "BC Insta-fill/Flat BB Gauge Increase",
             type: ["effect"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = `${get_polarized_number(effects["increase bb gauge"])} BC fill`;
                 msg += get_duration_and_target(undefined, effects['target area'], effects['target type']);
                 return msg;
@@ -775,7 +817,7 @@ var BuffProcessor = function(){
         '40': {
             desc: "Status Ailment Inflict When Attacking",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = ailment_buff_handler(effects);
                 msg += get_duration_and_target(effects);
                 return msg;
@@ -784,7 +826,7 @@ var BuffProcessor = function(){
         '43': {
             desc: "Burst OD Fill",
             type: ["effect"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = `${get_polarized_number(effects["increase od gauge%"])}% OD gauge fill`;
                 return msg;
             }
@@ -793,7 +835,7 @@ var BuffProcessor = function(){
             desc: "Damage Over Time (DoT)",
             notes: ["unit 720176 has some weird values with this ID"],
             type: ["debuff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = effects["dot atk%"] + "% DoT";
                 if (effects['dot flat atk'])
                     msg += ", +" + effects["dot flat atk"] + " flat ATK";
@@ -810,7 +852,7 @@ var BuffProcessor = function(){
         '45': {
             desc: "BB/SBB/UBB ATK",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = bb_atk_buff_handler(effects["bb atk% buff"], effects["sbb atk% buff"], effects["ubb atk% buff"]);
 
                 if (msg.length === 0) {
@@ -823,7 +865,7 @@ var BuffProcessor = function(){
         '47': {
             desc: "HP Scaling Attack",
             type: ["attack"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var numHits = damage_frames.hits;
                 var max_total = parseInt(effects["bb base atk%"]) + parseInt(effects["bb added atk% based on hp"]);
                 var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
@@ -840,7 +882,7 @@ var BuffProcessor = function(){
         '53': {
             desc: "Ailment Reflect",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = ailment_reflect_handler(effects);
                 msg += get_duration_and_target(effects["counter inflict ailment turns"], effects["target area"], effects["target type"]);
                 return msg;
@@ -849,7 +891,7 @@ var BuffProcessor = function(){
         '54': {
             desc: "Critical Hit Damage",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = get_polarized_number(effects["crit multiplier%"]) + "% crit DMG";
 
                 msg += get_duration_and_target(effects["buff turns (84)"], effects["target area"], effects["target type"]);
@@ -860,7 +902,7 @@ var BuffProcessor = function(){
             desc: "Elemental Weakness Damage (EWD)",
             notes: ["FWETLD corresponds to fire, water, earth, thunder, light, and dark, respectively"],
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = ewd_buff_handler(effects);
                 if (msg.length === 0) {
                     throw "Message length is 0";
@@ -873,8 +915,8 @@ var BuffProcessor = function(){
             desc: "Chance Angel Idol (AI)",
             notes: ["This buff cannot be buff wiped"],
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
-                var msg = effects["angel idol recover chance%"] + "% chance AI";
+            func: function (effects, other_data) {
+                var msg = "gives " + effects["angel idol recover chance%"] + "% chance Angel Idol";
                 if (effects["angel idol recover hp%"]) msg += " (recovers " + effects["angel idol recover hp%"] + "% HP on proc)";
 
                 msg += get_duration_and_target(effects["angel idol buff turns (91)"], effects["target area"], effects["target type"]);
@@ -884,7 +926,7 @@ var BuffProcessor = function(){
         '58': {
             desc: "Spark Vulnerability to Enemy",
             type: ["debuff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = `${effects["spark dmg received apply%"]}% chance to inflict ${parseInt(effects["spark dmg received debuff turns (94)"])+1} turn ${get_polarized_number(effects["spark dmg% received"])}% Spark vulnerability debuff`;
                 msg += get_duration_and_target(undefined, effects["target area"], effects["target type"]);
                 return msg;
@@ -894,7 +936,7 @@ var BuffProcessor = function(){
             desc: "Elemental Barrier",
             type: ["buff"],
             notes: ["This buff cannot be buff wiped", "Unless otherwise specified, assume that the barrier has 100% DMG absorption"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = `${effects["elemental barrier hp"]} HP (${effects["elemental barrier def"]} DEF`;
                 if(effects["elemental barrier absorb dmg%"] != 100){
                     msg += `/${effects["elemental barrier absorb dmg%"]}% DMG absorption`;
@@ -908,7 +950,7 @@ var BuffProcessor = function(){
             desc: "Consective Use Boosting Attack",
             type: ["attack"],
             notes: ["This refers to attacks whose power increases on consecutive use"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var numHits = damage_frames.hits;
                 var max_total = parseInt(effects["bb base atk%"]) + parseInt(effects["bb atk% inc per use"]) * parseInt(effects["bb atk% max number of inc"]);
                 var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
@@ -924,7 +966,7 @@ var BuffProcessor = function(){
         '65': {
             desc: "Damage Boost to Status Afflicted Foes",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = `${get_polarized_number(effects["atk% buff when enemy has ailment"])}% ATK to status afflicted foes`;
                 msg += get_duration_and_target(effects["atk% buff turns (110)"],effects);
                 return msg;
@@ -933,7 +975,7 @@ var BuffProcessor = function(){
         '66': {
             desc: "Revive Allies",
             type: ["effect"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = `${effects["revive unit chance%"]}% chance to revive allies with ${effects["revive unit hp%"]}% HP`;
                 msg += ` (${effects["target area"]},${effects["target type"]})`
                 return msg;
@@ -942,7 +984,7 @@ var BuffProcessor = function(){
         '67': {
             desc: "BC Fill on Spark",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = `${effects["bc fill on spark%"]}% chance to fill ${get_formatted_minmax(effects["bc fill on spark low"], effects["bc fill on spark high"])} BC on spark`;
                 msg += get_duration_and_target(effects["bc fill on spark buff turns (111)"], effects["target area"], effects["target type"]);
                 return msg;
@@ -952,7 +994,7 @@ var BuffProcessor = function(){
             desc: "Self ATK/DEF/REC/Crit Rate",
             notes: ["Stacks with the regular party ATK/DEF/REC/Crit Rate buff", "Example of a unit having both party and self is Silvie (840128)"],
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = "";
                 if (effects["self atk% buff"] || effects["self def% buff"] || effects["self rec% buff"]) { //regular tri-stat
                     msg += adr_buff_handler(effects["self atk% buff"], effects["self def% buff"], effects["self rec% buff"]);
@@ -983,7 +1025,7 @@ var BuffProcessor = function(){
         '83': {
             desc: "Spark Critical",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = `${effects["spark dmg inc chance%"]}% chance for a ${get_polarized_number(effects["spark dmg inc% buff"])}% spark critical`;
                 msg += get_duration_and_target(effects["spark dmg inc buff turns (131)"], effects);
                 return msg;
@@ -992,7 +1034,7 @@ var BuffProcessor = function(){
         '84': {
             desc: "OD Fill Rate",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = `${get_polarized_number(effects["od fill rate% buff"])}% OD gauge fill rate`;
                 msg += get_duration_and_target(effects["od fill rate buff turns (132)"], effects);
                 return msg;
@@ -1001,7 +1043,7 @@ var BuffProcessor = function(){
         '85': {
             desc: "Heal on Hit",
             type: ["buff"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = effects["hp recover from dmg chance"] + "% chance to heal ";
                 msg += get_formatted_minmax(effects["hp recover from dmg% low"], effects["hp recover from dmg% high"]) + "% DMG when hit";
 
@@ -1013,7 +1055,7 @@ var BuffProcessor = function(){
             desc: "Spark Damage (Self)",
             type: ["buff"],
             notes: ["Should stack with other spark buffs (such as 23)"],
-            func: function (effects, damage_frames, base_element) {
+            func: function (effects, other_data) {
                 var msg = get_polarized_number(effects["spark dmg inc%"]);
                 
                 if(effects["target area"] === "single" && effects["target type"] === "self"){
@@ -1099,7 +1141,7 @@ var BuffProcessor = function(){
                 if(handler[id].notes) msg += "\n  " + handler[id].notes.join(" / ");
                 console.log(msg);
 
-                return handler[id].func(effects, other_data);
+                return handler[id].func(effects, other_data) +  ` [${id}]`;
             }else{
                 console.log(msg);
                 return `${to_proper_case(type)} ID ${id} is not supported yet`;
@@ -1185,19 +1227,99 @@ function UnitEffectPrinter(unit){
     }
     this.printLS = printLS;
 
-    function printES(){
-        if (!unit) throw "No unit specified";
-        let es_object = unit["extra skill"];
-        if(!es_object) return `No Extra Skill data found`;
+    //can specify a specifc ES object from es.json
+    function printES(es_object){
+        if(!es_object){
+            if (!unit) throw "No unit specified";
+            es_object = unit["extra skill"];
+            if(!es_object) return `No Extra Skill data found`;
+        }
         return process_effects(es_object.effects);
     }
     this.printES = printES;
+
+    function printSingleSP(skill_index){
+        let skill_obj;
+        if(typeof skill_index ==="object"){
+            skill_obj =  skill_index;
+        }else{
+            if (!unit) throw "No unit specified";
+            if(unit.skills) skill_obj = unit.skills[skill_index];
+        }
+
+        if(!skill_obj) return "No SP data found";
+        let skill_arr = skill_obj.skill.effects;
+
+        //SP types: [ 'passive','add to ubb','add to bb','add to sbb','add to passive']
+        let sp_effects = {
+            'passive': [],
+            'add to passive': [],
+            'add to bb': [],
+            'add to sbb': [],
+            'add to ubb': [],
+        }
+
+        //put effects in sp_effect object
+        for(let f = 0; f < skill_arr.length; ++f){
+            let effect = skill_arr[f];
+            for(let e in effect){
+                if(sp_effects[e]){
+                    sp_effects[e].push(effect[e]);
+                }else{
+                    console.log("Unknown SP effect type", e);
+                }
+            }
+        }
+
+        //translate each effect
+        let keys = Object.keys(sp_effects);
+        for(let f in sp_effects){
+            let curEffects = sp_effects[f];
+            if(curEffects.length > 0){
+                let msg_arr = process_effects(curEffects,function(){
+                    return {
+                        sp: true
+                    }
+                });
+                sp_effects[f] = msg_arr;
+            }else{
+                delete sp_effects[f];
+            }
+        }
+
+        //concatenate similar strings
+        let msg = buff_processor.multi_param_buff_handler({
+            values: [sp_effects['add to bb'], sp_effects['add to sbb'], sp_effects['add to ubb'], sp_effects['add to passive']],
+            names: ['BB', 'SBB', 'UBB', 'ES'],
+            prefix: `Add \"`,
+            numberFn: function(value){
+                return `${value}" to `
+            }
+        });
+
+        if(sp_effects.passive){
+            if(msg.length > 0){
+                msg += ", "
+            }
+            msg += sp_effects.passive;
+        }
+
+        return msg;
+        
+        // console.log(sp_effects);
+    }
+    this.printSingleSP = printSingleSP;
 
     function printSP(){
         if (!unit) throw "No unit specified";
         return "Printing SP effects is not supported yet"
     }
     this.printSP = printSP;
+}
+
+function printESObject(es_object){
+    let printES = new UnitEffectPrinter({}).printES;
+    return printES(es_object);
 }
 
 function printItem(item){
@@ -1209,6 +1331,20 @@ function printItem(item){
             "target type": item.effect.target_type
         }
     });
+}
+
+
+
+//apply a function to all DBs
+//func params: server name, db name
+function applyToAllDB(func){
+    let db_types = ['bbs', 'es', 'feskills', 'info', 'items', 'ls'];
+    let servers = ['gl', 'eu', 'jp'];
+    for (let s = 0; s < servers.length; ++s) {
+        for (let d = 0; d < db_types.length; ++d) {
+            func(servers[s],db_types[d]);
+        }
+    }
 }
 
 //scan all files and get buff data
@@ -1395,16 +1531,11 @@ function getBuffDataForAll() {
 
     }
     let buff_scraper = new BuffScraper();
-    let db_types = ['bbs', 'es', 'feskills', 'info', 'items', 'ls'];
-    let servers = ['gl', 'eu', 'jp'];
-
-    for (let s = 0; s < servers.length; ++s) {
-        for (let d = 0; d < db_types.length; ++d) {
-            console.log(`Scraping ${db_types[d]}-${servers[s]}.json`);
-            let db = JSON.parse(fs.readFileSync(`./sandbox_data/${db_types[d]}-${servers[s]}.json`, 'utf8'));
-            buff_scraper.getBuffDataForAllinDB(db, db_types[d]);
-        }
-    }
+    applyToAllDB(function(server,db_type){
+        console.log(`Scraping ${db_type}-${server}.json`);
+        let db = JSON.parse(fs.readFileSync(`./sandbox_data/${db_type}-${server}.json`, 'utf8'));
+        buff_scraper.getBuffDataForAllinDB(db, db_type);
+    });
 
     var result = buff_scraper.getResult();
     for (let f in result) {
@@ -1416,17 +1547,7 @@ function getBuffDataForAll() {
     console.log("done");
 }
 
-
-
-var itemQuery = {
-    item_name_id: "20102",
-    // effect: "resist curse%"
-    // rarity: 0,
-    // strict: "true"
-    verbose: true
-};
-
-function doItemTest(){
+function doItemTest(itemQuery){
     return client.searchItem(itemQuery)
         .then(function(results){
             if(results.length === 1){
@@ -1435,7 +1556,7 @@ function doItemTest(){
                 return client.getItem(results[0]).then(function(item){
                     let msg = printItem(item);
                     console.log(JSON.stringify(item, null, 2));
-                    console.log(item.name,"-",item.desc);
+                    console.log(item.name,item.id,"-",item.desc);
                     return msg;
                 });
             }else{
@@ -1449,19 +1570,7 @@ function doItemTest(){
         .catch(console.log);
 }
 
-
-
-var unitQuery = {
-    // unit_name_id: "neferet",
-    unit_name_id: "60116",
-    strict: "false",
-    // server: "JP",
-    // rarity: 7,
-    // element: 'light'
-    // verbose: 'true'
-};
-
-function doUnitTest(){
+function doUnitTest(unitQuery){
     return client.searchUnit(unitQuery)
         .then(function (result) {
             if(result.length === 1){
@@ -1487,12 +1596,12 @@ function doUnitTest(){
         .catch(console.log);
 }
 
-function doBurstTest(){
-    var bursts = JSON.parse(fs.readFileSync('./sandbox_data/bbs-eu.json','utf8'));
+function doBurstTest(id){
+    var bursts = JSON.parse(fs.readFileSync('./sandbox_data/bbs-gl.json','utf8'));
     let printBurst = new UnitEffectPrinter({}).printBurst;
 
 
-    let id = "3116";
+    // let id = "3116";
     let burst_object = bursts[id];
     console.log(JSON.stringify(burst_object,null,2));
     if(burst_object){
@@ -1503,7 +1612,31 @@ function doBurstTest(){
         console.log("No burst found with ID",id);
 }
 
+function doESTest(id){
+    var es_db = JSON.parse(fs.readFileSync('./sandbox_data/es-eu.json', 'utf8'));
+    let es_object = es_db[id];
+    console.log(JSON.stringify(es_object,null,2));
+    if(es_object){
+        let msg = printESObject(es_object);
+        console.log(es_object.name, "-", es_object.desc);
+        console.log("target:",es_object.target);
+        console.log(msg);
+    }else{
+        console.log("No ES found with ID", id);
+    }
+}
+
+function sandbox_function(){
+    let db = JSON.parse(fs.readFileSync(`./sandbox_data/feskills-gl.json`, 'utf8'));
+    let unit = db['40917'];
+    let skill = unit.skills[8];
+    let msg = new UnitEffectPrinter({}).printSingleSP(skill);
+    console.log(msg);
+}
+
+sandbox_function();
 // getBuffDataForAll();
-doItemTest();
-// doUnitTest();
-// doBurstTest();
+// doItemTest({ item_name_id: "800608", verbose: true});
+// doUnitTest({unit_name_id: "20644",strict: "false", verbose:true});
+// doBurstTest("2810317");
+// doESTest("740216");
