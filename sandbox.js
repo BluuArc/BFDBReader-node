@@ -91,9 +91,10 @@ var BuffProcessor = function(){
         if (!options.values || !options.names) throw "multi_param_buff_handler: No values, names, or all array defined";
 
         //create a JSON object keyed by buff values
+        // console.log(options);
         let common_values = {}, msg = "";
         for (let i = 0; i < options.values.length; ++i) {
-            if (options.values[i]) { //in case some values are undefined
+            if (options.values[i] !== undefined) { //in case some values are undefined
                 let curValue = options.values[i].toString();
                 if (!common_values[curValue]) {
                     common_values[curValue] = [];
@@ -102,6 +103,8 @@ var BuffProcessor = function(){
                 common_values[curValue].push(options.names[i]);
             }
         }
+
+        // console.log(common_values);
 
         //create a string from common_values object
         var msg_arr = []; //array of shared values
@@ -114,7 +117,10 @@ var BuffProcessor = function(){
                 continue;
             }
             //format output according to options
-            if (options.prefix) msg += options.prefix;
+            if (options.prefix){
+                if(typeof options.prefix === "function") msg += options.prefix(common_values[v]);
+                else msg += options.prefix;
+            }
             if (options.numberFn) msg += options.numberFn(v);
             else msg += v;
             if (typeof options.suffix === "function") msg += options.suffix(common_values[v]);
@@ -133,14 +139,14 @@ var BuffProcessor = function(){
 
     function hp_adr_buff_handler(hp,atk,def,rec, options){
         options = options || {};
-        options.all = [
+        options.all = options.all || [
             {value: hp, name: "HP"},
             {value: atk, name: "ATK"},
             {value: def, name: "DEF"},
             {value: rec, name: "REC"}
         ];
 
-        options.numberFn = function(number){
+        options.numberFn = options.numberFn || function(number){
             return `${get_polarized_number(number)}% `;
         };
 
@@ -460,7 +466,7 @@ var BuffProcessor = function(){
         return msg;
     }
 
-    function get_target(area,type){
+    function get_target(area,type,options){
         // console.log("Received target data",area,type);
         if(typeof area === "object" && area["target type"] && area["target area"]){
             type = area["target type"];
@@ -470,19 +476,33 @@ var BuffProcessor = function(){
             type = type["target type"];
         }
 
+        options = options || {};
+        let prefix = options.prefix || "to ";
+        let suffix = options.suffix || "";
+
         if(area === "single" && type === "self"){
-            return " to self";
+            return ` ${prefix}self${suffix}`;
         }else if(area === "aoe" && type === "party"){
-            return " to allies";
+            return ` ${prefix}allies${suffix}`;
         }else if(area === "aoe" && type === "enemy"){
-            return " to enemies";
+            return ` ${prefix}enemies${suffix}`;
         }else if(area === "single" && type === "enemy"){
-            return " to an enemy";
+            return ` ${prefix}an enemy${suffix}`;
         }else if(area === "single" && type === "party"){
-            return " to an ally";
+            return ` ${prefix}an ally${suffix}`;
         }else{
             return ` (${area},${type})`;
         }
+    }
+
+    function get_turns(turns, msg, sp, buff_desc){
+        let turnMsg = "";
+        if ((msg.length === 0 && sp) || turns) {
+            if (msg.length === 0 && sp) turnMsg = `Allows current ${buff_desc} buffs to last for additional `;
+            else turnMsg += ` for `;
+            turnMsg += `${turns} ${(turns === 1 ? "turn" : "turns")}`;
+        }
+        return turnMsg;
     }
 
     function regular_atk_helper(effect){
@@ -510,17 +530,29 @@ var BuffProcessor = function(){
                 other_data = other_data || {};
                 let damage_frames = other_data.damage_frames || {};
                 var numHits = damage_frames.hits || "NaN";
-                var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
-                if (effect["bb dmg%"]) msg += effect["bb dmg%"] + "% "; //case when using a burst from bbs.json
-                else msg += effect["bb atk%"] + "% ";
-                msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                var msg = "";
+                if(!other_data.sp){
+                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
+                }
+                if (effect["bb dmg%"]) msg += ` ${effect["bb dmg%"]}%`; //case when using a burst from bbs.json
+                else if(effect["bb atk%"]) msg += ` ${effect["bb atk%"]}%`;
+
+                if(!other_data.sp) msg += " ";
+                else msg += " to BB ATK%";
+
+                if(!other_data.sp){
+                    msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                }
                 let extra = [];
                 if (effect["bb flat atk"]) extra.push("+" + effect["bb flat atk"] + " flat ATK");
                 if (effect["hit dmg% distribution (total)"] && effect["hit dmg% distribution (total)"] !== 100) extra.push(`at ${effect["hit dmg% distribution (total)"]}% power`);
-               if(extra.length > 0) msg += ` (${extra.join(", ")})`;
+                if(extra.length > 0) msg += ` (${extra.join(", ")})`;
+
                 msg += regular_atk_helper(effect);
 
-                if(effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
+                if(!other_data.sp){
+                    if(effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
+                }
                 return msg;
             }
         },
@@ -535,7 +567,7 @@ var BuffProcessor = function(){
                 if (damage_frames.hits > 1)
                     msg += " over " + damage_frames.hits + " hits";
                 // msg += " (" + effect["target area"] + "," + effect["target type"] + ")";
-                msg += get_target(effect,other_data);
+                if(!other_data.sp) msg += get_target(effect,other_data);
                 return msg;
             }
         },
@@ -546,9 +578,12 @@ var BuffProcessor = function(){
                 other_data = other_data || {};
                 var msg = get_formatted_minmax(effect["gradual heal low"], effect["gradual heal high"]) + " HP HoT";
                 msg += " (+" + effect["rec added% (from target)"] + "% target REC)";
-                msg += ` for ${effect["gradual heal turns (8)"]} ${(effect["gradual heal turns (8)"] === 1 ? "turn" : "turns")}`;
 
-                msg += get_target(effect, other_data);
+                if(msg.length === 0 && !other_data.sp) throw "Message length is 0";
+
+                msg += get_turns(effect["gradual heal turns (8)"],msg,other_data.sp,this.desc);
+
+                if(!other_data.sp) msg += get_target(effect, other_data);
                 return msg;
             }
         },
@@ -566,24 +601,9 @@ var BuffProcessor = function(){
                     if (effect["bb bc fill%"]) msg += " and ";
                     msg += `${effect["bb bc fill"]} BC`;
                 }
-
-                let [area,type] = [effect["target area"], effect["target type"]];
-                if(!area && !type){
-                    [area, type] = [other_data["target area"], other_data["target type"]];
-                }
-                if (area === "single" && type === "self") {
-                    msg += " of own BB gauge";
-                } else if (area === "aoe" && type === "party") {
-                    msg += " of allies' BB gauges";
-                } else if (area === "aoe" && type === "enemy") {
-                    msg += " of enemies' BB gauges";
-                } else if (area === "single" && type === "enemy") {
-                    msg += " of an enemy's BB gauge";
-                } else if (area === "single" && type === "party") {
-                    msg += " of an ally's BB guage";
-                } else {
-                    msg += ` of BB gauge (${area},${type})`;
-                }
+                msg += get_target(effect,other_data,{
+                    prefix: 'to BB gauge of '
+                });
 
                 return msg;
             }
@@ -614,12 +634,15 @@ var BuffProcessor = function(){
                     msg += get_polarized_number(effect["crit% buff (16)"]) + "% crit rate";
                 }
                 if (effect['element buffed'] !== "all") {
-                    msg += " to " + to_proper_case(effect['element buffed']);
+                    msg += " to " + to_proper_case(effect['element buffed'] || "null");
                 }
 
-                if(msg.length === 0) throw "Message length is 0";
-                msg += get_target(effect,other_data);
-                if (effect["buff turns"]) msg += " for " + effect["buff turns"] + (effect["buff turns"] === 1 ? " turn" : " turns");
+                if(msg.length === 0 && !other_data.sp) throw "Message length is 0";
+
+                if(!other_data.sp) msg += get_target(effect,other_data);
+
+                msg += get_turns(effect["buff turns"], msg, other_data.sp, this.desc);
+
                 return msg;
             }
         },
@@ -627,16 +650,23 @@ var BuffProcessor = function(){
             desc: "BC/HC/Item Drop Rate",
             type: ["buff"],
             func: function (effect, other_data) {
-                var msg = bc_hc_items_handler(effect["bc drop rate% buff (10)"], effect["hc drop rate% buff (9)"], effect["item drop rate% buff (11)"]) + " droprate";
-                msg += get_target(effect, other_data);
-                msg += ` for ${effect["drop rate buff turns"]} turns`;
+                console.log('proc 6',effect);
+                var msg = "";
+                if (effect["bc drop rate% buff (10)"] || effect["hc drop rate% buff (9)"] || effect["item drop rate% buff (11)"] ) 
+                    msg += bc_hc_items_handler(effect["bc drop rate% buff (10)"], effect["hc drop rate% buff (9)"], effect["item drop rate% buff (11)"]) + " droprate";
+                if(!other_data.sp) msg += get_target(effect, other_data);
+
+                if (msg.length === 0 && !other_data.sp) throw "Message length is 0";
+
+                msg += get_turns(effect["drop rate buff turns"],msg,other_data.sp,this.desc);
+
                 return msg;
             }
         },
         '7': {
             desc: "Angel Idol (AI)",
             type: ["buff"],
-            notes: ["This is the one that is guaranteed to work; no chance of failing", "if you see false in the result, be sure to let the developer (BluuArc) know"],
+            notes: ["This is the one that is guaranteed to work; no chance of failing", "if you see false in the result, please let the developer (BluuArc) know"],
             func: function (effect, other_data) {
                 var info_arr = [];
                 if (effect["angel idol buff (12)"] !== true) info_arr.push(effect["angel idol buff (12)"]);
@@ -650,29 +680,74 @@ var BuffProcessor = function(){
             desc: "Increase Max HP",
             type: ["buff"],
             func: function (effects, other_data) {
-                var msg = `${get_polarized_number(effects["max hp% increase"])}% Max HP`;
-                msg += get_target(effects);
+                let msg = "";
+                if (effects["max hp increase"]){
+                    msg = `${get_polarized_number(effects["max hp increase"])} HP boost to max HP`;
+                }else{
+                    msg = `${get_polarized_number(effects["max hp% increase"])}% Max HP`;
+                }
+                if(!other_data.sp) msg += get_target(effects,other_data);
                 return msg;
             }
         },
         '9': {
-            desc: "ATK/DEF down to enemy",
+            desc: "ATK/DEF/REC down to enemy",
             type: ["debuff"],
-            func: function (effects, other_data) {
+            notes: ['Not sure if this is implemented properly on SP for unit 30517'],
+            func: function (effect, other_data) {
                 var msg = "";
-                if (effects['buff #1']) {
-                    var atk_debuff = effects['buff #1'];
-                    msg += atk_debuff['proc chance%'] + "% chance for " + get_polarized_number(atk_debuff['atk% buff (2)']) + "% ATK";
-                }
-                if (effects['buff #2']) {
+                let chance, amount; //used to check values for SP
+                //case  that both buffs are present with same proc chance
+                if (effect['buff #1'] !== undefined && effect['buff #2'] !== undefined && effect['buff #1']['proc chance%'] === effect['buff #2']['proc chance%']){
+                    console.log("entered double branch");
+                    let debuff1 = effect['buff #1'];
+                    let debuff2 = effect['buff #2'];
+                    chance = debuff1['proc chance%'];
+                    let atk = debuff1['atk% buff (1)'] || debuff2['atk% buff (1)'] || debuff1['atk% buff (2)'] || debuff2['atk% buff (2)'];
+                    let def = debuff1['def% buff (3)'] || debuff2['def% buff (3)'] || debuff1['def% buff (4)'] || debuff2['def% buff (4)'] || debuff1['def% buff (14)'] || debuff2['def% buff (14)']; 
+                    let rec = debuff1['rec% buff (5)'] || debuff2['rec% buff (5)'] || debuff1['rec% buff (6)'] || debuff2['rec% buff (6)'];
+                    amount =  atk || 0 + def || 0 + rec || 0;
+                    msg += debuff1['proc chance%'] + "% chance to inflict " + hp_adr_buff_handler(undefined, atk, def, rec); 
+                }else if (effect['buff #1']) {
+                    let debuff = effect['buff #1'];
+                    chance = debuff['proc chance%'];
+                    let atk = debuff['atk% buff (1)'] || debuff['atk% buff (2)'];
+                    let def = debuff['def% buff (3)'] || debuff['def% buff (4)'] || debuff['def% buff (14)'];
+                    let rec = debuff['rec% buff (5)'] || debuff['rec% buff (6)'];
+                    amount = atk || 0 + def || 0 + rec || 0;
+                    msg += debuff['proc chance%'] + "% chance to inflict " + hp_adr_buff_handler(undefined, atk, def, rec);
+                }else if (effect['buff #2']) {
                     if (msg.length > 0) msg += ", ";
-                    var def_debuff = effects['buff #2'];
-                    msg += def_debuff['proc chance%'] + "% chance for " + get_polarized_number(def_debuff['def% buff (4)']) + "% DEF";
+                    let debuff = effect['buff #2'];
+                    chance = debuff['proc chance%'];
+                    let atk = debuff['atk% buff (1)'] || debuff['atk% buff (2)'];
+                    let def = debuff['def% buff (3)'] || debuff['def% buff (4)'] || debuff['def% buff (14)'];
+                    let rec = debuff['rec% buff (5)'] || debuff['rec% buff (6)'];
+                    amount = atk || 0 + def || 0 + rec || 0;
+                    msg += debuff['proc chance%'] + "% chance to inflict " + hp_adr_buff_handler(undefined, atk, def, rec);
                 }
-                if (msg.length === 0) {
-                    throw "Message length is 0";
+                if (msg.length === 0 && !other_data.sp) throw "Message length is 0";
+                if(!chance && !amount && other_data.sp) msg = "";
+                msg += get_turns(effect["buff turns"], msg, other_data.sp, this.desc);
+
+                if(effect['element buffed'] !== 'all') msg += ` of ${to_proper_case(effect['element buffed'] || "null")} types`; 
+                // msg += ` for ${effect["buff turns"]} ${effect["buff turns"] === 1 ? "turn" : "turns"}`;
+                if(!other_data.sp) msg += get_target(effect,undefined);
+                return msg;
+            }
+        },
+        '10': {
+            desc: "Status Ailment Removal",
+            type: ["effect"],
+            notes: ["if you see false in the result, please let the developer (BluuArc) know", 'This seems similar to proc 38, the usual status removal buff'],
+            func: function(effect,other_data){
+                let msg = "Removes all status ailments";
+                if (effect["remove all status ailments"] !== true){
+                    msg += ` ${effect["remove all status ailments"]}) `;
                 }
-                msg += get_duration_and_target(effects);
+                msg += get_target(effect, undefined, {
+                    prefix: 'from '
+                });
                 return msg;
             }
         },
@@ -1192,7 +1267,9 @@ function UnitEffectPrinter(unit){
         if (other_data_function) console.log("UnitEffectPrinter.process_effects: Other data looks like =>",other_data_function(0))
         for(let e = 0; e < effects.length; ++e){
             if(other_data_function) other_data = other_data_function(e);
-            translated_buffs.push(buff_processor.print_buff(effects[e], other_data));
+            let msg = buff_processor.print_buff(effects[e], other_data);
+            if(translated_buffs.indexOf(msg) === -1) translated_buffs.push(msg);
+            else console.log("ignored duplicate msg:", msg);
         }
         return translated_buffs.join(" / ");
     }
@@ -1291,10 +1368,13 @@ function UnitEffectPrinter(unit){
         let msg = buff_processor.multi_param_buff_handler({
             values: [sp_effects['add to bb'], sp_effects['add to sbb'], sp_effects['add to ubb'], sp_effects['add to passive']],
             names: ['BB', 'SBB', 'UBB', 'ES'],
-            prefix: `Add \"`,
-            numberFn: function(value){
-                return `${value}" to `
+            prefix: function(arr){
+                return `Enhances ${arr.join("/")} with additional "`
+            },
+            suffix: function(arr){
+                return '"';
             }
+
         });
 
         if(sp_effects.passive){
@@ -1304,7 +1384,10 @@ function UnitEffectPrinter(unit){
             msg += sp_effects.passive;
         }
 
-        return msg;
+        return {
+            desc: skill_obj.skill.desc,
+            translation: msg
+        };
         
         // console.log(sp_effects);
     }
@@ -1312,7 +1395,14 @@ function UnitEffectPrinter(unit){
 
     function printSP(){
         if (!unit) throw "No unit specified";
-        return "Printing SP effects is not supported yet"
+        let enhancements = unit.skills;
+        if(!enhancements) return ["No SP Enhancements found"];
+        let msg_arr = [];
+        for(let e = 0; e < enhancements.length; ++e){
+            let curMsg = printSingleSP(enhancements[e]);
+            msg_arr.push(curMsg);
+        }
+        return msg_arr;
     }
     this.printSP = printSP;
 }
@@ -1576,7 +1666,8 @@ function doUnitTest(unitQuery){
             if(result.length === 1){
                 return client.getUnit(result[0]).then(function(unit){
                     let unit_printer = new UnitEffectPrinter(unit);
-                    let msg = unit_printer.printBurst("ubb");
+                    // let msg = unit_printer.printBurst("bb");
+                    let msg = unit_printer.printSP();
 
                     if (unit.translated_name) console.log(unit.translated_name);
                     console.log(unit.name, unit.id);
@@ -1588,18 +1679,29 @@ function doUnitTest(unitQuery){
             }
         })
         .then(function(result){
+            // console.log(result);
             // console.log(result.split('\n\n'));
             // console.log(result.length,result);
-            console.log(result);
+            if(result instanceof Array){
+                if(result.length === 0) console.log("No result found");
+                result.forEach(function(elem,index){
+                    if(elem.desc && elem.translation){ //SP
+                        console.log(index.toString(),elem.desc,"\n ",elem.translation);
+                    }else{
+                        console.log(index,elem);
+                    }
+                });
+            }else{
+                console.log(result);
+            }
             // console.log(JSON.stringify(buff_processor.proc_buffs,null,2));
         })
         .catch(console.log);
 }
 
 function doBurstTest(id){
-    var bursts = JSON.parse(fs.readFileSync('./sandbox_data/bbs-gl.json','utf8'));
+    var bursts = JSON.parse(fs.readFileSync('./sandbox_data/bbs-eu.json','utf8'));
     let printBurst = new UnitEffectPrinter({}).printBurst;
-
 
     // let id = "3116";
     let burst_object = bursts[id];
@@ -1628,15 +1730,15 @@ function doESTest(id){
 
 function sandbox_function(){
     let db = JSON.parse(fs.readFileSync(`./sandbox_data/feskills-gl.json`, 'utf8'));
-    let unit = db['40917'];
+    let unit = db['40897'];
     let skill = unit.skills[8];
     let msg = new UnitEffectPrinter({}).printSingleSP(skill);
     console.log(msg);
 }
 
-sandbox_function();
+// sandbox_function();
 // getBuffDataForAll();
-// doItemTest({ item_name_id: "800608", verbose: true});
-// doUnitTest({unit_name_id: "20644",strict: "false", verbose:true});
-// doBurstTest("2810317");
-// doESTest("740216");
+// doItemTest({ item_name_id: "21100", verbose: true});
+// doUnitTest({unit_name_id: "710197",strict: "false", verbose:true});
+doBurstTest("2101802");
+// doESTest("10400");
