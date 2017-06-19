@@ -4,6 +4,7 @@ var fs = require('fs');
 client.setAddress("http://127.0.0.1:8081");
 
 var BuffProcessor = function(){
+    let no_buff_data_msg = "Message length is 0";
     //helper functions
     function print_effect_legacy(effects) {
         var print_array = function (arr) {
@@ -55,7 +56,8 @@ var BuffProcessor = function(){
     }
 
     function get_formatted_minmax(min, max) {
-        return min + "-" + max;
+        if(min !== max) return min + "-" + max;
+        else return max;
     }
 
     function multi_param_buff_handler(options) {
@@ -217,6 +219,40 @@ var BuffProcessor = function(){
             msg += " ATK";
         }
         return msg;
+    }
+
+    function variable_elemental_mitigation_handler(effect){
+        let elements = ['Fire', 'Water', 'Earth', 'Thunder', 'Light', 'Dark'];
+        let buffs = ['mitigate fire attacks (21)', 'mitigate water attacks (22)', 'mitigate earth attacks (23)', 'mitigate thunder attacks (24)', 'mitigate light attacks (25)', 'mitigate dark attacks (26)'];
+        let values = [];
+        for(let b of buffs){
+            values.push(effect[b]);
+        }
+
+        let options = {
+            names: elements,
+            values: values,
+            numberFn: function(value) {return `${value}% `;},
+            suffix: " mitigation",
+            special_case: {
+                isSpecialCase: function(val,names) {return names.length >= 4;},
+                func: function(value, names){
+                    let msg = `${value}% `;
+                    if(names.length < 6){
+                        for(let n of names){
+                            msg += n[0].toUpperCase();
+                        }
+                    }else{
+                        msg += "all elemental";
+                    }
+                    msg += " mitigation";
+                    return msg;
+                }
+            }
+        };
+
+        return multi_param_buff_handler(options);
+
     }
 
     function elemental_buff_handler(effects){
@@ -570,7 +606,7 @@ var BuffProcessor = function(){
                 var msg = get_formatted_minmax(effect["gradual heal low"], effect["gradual heal high"]) + " HP HoT";
                 msg += " (+" + effect["rec added% (from target)"] + "% target REC)";
 
-                if(msg.length === 0 && !other_data.sp) throw "Message length is 0";
+                if(msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
 
                 msg += get_turns(effect["gradual heal turns (8)"],msg,other_data.sp,this.desc);
 
@@ -628,7 +664,7 @@ var BuffProcessor = function(){
                     msg += " to " + to_proper_case(effect['element buffed'] || "null");
                 }
 
-                if(msg.length === 0 && !other_data.sp) throw "Message length is 0";
+                if(msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
 
                 if(!other_data.sp) msg += get_target(effect,other_data);
 
@@ -647,7 +683,7 @@ var BuffProcessor = function(){
                     msg += bc_hc_items_handler(effect["bc drop rate% buff (10)"], effect["hc drop rate% buff (9)"], effect["item drop rate% buff (11)"]) + " droprate";
                 if(!other_data.sp) msg += get_target(effect, other_data);
 
-                if (msg.length === 0 && !other_data.sp) throw "Message length is 0";
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
 
                 msg += get_turns(effect["drop rate buff turns"],msg,other_data.sp,this.desc);
 
@@ -717,7 +753,7 @@ var BuffProcessor = function(){
                     amount = atk || 0 + def || 0 + rec || 0;
                     msg += debuff['proc chance%'] + "% chance to inflict " + hp_adr_buff_handler(undefined, atk, def, rec);
                 }
-                if (msg.length === 0 && !other_data.sp) throw "Message length is 0";
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if(!chance && !amount && other_data.sp) msg = "";
                 msg += get_turns(effect["buff turns"], msg, other_data.sp, this.desc);
 
@@ -767,7 +803,7 @@ var BuffProcessor = function(){
                 }
                 
                 let msg = ailment_handler(options);
-                if (msg.length === 0 && !effect[null]) throw "Message length is 0";
+                if (msg.length === 0 && !effect[null]) throw no_buff_data_msg;
                 
                 if (effect[null]) {
                     if(msg.length === 0)
@@ -825,6 +861,57 @@ var BuffProcessor = function(){
                 if (!other_data.sp) {
                     if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
                 }
+                return msg;
+            }
+        },
+        '14': {
+            desc: "HP Draining Attack",
+            type: ["attack"],
+            notes: ["Unless otherwise specified, the attack will always be toward the enemy"],
+            func: function (effect, other_data) {
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var msg = "";
+                if (!other_data.sp) {
+                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
+                }
+                if (effect["bb dmg%"]) msg += ` ${effect["bb dmg%"]}%`; //case when using a burst from bbs.json
+                else if (effect["bb atk%"]) msg += ` ${effect["bb atk%"]}%`;
+
+                if (!other_data.sp) msg += " ";
+                else msg += " to BB ATK%";
+
+                if (!other_data.sp) {
+                    msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                }
+                let extra = [];
+                if (effect["bb flat atk"]) extra.push("+" + effect["bb flat atk"] + " flat ATK");
+                extra.push(`heal ${get_formatted_minmax(effect["hp drain% low"],effect["hp drain% high"])}% of damage dealt`);
+                if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100)
+                    extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
+                if (extra.length > 0) msg += ` (${extra.join(", ")})`;
+
+                msg += regular_atk_helper(effect);
+
+                if (!other_data.sp) {
+                    if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
+                }
+                return msg;
+            }
+        },
+        '16': {
+            desc: "Elemental Mitigation",
+            type: ["buff"],
+            notes: ["This is different from proc ID 39 in that each element can have a different value of mitigation; otherwise it's the same"],
+            func: function (effect, other_data) {
+                let msg = variable_elemental_mitigation_handler(effect);
+                if (effect['mitigate all attacks (20)'] !== undefined){
+                    if(msg.length > 0) msg += ", ";
+                    msg += `${effect['mitigate all attacks (20)']}% all attack mitigation`;
+                }
+                msg += get_target(effect);
+                msg += get_turns(effect['buff turns'],msg,other_data.sp,this.desc);
                 return msg;
             }
         },
@@ -983,7 +1070,7 @@ var BuffProcessor = function(){
                 var msg = bb_atk_buff_handler(effects["bb atk% buff"], effects["sbb atk% buff"], effects["ubb atk% buff"]);
 
                 if (msg.length === 0) {
-                    throw "Message length is 0";
+                    throw no_buff_data_msg;
                 }
                 msg += get_duration_and_target(effects["buff turns (72)"], effects["target area"], effects["target type"]);
                 return msg;
@@ -1032,7 +1119,7 @@ var BuffProcessor = function(){
             func: function (effects, other_data) {
                 var msg = ewd_buff_handler(effects);
                 if (msg.length === 0) {
-                    throw "Message length is 0";
+                    throw no_buff_data_msg;
                 }
                 msg += get_duration_and_target(effects["elemental weakness buff turns"], effects["target area"], effects["target type"]);
                 return msg;
@@ -1132,7 +1219,7 @@ var BuffProcessor = function(){
                 }
 
                 if (msg.length === 0) {
-                    throw "Message length is 0";
+                    throw no_buff_data_msg;
                 }
                 //insert own into message
                 if(effects["target area"] === 'single' && effects["target type"] === "self"){
@@ -1275,7 +1362,10 @@ var BuffProcessor = function(){
             }
         }catch(err){
             console.log(`Error at ${to_proper_case(type)} ${id} =>`,err);
-            return `${to_proper_case(type)} ID ${id} has an error`;
+            if(err === no_buff_data_msg)
+                return `No valid data found for ${to_proper_case(type)} ID ${id}`;
+            else 
+                return `${to_proper_case(type)} ID ${id} has an error`;
         }
     }
 
@@ -1713,13 +1803,19 @@ function doItemTest(itemQuery){
 }
 
 function doUnitTest(unitQuery){
+    let type = unitQuery.type;
+    let burstType = unitQuery.burstType;
+    delete unitQuery.type; delete unitQuery.burstType;
     return client.searchUnit(unitQuery)
         .then(function (result) {
             if(result.length === 1){
                 return client.getUnit(result[0]).then(function(unit){
                     let unit_printer = new UnitEffectPrinter(unit);
-                    let msg = unit_printer.printBurst("bb");
-                    // let msg = unit_printer.printSP();
+                    let msg;
+                    if(type === "burst")
+                        msg = unit_printer.printBurst(burstType);
+                    else if(type === "sp")
+                        msg = unit_printer.printSP();
 
                     if (unit.translated_name) console.log(unit.translated_name);
                     console.log(unit.name, unit.id);
@@ -1752,7 +1848,7 @@ function doUnitTest(unitQuery){
 }
 
 function doBurstTest(id){
-    var bursts = JSON.parse(fs.readFileSync('./sandbox_data/bbs-gl.json','utf8'));
+    var bursts = JSON.parse(fs.readFileSync('./sandbox_data/bbs-eu.json','utf8'));
     let printBurst = new UnitEffectPrinter({}).printBurst;
 
     // let id = "3116";
@@ -1791,6 +1887,6 @@ function sandbox_function(){
 // sandbox_function();
 // getBuffDataForAll();
 // doItemTest({ item_name_id: "52400", verbose: true});
-// doUnitTest({unit_name_id: "ensa",strict: "false", verbose:true, server: 'gl'});
-doBurstTest("7890");
+doUnitTest({unit_name_id: "20326",strict: "false", verbose:true,burstType: "ubb", type: "burst"});
+// doBurstTest("2123216");
 // doESTest("10400");
