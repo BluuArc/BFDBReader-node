@@ -68,7 +68,8 @@ var BuffProcessor = function(){
                 isSpecialCase(value,names_array): given a value or names_array, return a bool for if params are a special case
                 func(value,names_array): handle the special case and return a string
             }
-            prefix: string to be put before every value
+            prefix(names_arr) || prefix: if function, return a formatted string for a given array of names
+                if string, then this will be inserted before every value listing
             numberFn(number): special function to get a specific formatted string for a value (like returning polarity or percent with number)
             suffix(names_arr) || suffix: if function, return a formatted string for a given array of names
                 if string, then this will be appended after joining of names_arr
@@ -339,36 +340,21 @@ var BuffProcessor = function(){
         return msg;
     }
 
-    function ailment_inflict_handler(effects) {
-        var ailments = ["injury%", "poison%", "sick%", "weaken%", "curse%", "paralysis%"];
-        var values = {};
-        var msg = "";
-        //sort values by proc chance
-        for (var i = 0; i < ailments.length; ++i) {
-            var curAilment = effects[ailments[i]];
-            if (curAilment) {
-                // console.log(ailments[i], curAilment);
-                if (!values[curAilment.toString()]) {
-                    values[curAilment.toString()] = [];
-                }
-                values[curAilment.toString()].push(ailments[i].replace('%', ""));
-            }
+    //give an options object with at least an array of values for each ailment
+    function ailment_handler(options){
+        if(!options || !options.values) throw "ailment_handler: No options or values defined";
+        if(options.values.length === 6)
+            options.names = options.names || ["Injury", "Poison", "Sick", "Weaken", "Curse", "Paralysis"];
+        else if(options.values.length === 3)
+            options.names = options.names || ["ATK Down", "DEF Down", "REC Down"];
+        else if(options.values.length === 9)
+            options.names = options.names || ["Injury", "Poison", "Sick", "Weaken", "Curse", "Paralysis", "ATK Down", "DEF Down", "REC Down"];
+
+        options.numberFn = options.numberFn || function(value){
+            return `${value}%`;
         }
 
-        // console.log(values);
-
-        for (var a in values) {
-            if (msg.length > 0) msg += ", ";
-
-            msg += a + "% chance to inflict ";
-            for (var ailment = 0; ailment < values[a].length; ++ailment) {
-                msg += values[a][ailment];
-                if (ailment !== values[a].length - 1) {
-                    msg += "/";
-                }
-            }
-        }
-        return msg;
+        return multi_param_buff_handler(options);
     }
 
     function ailments_cured_handler(ailments_array){
@@ -732,7 +718,7 @@ var BuffProcessor = function(){
 
                 if(effect['element buffed'] !== 'all') msg += ` of ${to_proper_case(effect['element buffed'] || "null")} types`; 
                 // msg += ` for ${effect["buff turns"]} ${effect["buff turns"] === 1 ? "turn" : "turns"}`;
-                if(!other_data.sp) msg += get_target(effect,undefined);
+                if(!other_data.sp) msg += get_target(effect,other_data);
                 return msg;
             }
         },
@@ -752,11 +738,39 @@ var BuffProcessor = function(){
             }
         },
         '11': {
-            desc: "Inflict Ailment on Enemy",
+            desc: "Inflict Status Ailment",
             type: ["debuff"],
-            func: function (effects, other_data) {
-                var msg = ailment_inflict_handler(effects);
-                if (msg.length === 0) throw "Message length is 0";
+            notes: ["Some bursts have a 'null' parameter; it's currently unknown as to what it does"],
+            func: function (effect, other_data) {
+                let options = {};
+                // ["Injury", "Poison", "Sick", "Weaken", "Curse", "Paralysis"]
+                options.values = [
+                    effect["injury%"],
+                    effect["poison%"],
+                    effect["sick%"],
+                    effect["weaken%"],
+                    effect["curse%"],
+                    effect["paralysis%"]
+                ];
+
+                options.suffix = function(names){
+                    if(names.length === 6){
+                        return " chance to inflict any status ailment";
+                    }else{
+                        return ` chance to inflict ${names.join("/")}`;
+                    }
+                }
+                
+                let msg = ailment_handler(options);
+                if (msg.length === 0 && !effect[null]) throw "Message length is 0";
+                
+                if (effect[null]) {
+                    if(msg.length === 0)
+                        msg += `Unknown param 'null' (${effect[null]})`;
+                    else 
+                        msg += `, Unknown param 'null' (${effect[null]})`;
+                }
+                if (!other_data.sp) msg += get_target(effect,other_data);
                 return msg;
             }
         },
@@ -1666,8 +1680,8 @@ function doUnitTest(unitQuery){
             if(result.length === 1){
                 return client.getUnit(result[0]).then(function(unit){
                     let unit_printer = new UnitEffectPrinter(unit);
-                    // let msg = unit_printer.printBurst("bb");
-                    let msg = unit_printer.printSP();
+                    let msg = unit_printer.printBurst("ubb");
+                    // let msg = unit_printer.printSP();
 
                     if (unit.translated_name) console.log(unit.translated_name);
                     console.log(unit.name, unit.id);
@@ -1738,7 +1752,7 @@ function sandbox_function(){
 
 // sandbox_function();
 // getBuffDataForAll();
-// doItemTest({ item_name_id: "21100", verbose: true});
-// doUnitTest({unit_name_id: "710197",strict: "false", verbose:true});
-doBurstTest("2101802");
+// doItemTest({ item_name_id: "800315", verbose: true});
+// doUnitTest({unit_name_id: "semira",strict: "false", verbose:true});
+doBurstTest("70430039");
 // doESTest("10400");
