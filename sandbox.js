@@ -498,9 +498,9 @@ var BuffProcessor = function(){
     function regular_atk_helper(effect){
         let msg = "";
         // if (effect["bb flat atk"]) msg += " (+" + effect["bb flat atk"] + " flat ATK)";
-        if (effect["bb bc%"]) msg += ", innate +" + effect["bb bc%"] + "% BC drop rate";
-        if (effect["bb crit%"]) msg += ", innate +" + effect["bb crit%"] + "% crit rate";
-        if (effect["bb hc%"]) msg += ", innate +" + effect["bb hc%"] + "% HC drop rate";
+        if (effect["bb bc%"]) msg += ", innate " + get_polarized_number(effect["bb bc%"]) + "% BC drop rate";
+        if (effect["bb crit%"]) msg += ", innate " + get_polarized_number(effect["bb crit%"]) + "% crit rate";
+        if (effect["bb hc%"]) msg += ", innate " + get_polarized_number(effect["bb hc%"]) + "% HC drop rate";
         return msg;
     }
 
@@ -535,7 +535,8 @@ var BuffProcessor = function(){
                 }
                 let extra = [];
                 if (effect["bb flat atk"]) extra.push("+" + effect["bb flat atk"] + " flat ATK");
-                if (effect["hit dmg% distribution (total)"] && effect["hit dmg% distribution (total)"] !== 100) extra.push(`at ${effect["hit dmg% distribution (total)"]}% power`);
+                if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100) 
+                    extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
                 if(extra.length > 0) msg += ` (${extra.join(", ")})`;
 
                 msg += regular_atk_helper(effect);
@@ -795,16 +796,35 @@ var BuffProcessor = function(){
         '13': {
             desc: "Random Target (RT) Attack",
             type: ["attack"],
-            func: function (effects, other_data) {
-                var numHits = effects.hits;
-                var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
-                msg += effects["bb atk%"] + "% ";
-                if(effects["random attack"] === false) msg += (effects["target area"].toUpperCase() === "SINGLE") ? "ST" : effects["target area"].toUpperCase();
-                else msg += "RT";
-                if (effects["bb flat atk"]) msg += " (+" + effects["bb flat atk"] + " flat ATK)";
-                if (effects["bb bc%"]) msg += ", innate +" + effects["bb bc%"] + "% BC drop rate";
-                if (effects["bb crit%"]) msg += ", innate +" + effects["bb crit%"] + "% crit rate";
-                if (effects["bb hc%"]) msg += ", innate +" + effects["bb hc%"] + "% HC drop rate";
+            func: function (effect, other_data) {
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = effect.hits || "NaN";
+                // var numHits = effect.hits;
+                let msg = "";
+                if (!other_data.sp) {
+                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
+                }
+                if (effect["bb atk%"]) msg += ` ${effect["bb atk%"]}%`;
+
+                if (!other_data.sp) msg += " ";
+                else msg += " to BB ATK%";
+
+                if(!other_data.sp){
+                    if(effect["random attack"] === false) msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                    else msg += "RT";
+                }
+                let extra = [];
+                if (effect["bb flat atk"]) extra.push("+" + effect["bb flat atk"] + " flat ATK");
+                if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100) 
+                    extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
+                if (extra.length > 0) msg += ` (${extra.join(", ")})`;
+
+                msg += regular_atk_helper(effect);
+
+                if (!other_data.sp) {
+                    if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
+                }
                 return msg;
             }
         },
@@ -1698,7 +1718,7 @@ function doUnitTest(unitQuery){
             if(result.length === 1){
                 return client.getUnit(result[0]).then(function(unit){
                     let unit_printer = new UnitEffectPrinter(unit);
-                    let msg = unit_printer.printBurst("sbb");
+                    let msg = unit_printer.printBurst("bb");
                     // let msg = unit_printer.printSP();
 
                     if (unit.translated_name) console.log(unit.translated_name);
@@ -1732,7 +1752,7 @@ function doUnitTest(unitQuery){
 }
 
 function doBurstTest(id){
-    var bursts = JSON.parse(fs.readFileSync('./sandbox_data/bbs-eu.json','utf8'));
+    var bursts = JSON.parse(fs.readFileSync('./sandbox_data/bbs-gl.json','utf8'));
     let printBurst = new UnitEffectPrinter({}).printBurst;
 
     // let id = "3116";
@@ -1770,7 +1790,7 @@ function sandbox_function(){
 
 // sandbox_function();
 // getBuffDataForAll();
-doItemTest({ item_name_id: "52400", verbose: true});
-// doUnitTest({unit_name_id: "Juno",strict: "false", verbose:true, server: 'gl'});
-// doBurstTest("2200268");
+// doItemTest({ item_name_id: "52400", verbose: true});
+// doUnitTest({unit_name_id: "ensa",strict: "false", verbose:true, server: 'gl'});
+doBurstTest("7890");
 // doESTest("10400");
