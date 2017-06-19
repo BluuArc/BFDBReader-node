@@ -466,6 +466,10 @@ var BuffProcessor = function(){
         let prefix = options.prefix || "to ";
         let suffix = options.suffix || "";
 
+        //special case for when options.prefix is ""
+        if(typeof options.prefix === "string" && options.prefix.length === 0)
+            prefix = "";
+        
         if(area === "single" && type === "self"){
             return ` ${prefix}self${suffix}`;
         }else if(area === "aoe" && type === "party"){
@@ -650,7 +654,7 @@ var BuffProcessor = function(){
             }
         },
         '7': {
-            desc: "Angel Idol (AI)",
+            desc: "Guaranteed Angel Idol (AI)",
             type: ["buff"],
             notes: ["This is the one that is guaranteed to work; no chance of failing", "if you see false in the result, please let the developer (BluuArc) know"],
             func: function (effect, other_data) {
@@ -771,6 +775,20 @@ var BuffProcessor = function(){
                         msg += `, Unknown param 'null' (${effect[null]})`;
                 }
                 if (!other_data.sp) msg += get_target(effect,other_data);
+                return msg;
+            }
+        },
+        '12': {
+            desc: "Guaranteed Revive",
+            type: ["effect"],
+            notes: ["As of June 2017, this is only found on at least one NPC attack and some items"],
+            func: function (effect, other_data) {
+                let revive_target = get_target(effect,other_data,{
+                    prefix: "",
+                    suffix: ""
+                });
+
+                let msg = `revive${revive_target} with ${effect['revive to hp%']}% HP`;
                 return msg;
             }
         },
@@ -1062,7 +1080,7 @@ var BuffProcessor = function(){
             }
         },
         '66': {
-            desc: "Revive Allies",
+            desc: "Chance Revive",
             type: ["effect"],
             func: function (effects, other_data) {
                 var msg = `${effects["revive unit chance%"]}% chance to revive allies with ${effects["revive unit hp%"]}% HP`;
@@ -1680,7 +1698,7 @@ function doUnitTest(unitQuery){
             if(result.length === 1){
                 return client.getUnit(result[0]).then(function(unit){
                     let unit_printer = new UnitEffectPrinter(unit);
-                    let msg = unit_printer.printBurst("ubb");
+                    let msg = unit_printer.printBurst("sbb");
                     // let msg = unit_printer.printSP();
 
                     if (unit.translated_name) console.log(unit.translated_name);
@@ -1752,7 +1770,7 @@ function sandbox_function(){
 
 // sandbox_function();
 // getBuffDataForAll();
-// doItemTest({ item_name_id: "800315", verbose: true});
-// doUnitTest({unit_name_id: "semira",strict: "false", verbose:true});
-doBurstTest("70430039");
+doItemTest({ item_name_id: "52400", verbose: true});
+// doUnitTest({unit_name_id: "Juno",strict: "false", verbose:true, server: 'gl'});
+// doBurstTest("2200268");
 // doESTest("10400");
