@@ -784,7 +784,6 @@ var BuffProcessor = function(){
             notes: ["Some bursts have a 'null' parameter; it's currently unknown as to what it does"],
             func: function (effect, other_data) {
                 let options = {};
-                // ["Injury", "Poison", "Sick", "Weaken", "Curse", "Paralysis"]
                 options.values = [
                     effect["injury%"],
                     effect["poison%"],
@@ -918,9 +917,49 @@ var BuffProcessor = function(){
         '17': {
             desc: "Status Negation/Resistance",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = ailment_null_handler(effects);
-                msg += get_duration_and_target(effects["resist status ails turns"], effects);
+            func: function (effect, other_data) {
+                let options = {};
+                options.values = [
+                    effect["resist injury% (33)"],
+                    effect["resist poison% (30)"],
+                    effect["resist sick% (32)"],
+                    effect["resist weaken% (31)"],
+                    effect["resist curse% (34)"],
+                    effect["resist paralysis% (35)"]
+                ];
+
+                options.suffix = function (names) {
+                    if (names.length === 6) {
+                        return " all status ailments";
+                    } else {
+                        return ` ${names.join("/")}`;
+                    }
+                };
+
+                options.numberFn = function(value){
+                    if(value === 100)
+                        return "full resistance to";
+                    else 
+                        return `${value}% resistance to`;
+                };
+
+                options.special_case = {
+                    isSpecialCase: function(value,names){
+                        console.log("Received:", value, names.length, value == 100, names.length === 6);
+                        return value == 100 && names.length === 6;
+                    },
+                    func: function(value, names){
+                        return "Negates all status ailments";
+                    }
+                };
+
+                let msg = ailment_handler(options);
+                if (msg.length === 0) throw no_buff_data_msg;
+
+                if (!other_data.sp) msg += get_target(effect, other_data,{
+                    prefix: 'for '
+                });
+                msg += get_turns(effect['resist status ails turns'],msg,other_data.sp,this.desc);
                 return msg;
             }
         },
@@ -1886,7 +1925,7 @@ function sandbox_function(){
 
 // sandbox_function();
 // getBuffDataForAll();
-// doItemTest({ item_name_id: "52400", verbose: true});
-doUnitTest({unit_name_id: "20326",strict: "false", verbose:true,burstType: "ubb", type: "burst"});
-// doBurstTest("2123216");
-// doESTest("10400");
+// doItemTest({ item_name_id: "20250", verbose: true});
+// doUnitTest({unit_name_id: "rigness",strict: "false", verbose:true,burstType: "sbb", type: "burst"});
+doBurstTest("2123050");
+// doESTest("7200");
