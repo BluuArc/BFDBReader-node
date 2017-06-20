@@ -952,7 +952,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
 
                 options.special_case = {
                     isSpecialCase: function(value,names){
-                        console.log("Received:", value, names.length, value == 100, names.length === 6);
+                        // console.log("Received:", value, names.length, value == 100, names.length === 6);
                         return value == 100 && names.length === 6;
                     },
                     func: function(value, names){
@@ -985,10 +985,14 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         '19': {
             desc: "BC Fill per Turn",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = effects["increase bb gauge gradual"] + " BC/turn";
+            func: function (effect, other_data) {
+                var msg = "";
+                if(effect['increase bb gauge gradual']) msg += effect["increase bb gauge gradual"] + " BC/turn";
 
-                msg += get_duration_and_target(effects["increase bb gauge gradual turns (37)"], effects["target area"], effects["target type"]);
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect['increase bb gauge gradual turns (37)'], msg, other_data.sp, this.desc);
+                // msg += get_duration_and_target(effect["increase bb gauge gradual turns (37)"], effects["target area"], effects["target type"]);
                 return msg;
             }
         },
@@ -2010,7 +2014,7 @@ function doBurstTest(id){
 }
 
 function doESTest(id){
-    var es_db = JSON.parse(fs.readFileSync('./sandbox_data/es-eu.json', 'utf8'));
+    var es_db = JSON.parse(fs.readFileSync('./sandbox_data/es-gl.json', 'utf8'));
     let es_object = es_db[id];
     console.log(JSON.stringify(es_object,null,2));
     if(es_object){
@@ -2089,8 +2093,8 @@ try{
 loadPromise.then(function(){
     // sandbox_function();
     // getBuffDataForAll();
-    // doItemTest({ item_name_id: "800313", verbose: true});
-    doUnitTest({ unit_name_id: "30817",strict: "false", verbose:true,burstType: "ubb", type: "sp"});
-    // doBurstTest("6501144");
-    // doESTest("11800");
+    // doItemTest({ item_name_id: "21100", verbose: true});
+    // doUnitTest({ unit_name_id: "11097",strict: "false", verbose:true,burstType: "sbb", type: "sp"});
+    doBurstTest("30846");
+    // doESTest("36600");
 })
