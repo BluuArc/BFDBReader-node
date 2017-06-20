@@ -528,7 +528,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
     function get_turns(turns, msg, sp, buff_desc){
         let turnMsg = "";
         if ((msg.length === 0 && sp) || turns) {
-            if (msg.length === 0 && sp) turnMsg = `Allows current ${buff_desc} buffs to last for additional `;
+            if (msg.length === 0 && sp) turnMsg = `Allows current ${buff_desc} buff(s) to last for additional `;
             else turnMsg += ` for `;
             turnMsg += `${turns} ${(turns === 1 ? "turn" : "turns")}`;
         }
@@ -626,17 +626,17 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             type: ["effect"],
             notes: ["This effect is similar to the regular BC insta-fill buff (proc 31), but has the option of filling a percentage of the BB gauge", "Filling 100% of own BB gauge means that the gauge will be refilled to SBB if it's unlocked"],
             func: function (effect,other_data) {
-                var msg = "Fills ";
+                var msg = "";
                 if(effect["bb bc fill%"]){
-                    msg += `${effect["bb bc fill%"]}% of`;
+                    msg += `${get_polarized_number(effect["bb bc fill%"])}% BB gauge of`;
                 }
 
                 if(effect["bb bc fill"]){
                     if (effect["bb bc fill%"]) msg += " and ";
-                    msg += `${effect["bb bc fill"]} BC to`;
+                    msg += `${get_polarized_number(effect["bb bc fill"])} BC fill to`;
                 }
-                msg += get_target(effect,other_data,{
-                    prefix: 'BB gauge of '
+                if (!other_data.sp) msg += get_target(effect,other_data,{
+                    prefix: ''
                 });
 
                 return msg;
@@ -706,7 +706,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if (effect["angel idol buff (12)"] !== true) info_arr.push(effect["angel idol buff (12)"]);
                 info_arr.push(`recover ${effect["angel idol recover hp%"] || 100}% HP on use`);
                 let msg = `gives Angel Idol (${info_arr.join(", ")})`;
-                msg += get_target(effect, other_data);
+                if (!other_data.sp) msg += get_target(effect, other_data);
                 return msg;
             }
         },
@@ -779,7 +779,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if (effect["remove all status ailments"] !== true){
                     msg += ` ${effect["remove all status ailments"]}) `;
                 }
-                msg += get_target(effect, undefined, {
+                if (!other_data.sp) msg += get_target(effect, undefined, {
                     prefix: 'from '
                 });
                 return msg;
@@ -809,7 +809,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 }
                 
                 let msg = ailment_handler(options);
-                if (msg.length === 0 && !effect[null]) throw no_buff_data_msg;
+                if (msg.length === 0 && (!effect[null] || !other_data.sp)) throw no_buff_data_msg;
                 
                 if (effect[null]) {
                     if(msg.length === 0)
@@ -916,7 +916,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                     if(msg.length > 0) msg += ", ";
                     msg += `${effect['mitigate all attacks (20)']}% all attack mitigation`;
                 }
-                msg += get_target(effect);
+                if (!other_data.sp) msg += get_target(effect);
                 msg += get_turns(effect['buff turns'],msg,other_data.sp,this.desc);
                 return msg;
             }
@@ -961,7 +961,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 };
 
                 let msg = ailment_handler(options);
-                if (msg.length === 0) throw no_buff_data_msg;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
 
                 if (!other_data.sp) msg += get_target(effect, other_data,{
                     prefix: 'for '
@@ -974,7 +974,9 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             desc: "Mitigation",
             type: ["buff"],
             func: function (effect, other_data) {
-                var msg = `${effect["dmg% reduction"]}% mitigation`;
+                var msg = "";
+                if(effect['dmg% reduction']) msg += `${effect["dmg% reduction"]}% mitigation`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if(!other_data.sp) msg += get_target(effect,other_data);
                 msg += get_turns(effect['dmg% reduction turns (36)'],msg,other_data.sp,this.desc);
                 return msg;
@@ -1993,7 +1995,7 @@ function doUnitTest(unitQuery){
 }
 
 function doBurstTest(id){
-    var bursts = JSON.parse(fs.readFileSync('./sandbox_data/bbs-eu.json','utf8'));
+    var bursts = JSON.parse(fs.readFileSync('./sandbox_data/bbs-gl.json','utf8'));
     let printBurst = new UnitEffectPrinter({}).printBurst;
 
     // let id = "3116";
@@ -2087,8 +2089,8 @@ try{
 loadPromise.then(function(){
     // sandbox_function();
     // getBuffDataForAll();
-    // doItemTest({ item_name_id: "20250", verbose: true});
-    doUnitTest({ unit_name_id: "eleanor",strict: "false", verbose:true,burstType: "bb", type: "sp"});
-    // doBurstTest("1001606");
-    // doESTest("11000");
+    // doItemTest({ item_name_id: "800313", verbose: true});
+    doUnitTest({ unit_name_id: "30817",strict: "false", verbose:true,burstType: "ubb", type: "sp"});
+    // doBurstTest("6501144");
+    // doESTest("11800");
 })
