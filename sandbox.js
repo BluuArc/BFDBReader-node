@@ -61,7 +61,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
 
     function get_formatted_minmax(min, max) {
         if(min !== max) return min + "-" + max;
-        else return max;
+        else return min || max;
     }
 
     function multi_param_buff_handler(options) {
@@ -992,16 +992,26 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data);
                 msg += get_turns(effect['increase bb gauge gradual turns (37)'], msg, other_data.sp, this.desc);
-                // msg += get_duration_and_target(effect["increase bb gauge gradual turns (37)"], effects["target area"], effects["target type"]);
                 return msg;
             }
         },
         '20': {
             desc: "BC Fill on Hit",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = `${effects["bc fill when attacked%"]}% chance to fill ${get_formatted_minmax(effects["bc fill when attacked low"],effects["bc fill when attacked high"])} BC when hit`;
-                msg += get_duration_and_target(effects["bc fill when attacked turns (38)"], effects["target area"], effects["target type"]);
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect["bc fill when attacked%"] || effect["bc fill when attacked low"] || effect["bc fill when attacked high"]){
+                    if (effect["bc fill when attacked%"] !== undefined && effect["bc fill when attacked%"] !== 100){
+                        msg += `${effect["bc fill when attacked%"]}% chance to fill `;
+                    }else if(effect["bc fill when attacked%"] !== undefined && effect["bc fill when attacked%"] === 100) {
+                        msg += "Fills ";
+                    }
+                    msg +=`${get_formatted_minmax(effect["bc fill when attacked low"],effect["bc fill when attacked high"])} BC when hit`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["bc fill when attacked turns (38)"], msg, other_data.sp, this.desc);
+                // msg += get_duration_and_target(effect["bc fill when attacked turns (38)"], effect["target area"], effect["target type"]);
                 return msg;
             }
         },
@@ -2094,7 +2104,7 @@ loadPromise.then(function(){
     // sandbox_function();
     // getBuffDataForAll();
     // doItemTest({ item_name_id: "21100", verbose: true});
-    // doUnitTest({ unit_name_id: "11097",strict: "false", verbose:true,burstType: "sbb", type: "sp"});
-    doBurstTest("30846");
-    // doESTest("36600");
+    // doUnitTest({ unit_name_id: "10847",strict: "false", verbose:true,burstType: "sbb", type: "sp"});
+    doBurstTest("2005040");
+    // doESTest("26800");
 })
