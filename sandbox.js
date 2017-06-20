@@ -3,8 +3,12 @@ var fs = require('fs');
 
 client.setAddress("http://127.0.0.1:8081");
 
-var BuffProcessor = function(){
+let unit_names = {}, item_names = {};
+
+var BuffProcessor = function(/*unit_names, item_names*/){
     let no_buff_data_msg = "Message length is 0";
+    // unit_names = unit_names || {};
+    // item_names = item_names || {};
     //helper functions
     function print_effect_legacy(effects) {
         var print_array = function (arr) {
@@ -545,6 +549,8 @@ var BuffProcessor = function(){
         buff: `unit gains some sort of enhancement to their stats or attacks, can last more than one turn`,
         debuff: `unit's attack inflicts some ailment onto the enemy`,
         effect: `buff does something directly to the unit(s) on that turn; multiple instances of itself on the same turn will stack`,
+        passive: `always active`,
+        timed: `only active for a certain amount of time`,
         none: `buff doesn't do anything; either bugged or developer value`
     }; 
     var proc_buffs = {
@@ -622,15 +628,15 @@ var BuffProcessor = function(){
             func: function (effect,other_data) {
                 var msg = "Fills ";
                 if(effect["bb bc fill%"]){
-                    msg += `${effect["bb bc fill%"]}%`;
+                    msg += `${effect["bb bc fill%"]}% of`;
                 }
 
                 if(effect["bb bc fill"]){
                     if (effect["bb bc fill%"]) msg += " and ";
-                    msg += `${effect["bb bc fill"]} BC`;
+                    msg += `${effect["bb bc fill"]} BC to`;
                 }
                 msg += get_target(effect,other_data,{
-                    prefix: 'to BB gauge of '
+                    prefix: 'BB gauge of '
                 });
 
                 return msg;
@@ -969,7 +975,7 @@ var BuffProcessor = function(){
             type: ["buff"],
             func: function (effect, other_data) {
                 var msg = `${effect["dmg% reduction"]}% mitigation`;
-                msg += get_target(effect,other_data);
+                if(!other_data.sp) msg += get_target(effect,other_data);
                 msg += get_turns(effect['dmg% reduction turns (36)'],msg,other_data.sp,this.desc);
                 return msg;
             }  
@@ -1358,8 +1364,101 @@ var BuffProcessor = function(){
         }
     };
 
-    var passive_buffs = {
+    //get names of IDs in array
+    function get_names(arr,type){
+        let names = [];
+        if(type === 'unit'){
+            for(let val of arr){
+                val = val.toString();
+                // console.log(val,unit_names[val]);
+                names.push(unit_names[val] || val);
+            }
+        }else if(type === 'item'){
+            for(let val of arr){
+                val = val.toString();
+                // console.log(val,item_names[val]);
+                names.push(item_names[val] || val);
+            }
+        }
+        return names;
+    }
 
+    var passive_buffs = {
+        '66': {
+            desc: "Add effect to BB/SBB",
+            type: ["passive"],
+            func: function (effect,other_data) {
+                let burst_type = (function(bb,sbb, ubb){
+                    let options = {
+                        all: [
+                            {name: "BB", value: bb},
+                            {name: "SBB", value: sbb},
+                            {name: "UBB", value: ubb}
+                        ],
+                        numberFn: function(value){return "";}
+                    };
+                    
+                    return multi_param_buff_handler(options);
+                })(effect["trigger on bb"], effect["trigger on sbb"], effect["trigger on ubb"]);
+
+                let conditions = {
+                    unit: [],
+                    item: []   
+                };
+                if(effect['conditions'] && effect['conditions'].length > 0){
+                    for(let condition of effect['conditions']){
+                        if (condition['item required'] && condition['item required'].length > 0){
+                            for(let item of condition['item required']){
+                                if(conditions.item.indexOf(item) === -1){
+                                    conditions.item.push(item);
+                                }
+                            }
+                        } else if (condition['unit required'] && condition['unit required'].length > 0){
+                            // conditions.push({ type: 'unit', value: condition['unit required'] });
+                            for(let unit of condition['unit required']){
+                                if(conditions.unit.indexOf(unit) === -1){
+                                    conditions.unit.push(unit);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // console.log(conditions);
+
+                let buff = [];
+                for (let e of effect['triggered effect']){
+                    buff.push(print_buff(e));
+                }
+
+                let msg = "";
+                let cond_msg = [];
+                if(conditions.unit.length > 0){
+                    let names = get_names(conditions.unit,'unit');
+                    if(conditions.unit.length === 1){
+                        cond_msg.push(`${names[0]} is in squad`);
+                    }else{
+                        cond_msg.push(`${names.join(" or ")} are in squad`);
+                    }
+                }
+                if(conditions.item.length > 0){
+                    let names = get_names(conditions.item, 'item');
+                    if(conditions.item.length === 1){
+                        cond_msg.push(`${names[0]} is equipped`);
+                    }else{
+                        cond_msg.push(`${names.join(" or ")} are equipped`);
+                    }
+                }
+                if(cond_msg.length > 0){
+                    msg += `If ${cond_msg.join(" or ")}, then `;
+                }
+
+                msg += `${msg.length > 0 ? "add" : "Add"} "${buff.join(" / ").trim()}" to ${burst_type}`;
+                if (effect['passive target'] !== undefined && effect['passive target'] !== 'self')
+                    msg += ` to ${effect['passive target']}`;
+                return msg;
+            }
+        },
     };
 
     var unknown_passive_buffs = {
@@ -1435,7 +1534,7 @@ var BuffProcessor = function(){
     this.buff_list = buff_list;
 };
 
-var buff_processor = new BuffProcessor();
+// var buff_processor = new BuffProcessor();
 
 function UnitEffectPrinter(unit){
     const buff_processor = new BuffProcessor();
@@ -1494,6 +1593,8 @@ function UnitEffectPrinter(unit){
             es_object = unit["extra skill"];
             if(!es_object) return `No Extra Skill data found`;
         }
+
+        console.log(JSON.stringify(es_object,null,2));
         return process_effects(es_object.effects);
     }
     this.printES = printES;
@@ -1580,6 +1681,7 @@ function UnitEffectPrinter(unit){
         if (!unit) throw "No unit specified";
         let enhancements = unit.skills;
         if(!enhancements) return ["No SP Enhancements found"];
+        console.log(JSON.stringify(enhancements,null,2));
         let msg_arr = [];
         for(let e = 0; e < enhancements.length; ++e){
             let curMsg = printSingleSP(enhancements[e]);
@@ -1857,6 +1959,8 @@ function doUnitTest(unitQuery){
                         msg = unit_printer.printBurst(burstType);
                     else if(type === "sp")
                         msg = unit_printer.printSP();
+                    else if(type === "es")
+                        msg = unit_printer.printES();
 
                     if (unit.translated_name) console.log(unit.translated_name);
                     console.log(unit.name, unit.id);
@@ -1925,9 +2029,66 @@ function sandbox_function(){
     console.log(msg);
 }
 
-// sandbox_function();
-// getBuffDataForAll();
-// doItemTest({ item_name_id: "20250", verbose: true});
-doUnitTest({unit_name_id: "johan",strict: "false", verbose:true,burstType: "sbb", type: "burst"});
-// doBurstTest("2123050");
-// doESTest("7200");
+function setNameArrays(){
+    let units = client.searchUnit({unit_name_id: ""});
+    let items = client.searchItem({item_name_id: ""});
+    return Promise.all([units,items])
+        .then(function(results){
+            let unitIDs = results[0];
+            let itemIDs = results[1];
+
+            let promises = [];
+            let itemCount = 0, unitCount = 0;
+            for(let unit of unitIDs){
+                // console.log(unit);
+                let curUnitPromise = client.getUnit(unit).then(function (unitResult) {
+                    // console.log("Got unit", ++unitCount, "/", unitIDs.length);
+                    unit_names[unitResult.id.toString()] = (unitResult.translated_name || unitResult.name) + ` (${unitResult.id})`;
+                    return;
+                });
+                promises.push(curUnitPromise);
+            }
+            for(let item of itemIDs){
+                // console.log(item);
+                let curItemPromise = client.getItem(item).then(function (itemResult) {
+                    // console.log("Got item", ++itemCount, "/", itemIDs.length);
+                    item_names[itemResult.id.toString()] = (itemResult.translated_name || itemResult.name) + ` (${itemResult.id})`;
+                    return;
+                });
+                promises.push(curItemPromise);
+            }
+
+            return Promise.all(promises);
+        }).then(function(){
+            // console.log(unit_names);
+            // console.log(item_names);
+            let names = {
+                unit: unit_names,
+                item: item_names
+            };
+            fs.writeFileSync('./names.json', JSON.stringify(names), 'utf8');
+            console.log("Wrote names.json");
+        });
+}
+
+let loadPromise;
+try{
+    if(fs.existsSync('./names.json')){
+        let names = JSON.parse(fs.readFileSync('./names.json'));
+        unit_names = names.unit;
+        item_names = names.item;
+        loadPromise = Promise.resolve();
+    }else{
+        throw "No names.json found";
+    }
+}catch(err){
+    loadPromise = setNameArrays();
+}
+loadPromise.then(function(){
+    // sandbox_function();
+    // getBuffDataForAll();
+    // doItemTest({ item_name_id: "20250", verbose: true});
+    doUnitTest({ unit_name_id: "eleanor",strict: "false", verbose:true,burstType: "bb", type: "sp"});
+    // doBurstTest("1001606");
+    // doESTest("11000");
+})
