@@ -608,9 +608,10 @@ var BuffProcessor = function(){
 
                 if(msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
 
+                if(!other_data.sp) msg += get_target(effect, other_data);
+
                 msg += get_turns(effect["gradual heal turns (8)"],msg,other_data.sp,this.desc);
 
-                if(!other_data.sp) msg += get_target(effect, other_data);
                 return msg;
             }
         },
@@ -661,7 +662,7 @@ var BuffProcessor = function(){
                     msg += get_polarized_number(effect["crit% buff (16)"]) + "% crit rate";
                 }
                 if (effect['element buffed'] !== "all") {
-                    msg += " to " + to_proper_case(effect['element buffed'] || "null");
+                    msg += " of " + to_proper_case(effect['element buffed'] || "null");
                 }
 
                 if(msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
@@ -681,10 +682,10 @@ var BuffProcessor = function(){
                 var msg = "";
                 if (effect["bc drop rate% buff (10)"] || effect["hc drop rate% buff (9)"] || effect["item drop rate% buff (11)"] ) 
                     msg += bc_hc_items_handler(effect["bc drop rate% buff (10)"], effect["hc drop rate% buff (9)"], effect["item drop rate% buff (11)"]) + " droprate";
-                if(!other_data.sp) msg += get_target(effect, other_data);
 
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
 
+                if(!other_data.sp) msg += get_target(effect, other_data);
                 msg += get_turns(effect["drop rate buff turns"],msg,other_data.sp,this.desc);
 
                 return msg;
@@ -966,9 +967,10 @@ var BuffProcessor = function(){
         '18': {
             desc: "Mitigation",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = `${effects["dmg% reduction"]}% mitigation`;
-                msg += get_duration_and_target(effects["dmg% reduction turns (36)"], effects["target area"], effects["target type"]);
+            func: function (effect, other_data) {
+                var msg = `${effect["dmg% reduction"]}% mitigation`;
+                msg += get_target(effect,other_data);
+                msg += get_turns(effect['dmg% reduction turns (36)'],msg,other_data.sp,this.desc);
                 return msg;
             }  
         },
@@ -1926,6 +1928,6 @@ function sandbox_function(){
 // sandbox_function();
 // getBuffDataForAll();
 // doItemTest({ item_name_id: "20250", verbose: true});
-// doUnitTest({unit_name_id: "rigness",strict: "false", verbose:true,burstType: "sbb", type: "burst"});
-doBurstTest("2123050");
+doUnitTest({unit_name_id: "johan",strict: "false", verbose:true,burstType: "sbb", type: "burst"});
+// doBurstTest("2123050");
 // doESTest("7200");
