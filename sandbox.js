@@ -1018,24 +1018,29 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             desc: "Defense Ignore",
             type: ["buff"],
             func: function (effect, other_data) {
-                var msg ="";
+                var msg = "";
                 if (effect['defense% ignore']) msg += `${effect['defense% ignore']}% DEF ignore`;
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data,{
                     prefix: "to attacks of "
                 });
                 msg += get_turns(effect["defense% ignore turns (39)"], msg, other_data.sp, this.desc);
-                // msg += get_duration_and_target(effect["defense% ignore turns (39)"], effects["target area"], effects["target type"]);
                 return msg;
             }
         },
         '23': {
             desc: "Spark Damage",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = get_polarized_number(effects["spark dmg% buff (40)"]) + "% spark DMG";
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect["spark dmg% buff (40)"]) msg += get_polarized_number(effect["spark dmg% buff (40)"]) + "% spark DMG boost";
 
-                msg += get_duration_and_target(effects);
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "to attacks of "
+                });
+                msg += get_turns(effect["buff turns"], msg, other_data.sp, this.desc);
+                // msg += get_duration_and_target(effect);
                 return msg;
             }
         },
@@ -2014,8 +2019,14 @@ function doUnitTest(unitQuery){
 }
 
 function doBurstTest(id){
-    var bursts = JSON.parse(fs.readFileSync('./sandbox_data/bbs-eu.json','utf8'));
+    var bursts = {};
     let printBurst = new UnitEffectPrinter({}).printBurst;
+    let servers = ['gl','eu','jp'];
+    while(!bursts[id] && servers.length > 0){
+        let server = servers.shift();
+        console.log(`checking ${server}`);
+        bursts = JSON.parse(fs.readFileSync(`./sandbox_data/bbs-${server}.json`, 'utf8'));
+    }
 
     // let id = "3116";
     let burst_object = bursts[id];
@@ -2029,7 +2040,13 @@ function doBurstTest(id){
 }
 
 function doESTest(id){
-    var es_db = JSON.parse(fs.readFileSync('./sandbox_data/es-gl.json', 'utf8'));
+    var es_db = {};
+    let servers = ['gl', 'eu', 'jp'];
+    while (!es_db[id] && servers.length > 0) {
+        let server = servers.shift();
+        console.log(`checking ${server}`);
+        es_db = JSON.parse(fs.readFileSync(`./sandbox_data/es-${server}.json`, 'utf8'));
+    }
     let es_object = es_db[id];
     console.log(JSON.stringify(es_object,null,2));
     if(es_object){
@@ -2109,7 +2126,7 @@ loadPromise.then(function(){
     // sandbox_function();
     // getBuffDataForAll();
     // doItemTest({ item_name_id: "21100", verbose: true});
-    // doUnitTest({ unit_name_id: "30787",rarity:8,strict: "false", verbose:true,burstType: "sbb", type: "sp"});
-    doBurstTest("6000576");
-    // doESTest("308");
+    doUnitTest({ unit_name_id: "gildorf",strict: "false", verbose:true,burstType: "sbb", type: "burst"});
+    // doBurstTest("201471");
+    // doESTest("720227");
 });
