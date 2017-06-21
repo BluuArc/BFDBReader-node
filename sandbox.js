@@ -1040,19 +1040,32 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                     prefix: "to attacks of "
                 });
                 msg += get_turns(effect["buff turns"], msg, other_data.sp, this.desc);
-                // msg += get_duration_and_target(effect);
                 return msg;
             }
         },
         '24': {
             desc: "Stat Conversion",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var buff = adr_buff_handler(effects['atk% buff (46)'], effects['def% buff (47)'], effects['rec% buff (48)']);
-                var source_buff = effects['converted attribute'].toUpperCase().slice(0, 3);
-                if(source_buff === "ATT") source_buff = "ATK";
-                var msg = "Convert " + buff.replace('% ', "% " + source_buff + " to ");
-                msg += get_duration_and_target(effects["% converted turns"], effects["target area"], effects["target type"]);
+            func: function (effect, other_data) {
+                let msg = "";
+                if (effect['converted attribute'] || effect['atk% buff (46)'] || effect['def% buff (47)'] || effect['rec% buff (48)']){
+                    let source_buff = (effect['converted attribute'] !== undefined) ? (effect['converted attribute'] || "null").toUpperCase().slice(0, 3) : undefined;
+                    if(source_buff === "ATT") source_buff = "ATK";
+                    let options = {
+                        suffix: " conversion",
+                    };
+                    if(source_buff){
+                        options.numberFn = function(value) {return `${value}% ${source_buff}->`};
+                    }
+                    msg = hp_adr_buff_handler(undefined, effect['atk% buff (46)'], effect['def% buff (47)'], effect['rec% buff (48)'], options);
+                    // var buff = adr_buff_handler(effect['atk% buff (46)'], effect['def% buff (47)'], effect['rec% buff (48)']);
+                    // msg = "Convert " + buff.replace('% ', "% " + source_buff + " to ");
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["% converted turns"], msg, other_data.sp, this.desc);
+                // msg += get_duration_and_target(effect["% converted turns"], effect["target area"], effect["target type"]);
                 return msg;
             }
         },
@@ -1356,6 +1369,12 @@ var BuffProcessor = function(/*unit_names, item_names*/){
     };//end proc_buffs
 
     var unknown_proc_buffs = {
+        /*
+        
+        
+                see burst 720236 for unknown proc id ''
+
+        */
         '0': {
             desc: "None",
             type: ["none"],
@@ -2126,7 +2145,7 @@ loadPromise.then(function(){
     // sandbox_function();
     // getBuffDataForAll();
     // doItemTest({ item_name_id: "21100", verbose: true});
-    doUnitTest({ unit_name_id: "gildorf",strict: "false", verbose:true,burstType: "sbb", type: "burst"});
-    // doBurstTest("201471");
-    // doESTest("720227");
+    doUnitTest({ unit_name_id: "860357",strict: "false", verbose:true,burstType: "sbb", type: "sp"});
+    // doBurstTest("160465");
+    // doESTest("12300");
 });
