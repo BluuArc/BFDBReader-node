@@ -609,8 +609,11 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             type: ["buff"],
             func: function (effect, other_data){
                 other_data = other_data || {};
-                var msg = get_formatted_minmax(effect["gradual heal low"], effect["gradual heal high"]) + " HP HoT";
-                msg += " (+" + effect["rec added% (from target)"] + "% target REC)";
+                var msg = "";
+                if (effect["gradual heal low"] || effect['gradual heal high']){
+                    msg = get_formatted_minmax(effect["gradual heal low"], effect["gradual heal high"]) + " HP HoT";
+                    msg += " (+" + effect["rec added% (from target)"] + "% target REC)";
+                }
 
                 if(msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
 
@@ -1066,6 +1069,23 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if (!other_data.sp) msg += get_target(effect, other_data);
                 msg += get_turns(effect["% converted turns"], msg, other_data.sp, this.desc);
                 // msg += get_duration_and_target(effect["% converted turns"], effect["target area"], effect["target type"]);
+                return msg;
+            }
+        },
+        '26': {
+            desc: "Hit Count Increase",
+            type: ['buff'],
+            notes: ['100% damage means that the extra hits have no damage penalty', 'Over 100% damage means that the extra hits have a damage buff', `Under 100% damage means that the extra hits have a damage penalty`, `+# means that the unit has # additional more hits, so +2 means that each hit has 2 more hits following it, effectively tripling the original hit count`],
+            func: function(effect,other_data){
+                let msg = "";
+                if (effect['hit increase/hit'] || effect['extra hits dmg%'])
+                    msg += `${get_polarized_number(effect['hit increase/hit'] || 0)} ${(effect['hit increase/hit'] === 1) ? "hit" : "hits"} to normal attacks (at ${(100 + (effect['extra hits dmg%'] || 0))}% damage)`;
+                
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "of "
+                });
+                msg += get_turns(effect["hit increase buff turns (50)"], msg, other_data.sp, this.desc);
                 return msg;
             }
         },
@@ -2141,11 +2161,15 @@ try{
 }catch(err){
     loadPromise = setNameArrays();
 }
-loadPromise.then(function(){
-    // sandbox_function();
-    // getBuffDataForAll();
-    // doItemTest({ item_name_id: "21100", verbose: true});
-    doUnitTest({ unit_name_id: "860357",strict: "false", verbose:true,burstType: "sbb", type: "sp"});
-    // doBurstTest("160465");
-    // doESTest("12300");
+loadPromise.then(function(){ 
+    return (
+        // sandbox_function()
+        // getBuffDataForAll()
+        // doItemTest({ item_name_id: "21100", verbose: true})
+        doUnitTest({ unit_name_id: "850198",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
+        // doBurstTest("5001093")
+        // doESTest("750237")
+    );
+}).then(function(){
+    console.log(" ")  
 });
