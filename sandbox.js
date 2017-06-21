@@ -1011,16 +1011,21 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data);
                 msg += get_turns(effect["bc fill when attacked turns (38)"], msg, other_data.sp, this.desc);
-                // msg += get_duration_and_target(effect["bc fill when attacked turns (38)"], effect["target area"], effect["target type"]);
                 return msg;
             }
         },
         '22': {
             desc: "Defense Ignore",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = `${effects['defense% ignore']}% DEF ignore`;
-                msg += get_duration_and_target(effects["defense% ignore turns (39)"], effects["target area"], effects["target type"]);
+            func: function (effect, other_data) {
+                var msg ="";
+                if (effect['defense% ignore']) msg += `${effect['defense% ignore']}% DEF ignore`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data,{
+                    prefix: "to attacks of "
+                });
+                msg += get_turns(effect["defense% ignore turns (39)"], msg, other_data.sp, this.desc);
+                // msg += get_duration_and_target(effect["defense% ignore turns (39)"], effects["target area"], effects["target type"]);
                 return msg;
             }
         },
@@ -2009,7 +2014,7 @@ function doUnitTest(unitQuery){
 }
 
 function doBurstTest(id){
-    var bursts = JSON.parse(fs.readFileSync('./sandbox_data/bbs-gl.json','utf8'));
+    var bursts = JSON.parse(fs.readFileSync('./sandbox_data/bbs-eu.json','utf8'));
     let printBurst = new UnitEffectPrinter({}).printBurst;
 
     // let id = "3116";
@@ -2104,7 +2109,7 @@ loadPromise.then(function(){
     // sandbox_function();
     // getBuffDataForAll();
     // doItemTest({ item_name_id: "21100", verbose: true});
-    // doUnitTest({ unit_name_id: "10847",strict: "false", verbose:true,burstType: "sbb", type: "sp"});
-    doBurstTest("2005040");
-    // doESTest("26800");
-})
+    // doUnitTest({ unit_name_id: "30787",rarity:8,strict: "false", verbose:true,burstType: "sbb", type: "sp"});
+    doBurstTest("6000576");
+    // doESTest("308");
+});
