@@ -60,7 +60,10 @@ var BuffProcessor = function(/*unit_names, item_names*/){
     }
 
     function get_formatted_minmax(min, max) {
-        if(min !== max) return min + "-" + max;
+        if(min !== max) {
+            if(max > 0) return min + "-" + max;
+            else        return min + " to " + max;
+        }
         else return min || max;
     }
 
@@ -632,7 +635,10 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             func: function (effect,other_data) {
                 var msg = "";
                 if(effect["bb bc fill%"]){
-                    msg += `${get_polarized_number(effect["bb bc fill%"])}% BB gauge of`;
+                    if (effect["bb bc fill%"] !== 100)
+                        msg += `${get_polarized_number(effect["bb bc fill%"])}% BB gauge of`;
+                    else
+                        msg += "Fills BB gauge of";
                 }
 
                 if(effect["bb bc fill"]){
@@ -642,6 +648,10 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if (!other_data.sp) msg += get_target(effect,other_data,{
                     prefix: ''
                 });
+
+                if (effect["bb bc fill%"] === 100){
+                    msg += " to max";
+                }
 
                 return msg;
             }
@@ -1087,6 +1097,42 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                     prefix: "of "
                 });
                 msg += get_turns(effect["hit increase buff turns (50)"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '27': {
+            desc: "HP% Damage Attack",
+            type: ['attack'],
+            func: function(effect,other_data){
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var msg = "";
+                if (!other_data.sp) {
+                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
+                }
+                if (effect["bb atk%"]) msg += ` ${effect["bb atk%"]}%`;
+
+                if (!other_data.sp) msg += " ";
+                else msg += " to BB ATK%";
+
+                if (!other_data.sp) {
+                    msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                }
+                let extra = [];
+                if (effect["bb flat atk"]) extra.push("+" + effect["bb flat atk"] + " flat ATK");
+                if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100)
+                    extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
+                if (effect['hp% damage high'] || effect['hp% damage low'] || effect['hp% damage chance%']){
+                    extra.push(`${effect['hp% damage chance%']}% chance to deal ${get_formatted_minmax(effect['hp% damage low'], effect['hp% damage high'])}% of target's max HP`);
+                }
+                if (extra.length > 0) msg += ` (${extra.join(", ")})`;
+
+                msg += regular_atk_helper(effect);
+
+                if (!other_data.sp) {
+                    if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
+                }
                 return msg;
             }
         },
@@ -2209,8 +2255,8 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "818953", verbose: true})
-        // doUnitTest({ unit_name_id: "730236",rarity:7,strict: "false", verbose:true,burstType: "bb", type: "burst"})
-        doBurstTest("70640027")
+        // doUnitTest({ unit_name_id: "860368",strict: "false", verbose:true,burstType: "sbb", type: "burst"})
+        doBurstTest("70230073")
         // doESTest("750237")
     );
 }).then(function(){
