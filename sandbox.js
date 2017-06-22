@@ -1136,6 +1136,29 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 return msg;
             }
         },
+        '28': {
+            desc: "Fixed Damage Attack",
+            type: ['attack'],
+            func: function(effect, other_data){
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var msg = "";
+                if (!other_data.sp) {
+                    msg += numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
+                }
+                if (effect["fixed damage"] !== undefined) msg += `fixed ${effect["fixed damage"]} damage `;
+
+                if (!other_data.sp) {
+                    msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                }
+
+                if (!other_data.sp) {
+                    if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
+                }
+                return msg;
+            }
+        },
         '29': {
             desc: "Multi-Elemental Attack",
             notes: ["These elements are added onto the attack of the unit's base element"],
@@ -2255,8 +2278,8 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "818953", verbose: true})
-        // doUnitTest({ unit_name_id: "860368",strict: "false", verbose:true,burstType: "sbb", type: "burst"})
-        doBurstTest("70230073")
+        doUnitTest({ unit_name_id: "840397",strict: "false", verbose:true,burstType: "bb", type: "burst"})
+        // doBurstTest("840397")
         // doESTest("750237")
     );
 }).then(function(){
