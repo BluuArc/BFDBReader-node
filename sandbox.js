@@ -551,7 +551,8 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         effect: `buff does something directly to the unit(s) on that turn; multiple instances of itself on the same turn will stack`,
         passive: `always active`,
         timed: `only active for a certain amount of time`,
-        none: `buff doesn't do anything; either bugged or developer value`
+        none: `buff doesn't do anything; either bugged or developer value`,
+        unknown: `it is unknown what buffs of these types do or how to interpret them correctly`
     }; 
     var proc_buffs = {
         '1': {
@@ -1403,22 +1404,22 @@ var BuffProcessor = function(/*unit_names, item_names*/){
     var unknown_proc_buffs = {
         '': {
             desc: "Damage over Time (EU Version?)",
-            type: ['debuff'],
+            type: ['debuff','unknown'],
             notes: ['This is first found on the SBB for 720236', 'Values for this aren\'t fully known, just guessed based on the numbers', 'It uses the interpreter for proc 44 to generate the description'],
             func: function(effect,other_data){
                 let data = effect['unknown proc param'].split(',');
                 // console.log(data);
-                if (data.length === 6) { //fix for bb 730236
+                if (data.length === 6) { //fix for bb 730236 by adding missing index (?) parameter
                     data = data.slice(0,2).concat([0]).concat(data.slice(2));
                 }
                 // console.log(data);
                 let proc_44 = {
-                    'dot atk%': data[0],
-                    'dot flat atk': data[1],
-                    'dot unit index': data[2],
-                    'dot dmg%': data[3],
+                    'dot atk%': parseInt(data[0]),
+                    'dot flat atk': parseInt(data[1]),
+                    'dot unit index': parseInt(data[2]),
+                    'dot dmg%': parseInt(data[3]),
                     'dot element affected': data[4] == 1,
-                    'dot turns (71)': data[5],
+                    'dot turns (71)': parseInt(data[5]),
                     'unknown proc param6': data[6],
                     'target area': effect['target area'],
                     'target type': effect['target type'],
@@ -1456,6 +1457,15 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 let [min_heal,max_heal,def,rec,turns] = [params[0],params[1],params[5],params[6],params[8]];
                 let msg = `${get_formatted_minmax(min_heal,max_heal)} HP burst heal and ${adr_buff_handler(undefined,def,rec)} for ${turns} turns`;
                 msg += get_target(other_data);
+                return msg;
+            }
+        },
+        '27 ': {
+            desc: "Unknown values",
+            type: ["unknown"],
+            notes: ["Note that this is unknown proc '27 ', and not '27'", "This is only found on bb 70640027"],
+            func: function(effect,other_data){
+                let msg = `Unknown values: {${print_effect_legacy(effect).split(" / ").join("/")}}`;
                 return msg;
             }
         }
@@ -2199,8 +2209,8 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "818953", verbose: true})
-        doUnitTest({ unit_name_id: "730236",rarity:7,strict: "false", verbose:true,burstType: "bb", type: "burst"})
-        // doBurstTest("1720176")
+        // doUnitTest({ unit_name_id: "730236",rarity:7,strict: "false", verbose:true,burstType: "bb", type: "burst"})
+        doBurstTest("70640027")
         // doESTest("750237")
     );
 }).then(function(){
