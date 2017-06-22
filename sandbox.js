@@ -730,7 +730,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         '9': {
             desc: "ATK/DEF/REC down to enemy",
             type: ["debuff"],
-            notes: ['Not sure if this is implemented properly on SP for unit 30517'],
+            notes: ['Not sure if this is implemented properly on SP for unit 30517 or 61027'],
             func: function (effect, other_data) {
                 var msg = "";
                 let chance, amount; //used to check values for SP
@@ -1155,17 +1155,29 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             desc: "Damage Over Time (DoT)",
             notes: ["unit 720176 has some weird values with this ID"],
             type: ["debuff"],
-            func: function (effects, other_data) {
-                var msg = effects["dot atk%"] + "% DoT";
-                if (effects['dot flat atk'])
-                    msg += ", +" + effects["dot flat atk"] + " flat ATK";
-                if (effects['dot dmg%'])
-                    msg += ", +" + effects['dot dmg%'] + "% multiplier";
-                if (effects['dot element affected'] === false) {
+            func: function (effect, other_data) {
+                let msg = "";
+                let values = [];
+                if(effect["dot atk%"] !== undefined)
+                    msg += effect["dot atk%"] + "% DoT";
+                if (effect['dot flat atk'])
+                    values.push(get_polarized_number(effect["dot flat atk"]) + " flat ATK");
+                if (effect['dot dmg%'])
+                    values.push(get_polarized_number(effect['dot dmg%']) + "% multiplier");
+                
+                if(values.length > 0){
+                    msg += ` (${values.join(", ")})`;
+                }
+                
+                if (effect['dot element affected'] === false) {
                     msg += " (EWD doesn't apply)";
                 }
 
-                msg += get_duration_and_target(effects["dot turns (71)"], effects["target area"], effects["target type"]);
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["dot turns (71)"], msg, other_data.sp, this.desc);
+
+                // msg += get_duration_and_target(effect["dot turns (71)"], effect["target area"], effect["target type"]);
                 return msg;
             }
         },
@@ -1389,12 +1401,32 @@ var BuffProcessor = function(/*unit_names, item_names*/){
     };//end proc_buffs
 
     var unknown_proc_buffs = {
-        /*
-        
-        
-                see burst 720236 for unknown proc id ''
-
-        */
+        '': {
+            desc: "Damage over Time (EU Version?)",
+            type: ['debuff'],
+            notes: ['This is first found on the SBB for 720236', 'Values for this aren\'t fully known, just guessed based on the numbers', 'It uses the interpreter for proc 44 to generate the description'],
+            func: function(effect,other_data){
+                let data = effect['unknown proc param'].split(',');
+                // console.log(data);
+                if (data.length === 6) { //fix for bb 730236
+                    data = data.slice(0,2).concat([0]).concat(data.slice(2));
+                }
+                // console.log(data);
+                let proc_44 = {
+                    'dot atk%': data[0],
+                    'dot flat atk': data[1],
+                    'dot unit index': data[2],
+                    'dot dmg%': data[3],
+                    'dot element affected': data[4] == 1,
+                    'dot turns (71)': data[5],
+                    'unknown proc param6': data[6],
+                    'target area': effect['target area'],
+                    'target type': effect['target type'],
+                    'proc id': 44
+                };
+                return proc_buffs['44'].func(proc_44,other_data);
+            }
+        },
         '0': {
             desc: "None",
             type: ["none"],
@@ -1548,7 +1580,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
     function general_handler(effects, other_data, type){
         other_data = other_data || {};
         let handler = buff_list[type.replace(" ","_")], id = effects[`${type} id`];
-        if(!handler || !id){
+        if(!handler || id === undefined){
             if(!id) console.log("Couldn't find ID in", type);
             return `Unknown buff type "${type}"`;
         }
@@ -1578,15 +1610,15 @@ var BuffProcessor = function(/*unit_names, item_names*/){
     function print_buff(effect, other_data) {
         var msg = "";
         // console.log("Received " + effects);
-        if (effect["proc id"]) {
+        if (effect["proc id"] !== undefined) {
             msg = general_handler(effect,other_data,"proc");
-        } else if (effect["passive id"]) {
+        } else if (effect["passive id"] !== undefined) {
             msg = general_handler(effect, other_data, "passive");
-        } else if (effect["unknown proc id"]) {
+        } else if (effect["unknown proc id"] !== undefined) {
             msg = general_handler(effect, other_data, "unknown proc");
-        } else if (effect["unknown passive id"]) {
+        } else if (effect["unknown passive id"] !== undefined) {
             msg = general_handler(effect, other_data, "unknown passive");
-        } else if (effect["unknown buff id"]) {
+        } else if (effect["unknown buff id"] !== undefined) {
             msg = general_handler(effect, other_data, "unknown buff");
         } else {
             console.log("Unknown effect object. Using legacy printer.");
@@ -1634,6 +1666,7 @@ function UnitEffectPrinter(unit){
             throw `Unknown input for burst_type ${burst_type}`;
         if(!burst_object) return `No ${burst_type.toUpperCase()} data found`;
         let numLevels = burst_object.levels.length, burst_effects = burst_object.levels[numLevels - 1].effects;
+        if(burst_object.desc) console.log(burst_object.desc);
         return process_effects(burst_effects,function(i){
             return {
                 damage_frames: burst_object["damage frames"][i],
@@ -2165,9 +2198,9 @@ loadPromise.then(function(){
     return (
         // sandbox_function()
         // getBuffDataForAll()
-        // doItemTest({ item_name_id: "21100", verbose: true})
-        doUnitTest({ unit_name_id: "850198",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
-        // doBurstTest("5001093")
+        // doItemTest({ item_name_id: "818953", verbose: true})
+        doUnitTest({ unit_name_id: "730236",rarity:7,strict: "false", verbose:true,burstType: "bb", type: "burst"})
+        // doBurstTest("1720176")
         // doESTest("750237")
     );
 }).then(function(){
