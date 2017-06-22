@@ -570,8 +570,14 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if(!other_data.sp){
                     msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
                 }
-                if (effect["bb dmg%"]) msg += ` ${effect["bb dmg%"]}%`; //case when using a burst from bbs.json
-                else if(effect["bb atk%"]) msg += ` ${effect["bb atk%"]}%`;
+                let damage = [];
+                if (effect["bb atk%"]) damage.push(`${effect["bb atk%"]}%`);
+                if (effect["bb dmg%"]) damage.push(`${effect["bb dmg%"]}%`); //case when using a burst from bbs.json
+                switch(damage.length){
+                    case 1: msg += ` ${damage[0]}`; break;
+                    case 2: msg += ` ${damage[0]} (${damage[1]} power)`; break;
+                    default: break;
+                }
 
                 if(!other_data.sp) msg += " ";
                 else msg += " to BB ATK%";
@@ -896,8 +902,14 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if (!other_data.sp) {
                     msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
                 }
-                if (effect["bb dmg%"]) msg += ` ${effect["bb dmg%"]}%`; //case when using a burst from bbs.json
-                else if (effect["bb atk%"]) msg += ` ${effect["bb atk%"]}%`;
+                let damage = [];
+                if (effect["bb atk%"]) damage.push(`${effect["bb atk%"]}%`);
+                if (effect["bb dmg%"]) damage.push(`${effect["bb dmg%"]}%`); //case when using a burst from bbs.json
+                switch(damage.length){
+                    case 1: msg += ` ${damage[0]}`; break;
+                    case 2: msg += ` ${damage[0]} (${damage[1]} power)`; break;
+                    default: break;
+                }
 
                 if (!other_data.sp) msg += " ";
                 else msg += " to BB ATK%";
@@ -1163,16 +1175,45 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             desc: "Multi-Elemental Attack",
             notes: ["These elements are added onto the attack of the unit's base element"],
             type: ["attack"],
-            func: function (effects, other_data) {
-                var numHits = damage_frames.hits;
-                var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
-                msg += effects["bb atk%"] + "% ";
-                msg += to_proper_case(effects["bb elements"][0]);
-                for(let e = 1; e < effects["bb elements"].length; ++e){
-                    msg += "/" + to_proper_case(effects["bb elements"][e]);
+            func: function (effect, other_data) {
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var msg = "";
+                if (!other_data.sp) {
+                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
                 }
-                msg += " " + ((effects["target area"].toUpperCase() === "SINGLE") ? "ST" : effects["target area"].toUpperCase());
-                if (effects["bb flat atk"]) msg += " (+" + effects["bb flat atk"] + " flat ATK)";
+                let damage = [];
+                if (effect["bb atk%"]) damage.push(`${effect["bb atk%"]}%`);
+                if (effect["bb dmg%"]) damage.push(`${effect["bb dmg%"]}%`); //case when using a burst from bbs.json
+                switch(damage.length){
+                    case 1: msg += ` ${damage[0]}`; break;
+                    case 2: msg += ` ${damage[0]} (${damage[1]} power)`; break;
+                    default: break;
+                }
+
+                if (!other_data.sp) msg += " ";
+                else msg += " to BB ATK%";
+
+                if(effect['bb elements']){
+                    let elements = effect['bb elements'].map(function(e) {return to_proper_case(e || "null")});
+                    msg += elements.join("/") + " ";
+                }
+
+                if (!other_data.sp) {
+                    msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                }
+                let extra = [];
+                if (effect["bb flat atk"]) extra.push("+" + effect["bb flat atk"] + " flat ATK");
+                if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100)
+                    extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
+                if (extra.length > 0) msg += ` (${extra.join(", ")})`;
+
+                msg += regular_atk_helper(effect);
+
+                if (!other_data.sp) {
+                    if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
+                }
                 return msg;
             }
         },
@@ -2278,8 +2319,8 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "818953", verbose: true})
-        doUnitTest({ unit_name_id: "840397",strict: "false", verbose:true,burstType: "bb", type: "burst"})
-        // doBurstTest("840397")
+        doUnitTest({ unit_name_id: "krantz",strict: "false", verbose:true,burstType: "sbb", type: "burst"})
+        // doBurstTest("2123283")
         // doESTest("750237")
     );
 }).then(function(){
