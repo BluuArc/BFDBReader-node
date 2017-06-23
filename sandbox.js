@@ -268,9 +268,9 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         options.numberFn = options.numberFn || function(d) {return "";};
 
         options.special_case = options.special_case || {
-            isSpecialCase: function(value,name_arr) {return value === true && name_arr.length === 6;},
+            isSpecialCase: function(value,name_arr) { return value == "true" && name_arr.length === 6;},
             func: function(value,names_array){
-                return "all elements";
+                return "all elemental";
             }
         }
 
@@ -950,7 +950,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         '16': {
             desc: "Elemental Mitigation",
             type: ["buff"],
-            notes: ["This is different from proc ID 39 in that each element can have a different value of mitigation; otherwise it's the same"],
+            notes: ["This is different from proc ID 39 in that each element can have a different value of mitigation; otherwise it's almost the same"],
             func: function (effect, other_data) {
                 let msg = variable_elemental_mitigation_handler(effect);
                 if (effect['mitigate all attacks (20)'] !== undefined){
@@ -1358,6 +1358,37 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                     prefix: "inflicted on "
                 });
                 // msg += get_duration_and_target(undefined,effect["target area"], effect["target type"]);
+                return msg;
+            }
+        },
+        '39': {
+            desc: "Elemental Mitigation",
+            type: ["buff"],
+            notes: ["This is different from proc ID 16 in that there's one mitigation value for the given elements; otherwise it's almost the same"],
+            func: function (effect, other_data) {
+                let msg = "";
+                let options = {
+                    values: [
+                        effect['mitigate fire attacks'],
+                        effect['mitigate water attacks'],
+                        effect['mitigate earth attacks'],
+                        effect['mitigate thunder attacks'],
+                        effect['mitigate light attacks'],
+                        effect['mitigate dark attacks'],
+                    ]
+                };
+
+                let any_element = effect['mitigate fire attacks'] || effect['mitigate water attacks'] || effect['mitigate earth attacks'] || effect['mitigate thunder attacks'] || effect['mitigate light attacks'] || effect['mitigate dark attacks'];
+                // if (effect['dmg% mitigation for elemental attacks'] || any_element){
+                    if (effect['dmg% mitigation for elemental attacks'])
+                        msg += `${effect['dmg% mitigation for elemental attacks']}% elemental mitigation`;
+                    if(any_element){
+                        msg += ` from ${elemental_bool_handler(options)} attacks`;
+                    }
+                // }
+
+                if (!other_data.sp) msg += get_target(effect);
+                msg += get_turns(effect['dmg% mitigation for elemental attacks buff turns'], msg, other_data.sp, this.desc);
                 return msg;
             }
         },
@@ -2459,9 +2490,9 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "20240", verbose: true})
-        // doUnitTest({ unit_name_id: "11037",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        doBurstTest("2126620")
-        // doESTest("720197")
+        // doUnitTest({ unit_name_id: "allanon",strict: "false", verbose:true,burstType: "ubb", type: "burst"})
+        doBurstTest("213782")
+        // doESTest("750237")
     );
 }).then(function(){
     console.log(" ")  
