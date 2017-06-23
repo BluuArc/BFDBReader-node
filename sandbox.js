@@ -262,6 +262,21 @@ var BuffProcessor = function(/*unit_names, item_names*/){
 
     }
 
+    function elemental_bool_handler(options){
+        options.names = options.names || ['Fire', 'Water', 'Earth', 'Thunder', 'Light', 'Dark'];
+
+        options.numberFn = options.numberFn || function(d) {return "";};
+
+        options.special_case = options.special_case || {
+            isSpecialCase: function(value,name_arr) {return value === true && name_arr.length === 6;},
+            func: function(value,names_array){
+                return "all elements";
+            }
+        }
+
+        return multi_param_buff_handler(options);
+    }
+
     function elemental_buff_handler(effects){
         var msg = "Add ";
         var length = effects["elements added"].length;
@@ -530,8 +545,8 @@ var BuffProcessor = function(/*unit_names, item_names*/){
 
     function get_turns(turns, msg, sp, buff_desc){
         let turnMsg = "";
-        if ((msg.length === 0 && sp) || turns) {
-            if (msg.length === 0 && sp) turnMsg = `Allows current ${buff_desc} buff(s) to last for additional `;
+        if ((msg.length === 0 && sp) || turns !== undefined) {
+            if (msg.length === 0 && sp) turnMsg = `Allows current ${buff_desc}${(buff_desc.toLowerCase().indexOf("buff") === -1) ? " buff(s)" : ""} to last for additional `;
             else turnMsg += ` for `;
             turnMsg += `${turns} ${(turns === 1 ? "turn" : "turns")}`;
         }
@@ -1220,9 +1235,36 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         '30': {
             desc: "Elemental Buffs",
             type: ["buff"],
+            notes: ["FWETLD corresponds to fire, water, earth, thunder, light, and dark, respectively"],
+            func: function (effect, other_data) {
+                let msg = "";
+                if (effect['elements added'] && effect['elements added'].length > 0) {
+                    let elements = effect['elements added'].map(function(v) {return v ? to_proper_case(v) : "Null";});
+                    msg += "Add ";
+                    if (elements.length < 3){
+                        msg += elements.join("/");
+                    } else if (elements.length < 6){
+                        msg += elements.map(function(v) {return v[0].toUpperCase();}).join("");
+                    }else{
+                        msg += "all elements";
+                    }
+                    msg += " to attacks";
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "of "
+                });
+                msg += get_turns(effect["elements added turns"], msg, other_data.sp, this.desc);
+                // msg += get_duration_and_target(effect["elements added turns"], effect["target area"], effect["target type"]);
+                return msg;
+            }
+        },
+        '31': {
+            desc: "BC Insta-fill/Flat BB Gauge Increase",
+            type: ["effect"],
             func: function (effects, other_data) {
-                var msg = elemental_buff_handler(effects);
-                msg += get_duration_and_target(effects["elements added turns"], effects["target area"], effects["target type"]);
+                var msg = `${get_polarized_number(effects["increase bb gauge"])} BC fill`;
+                msg += get_duration_and_target(undefined, effects['target area'], effects['target type']);
                 return msg;
             }
         },
@@ -1233,15 +1275,6 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             func: function (effects, other_data) {
                 var msg = "Clears " + ailments_cured_handler(effects["ailments cured"]);
                 msg += get_duration_and_target(undefined,effects["target area"], effects["target type"]);
-                return msg;
-            }
-        },
-        '31': {
-            desc: "BC Insta-fill/Flat BB Gauge Increase",
-            type: ["effect"],
-            func: function (effects, other_data) {
-                var msg = `${get_polarized_number(effects["increase bb gauge"])} BC fill`;
-                msg += get_duration_and_target(undefined, effects['target area'], effects['target type']);
                 return msg;
             }
         },
@@ -2319,9 +2352,9 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "818953", verbose: true})
-        doUnitTest({ unit_name_id: "krantz",strict: "false", verbose:true,burstType: "sbb", type: "burst"})
-        // doBurstTest("2123283")
-        // doESTest("750237")
+        // doUnitTest({ unit_name_id: "51027",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
+        doBurstTest("2101324")
+        // doESTest("3700")
     );
 }).then(function(){
     console.log(" ")  
