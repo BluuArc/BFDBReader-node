@@ -178,54 +178,19 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         return multi_param_buff_handler(options);
     }
 
-    function bb_atk_buff_handler(bb, sbb, ubb) {
-        var msg = "";
-        if (bb && sbb && ubb) {
-            if (bb === sbb) {
-                if (bb === ubb) { //equal tri-stat
-                    msg = get_polarized_number(bb) + "% BB/SBB/UBB";
-                } else { //eq bb and sbb, but not ubb
-                    msg = get_polarized_number(bb) + "% BB/SBB, " + get_polarized_number(ubb) + "% UBB";
-                }
-            } else if (bb === ubb) { //eq bb and ubb, but not sbb
-                msg = get_polarized_number(bb) + "% BB/UBB, " + get_polarized_number(sbb) + "% SBB";
-            } else if (sbb === ubb) { //eq sbb and ubb, but not ubb
-                msg = get_polarized_number(sbb) + "% SBB/UBB, " + get_polarized_number(bb) + "% BB";
-            } else { //all unequal
-                msg = get_polarized_number(bb) + "% BB, " + get_polarized_number(sbb) + "% SBB, " +
-                    get_polarized_number(ubb) + "% UBB";
-            }
-        } else if (bb && sbb) {
-            if (bb === sbb) {
-                msg = get_polarized_number(bb) + "% BB/SBB";
-            } else {
-                msg = get_polarized_number(bb) + "% BB, " + get_polarized_number(sbb) + "% SBB";
-            }
-        } else if (bb && ubb) {
-            if (bb === ubb) {
-                msg = get_polarized_number(bb) + "% BB/UBB";
-            } else {
-                msg = get_polarized_number(bb) + "% BB, " + get_polarized_number(ubb) + "% UBB";
-            }
-        } else if (sbb && ubb) {
-            if (sbb === ubb) {
-                msg = get_polarized_number(sbb) + "% SBB/UBB";
-            } else {
-                msg = get_polarized_number(sbb) + "% SBB, " + get_polarized_number(ubb) + "% UBB";
-            }
-        } else if (bb) {
-            msg = get_polarized_number(bb) + "% BB";
-        } else if (sbb) {
-            msg = get_polarized_number(sbb) + "% SBB";
-        } else if (ubb) {
-            msg = get_polarized_number(ubb) + "% UBB";
-        }
-        if (msg.length === 0) {
-            console.log("Missed a combo of bb,sbb,ubb (" + bb + "," + sbb + "," + ubb);
-        } else {
-            msg += " ATK";
-        }
-        return msg;
+    function bb_atk_buff_handler(bb, sbb, ubb, options) {
+        options = options || {};
+        options.all = options.all || [
+            { value: bb, name: "BB" },
+            { value: sbb, name: "SBB" },
+            { value: ubb, name: "UBB" }
+        ];
+
+        options.numberFn = options.numberFn || function (number) {
+            return `${get_polarized_number(number)}% `;
+        };
+
+        return multi_param_buff_handler(options);
     }
 
     function variable_elemental_mitigation_handler(effect){
@@ -275,21 +240,6 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         }
 
         return multi_param_buff_handler(options);
-    }
-
-    function elemental_buff_handler(effects){
-        var msg = "Add ";
-        var length = effects["elements added"].length;
-        if(length < 6){
-            msg += to_proper_case(effects["elements added"][0]);
-            for(var i = 1; i < length; ++i){
-                msg += "/" + to_proper_case(effects["elements added"][i]);
-            }
-        }else{
-            msg += "all";
-        }
-        msg += ` ${(length === 1) ? "element" : "elements"} to attacks`;
-        return msg;
     }
 
     function ewd_buff_handler(effects) {
@@ -364,40 +314,6 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         return msg;
     }
 
-    function ailment_buff_handler(effects) {
-        var ailments = ["injury%", "poison%", "sick%", "weaken%", "curse%", "paralysis%"];
-        var values = {};
-        var msg = "";
-        //sort values by proc chance
-        for (var i = 0; i < ailments.length; ++i) {
-            var curAilment = effects[ailments[i] + " buff"];
-            if (curAilment) {
-                // console.log(ailments[i], curAilment);
-                if (!values[curAilment.toString()]) {
-                    values[curAilment.toString()] = [];
-                }
-                values[curAilment.toString()].push(ailments[i].replace('%', ""));
-            }
-        }
-
-        // console.log(values);
-
-        for (var a in values) {
-            if (msg.length > 0) msg += ", ";
-            else msg += "Adds ";
-
-            msg += a + "% chance to inflict ";
-            for (var ailment = 0; ailment < values[a].length; ++ailment) {
-                msg += values[a][ailment];
-                if (ailment !== values[a].length - 1) {
-                    msg += "/";
-                }
-            }
-        }
-        msg += " to all attacks";
-        return msg;
-    }
-
     //give an options object with at least an array of values for each ailment
     function ailment_handler(options){
         if(!options || !options.values) throw "ailment_handler: No options or values defined";
@@ -447,48 +363,6 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             msg += "all status reductions";
         }else{
             msg += ailments_array.join("/");
-        }
-        return msg;
-    }
-
-    function ailment_null_handler(effects) {
-        var ailments = ["injury%", "poison%", "sick%", "weaken%", "curse%", "paralysis%"];
-        var ailments_full_name = ["resist injury% (33)", "resist poison% (30)", "resist sick% (32)", "resist weaken% (31)", "resist curse% (34)", "resist paralysis% (35)"];
-        var values = {};
-        var msg = "";
-        //sort values by proc chance
-        for (var i = 0; i < ailments.length; ++i) {
-            var curAilment = effects[ailments_full_name[i]];
-            console.log(ailments_full_name[i], curAilment);
-            if (curAilment) {
-                // console.log(ailments[i], curAilment);
-                if (!values[curAilment.toString()]) {
-                    values[curAilment.toString()] = [];
-                }
-                values[curAilment.toString()].push(ailments[i].replace('%', ""));
-            }
-        }
-
-        // console.log(values);
-
-        for (var a in values) {
-            if (msg.length > 0) msg += ", ";
-
-            if(a === '100'){
-                msg += "Negates ";
-            }else{
-                msg += a + "% chance to resist ";
-            }
-            if (values[a].length === ailments.length) {
-                msg += "all status ailments"
-            } else {
-                for (var ailment = 0; ailment < values[a].length; ++ailment) {
-                    msg += values[a][ailment];
-                    if (ailment !== values[a].length - 1) {
-                        msg += "/";
-                    }
-                }
-            }
         }
         return msg;
     }
@@ -1465,21 +1339,24 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data);
                 msg += get_turns(effect["dot turns (71)"], msg, other_data.sp, this.desc);
-
-                // msg += get_duration_and_target(effect["dot turns (71)"], effect["target area"], effect["target type"]);
                 return msg;
             }
         },
         '45': {
             desc: "BB/SBB/UBB ATK",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = bb_atk_buff_handler(effects["bb atk% buff"], effects["sbb atk% buff"], effects["ubb atk% buff"]);
+            func: function (effect, other_data) {
+                let msg = "";
+                if (effect["bb atk% buff"] || effect["sbb atk% buff"] || effect["ubb atk% buff"])
+                    msg += bb_atk_buff_handler(effect["bb atk% buff"], effect["sbb atk% buff"], effect["ubb atk% buff"], {
+                        suffix: " ATK"
+                    });
 
-                if (msg.length === 0) {
-                    throw no_buff_data_msg;
-                }
-                msg += get_duration_and_target(effects["buff turns (72)"], effects["target area"], effects["target type"]);
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["buff turns (72)"], msg, other_data.sp, this.desc);
+
+                // msg += get_duration_and_target(effect["buff turns (72)"], effect["target area"], effect["target type"]);
                 return msg;
             }
         },
@@ -2529,9 +2406,9 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "22420", verbose: true})
-        // doUnitTest({ unit_name_id: "allanon",strict: "false", verbose:true,burstType: "sbb", type: "burst"})
-        doBurstTest("2200268")
-        // doESTest("730246")
+        doUnitTest({ unit_name_id: "50317",server:'jp',strict: "false", verbose:true,burstType: "sbb", type: "sp"})
+        // doBurstTest("8415007")
+        // doESTest("3500")
     );
 }).then(function(){
     console.log(" ")  
