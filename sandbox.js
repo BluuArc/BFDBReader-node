@@ -1752,7 +1752,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         },
         '37': {
             desc: "Add a Unit to Battle",
-            type: ['effect'],
+            type: ['effect','unknown'],
             notes: ['Not much is known about this except that it adds a unit to the field'],
             func: function(effect,other_data){
                 let msg = "";
@@ -1771,6 +1771,14 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if (effect['unknown proc param'])
                     msg += `. Unknown params {${effect['unknown proc param']}}`
 
+                return msg;
+            }
+        },
+        '42': {
+            desc: "Unknown values",
+            type: ['unknown'],
+            func: function(effect,other_data){
+                let msg = `Unknown values: {${print_effect_legacy(effect).split(" / ").join("/")}}`;
                 return msg;
             }
         }
@@ -2514,8 +2522,8 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "20240", verbose: true})
-        doUnitTest({ unit_name_id: "ensa",strict: "false", verbose:true,burstType: "bb", type: "burst"})
-        // doBurstTest("310923")
+        // doUnitTest({ unit_name_id: "ensa",strict: "false", verbose:true,burstType: "bb", type: "burst"})
+        doBurstTest("8401089")
         // doESTest("730246")
     );
 }).then(function(){
