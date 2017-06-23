@@ -1428,8 +1428,15 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         '43': {
             desc: "Burst OD Fill",
             type: ["effect"],
-            func: function (effects, other_data) {
-                var msg = `${get_polarized_number(effects["increase od gauge%"])}% OD gauge fill`;
+            notes: ["I'm inferring that target type 4 implies the player's OD gauge"],
+            func: function (effect, other_data) {
+                var msg = ""
+                if (effect["increase od gauge%"]) msg +=`${get_polarized_number(effect["increase od gauge%"])}% OD gauge fill`;
+                if (msg.length === 0 && (!effect[null] || !other_data.sp)) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "of "
+                });
+                if(msg.indexOf("(single,4)") > -1) msg = msg.replace("(single,4)", "of player");
                 return msg;
             }
         },
@@ -2521,9 +2528,9 @@ loadPromise.then(function(){
     return (
         // sandbox_function()
         // getBuffDataForAll()
-        // doItemTest({ item_name_id: "20240", verbose: true})
-        // doUnitTest({ unit_name_id: "ensa",strict: "false", verbose:true,burstType: "bb", type: "burst"})
-        doBurstTest("8401089")
+        // doItemTest({ item_name_id: "22420", verbose: true})
+        // doUnitTest({ unit_name_id: "allanon",strict: "false", verbose:true,burstType: "sbb", type: "burst"})
+        doBurstTest("2200268")
         // doESTest("730246")
     );
 }).then(function(){
