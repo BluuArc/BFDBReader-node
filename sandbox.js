@@ -1653,7 +1653,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 }
 
                 if (effect['unknown proc param'])
-                    msg += `. Unknown params {${effect['unknown proc param']}}`
+                    msg += `. Unknown params {${effect['unknown proc param']}}`;
 
                 return msg;
             }
@@ -1663,6 +1663,19 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             type: ['unknown'],
             func: function(effect,other_data){
                 let msg = `Unknown values: {${print_effect_legacy(effect).split(" / ").join("/")}}`;
+                return msg;
+            }
+        },
+        '46': {
+            desc: "Unknown attack",
+            type: ['attack', 'unknown'],
+            func: function(effect,other_data){
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var msg = `${numHits} hit attack`;
+                if (effect['unknown proc param'])
+                    msg += `. Unknown params {${effect['unknown proc param']}}`;
                 return msg;
             }
         }
@@ -2406,8 +2419,8 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "22420", verbose: true})
-        doUnitTest({ unit_name_id: "50317",server:'jp',strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        // doBurstTest("8415007")
+        // doUnitTest({ unit_name_id: "50317",server:'jp',strict: "false", verbose:true,burstType: "sbb", type: "sp"})
+        doBurstTest("2004557")
         // doESTest("3500")
     );
 }).then(function(){
