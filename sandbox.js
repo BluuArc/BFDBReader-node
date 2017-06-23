@@ -1289,6 +1289,21 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 return msg;
             }
         },
+        '33': {
+            desc: "Buff Wipe/Buff Removal",
+            type: ['debuff'],
+            func: function(effect,other_data){
+                let msg = "";
+                if (effect['clear buff chance%'] !== undefined){
+                    msg += `${effect['clear buff chance%']}% chance to remove buffs`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "of "
+                });
+                return msg;
+            }
+        },
         '38': {
             desc: "Status Cleanse (Ailments and/or Stat Reductions)",
             notes: ["Status ailments refers to the basic 6 paralysis,injury,etc.", "Stat reductions refer to ATK/DEF/REC down", "Ailments refers to both status ailments and stat reductions"],
@@ -2374,7 +2389,7 @@ loadPromise.then(function(){
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "818953", verbose: true})
         // doUnitTest({ unit_name_id: "10127",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        doBurstTest("9450086")
+        doBurstTest("2864")
         // doESTest("36300")
     );
 }).then(function(){
