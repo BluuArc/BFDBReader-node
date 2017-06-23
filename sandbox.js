@@ -1395,9 +1395,33 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         '40': {
             desc: "Status Ailment Inflict When Attacking",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = ailment_buff_handler(effects);
-                msg += get_duration_and_target(effects);
+            func: function (effect, other_data) {
+                let msg = "";
+                let options = {};
+                options.values = [
+                    effect["injury% buff"],
+                    effect["poison% buff"],
+                    effect["sick% buff"],
+                    effect["weaken% buff"],
+                    effect["curse% buff"],
+                    effect["paralysis% buff"]
+                ];
+
+                options.suffix = function (names) {
+                    if (names.length === 6) {
+                        return " chance to inflict any status ailment";
+                    } else {
+                        return ` chance to inflict ${names.join("/")}`;
+                    }
+                }
+
+                let ails = ailment_handler(options);
+                if(ails.length > 0) msg += `Adds ${ails} to attacks`;
+                if (msg.length === 0 && (!effect[null] || !other_data.sp)) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "of "
+                });
+                msg += get_turns(effect['buff turns'], msg, other_data.sp, this.desc);
                 return msg;
             }
         },
@@ -2490,9 +2514,9 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "20240", verbose: true})
-        // doUnitTest({ unit_name_id: "allanon",strict: "false", verbose:true,burstType: "ubb", type: "burst"})
-        doBurstTest("213782")
-        // doESTest("750237")
+        doUnitTest({ unit_name_id: "ensa",strict: "false", verbose:true,burstType: "bb", type: "burst"})
+        // doBurstTest("310923")
+        // doESTest("730246")
     );
 }).then(function(){
     console.log(" ")  
