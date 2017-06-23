@@ -545,7 +545,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
 
     function get_turns(turns, msg, sp, buff_desc){
         let turnMsg = "";
-        if ((msg.length === 0 && sp) || turns !== undefined) {
+        if ((msg.length === 0 && sp) || (turns === 0 && !sp) || (turns && sp)) {
             if (msg.length === 0 && sp) turnMsg = `Allows current ${buff_desc}${(buff_desc.toLowerCase().indexOf("buff") === -1) ? " buff(s)" : ""} to last for additional `;
             else turnMsg += ` for `;
             turnMsg += `${turns} ${(turns === 1 ? "turn" : "turns")}`;
@@ -1255,16 +1255,20 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                     prefix: "of "
                 });
                 msg += get_turns(effect["elements added turns"], msg, other_data.sp, this.desc);
-                // msg += get_duration_and_target(effect["elements added turns"], effect["target area"], effect["target type"]);
                 return msg;
             }
         },
         '31': {
             desc: "BC Insta-fill/Flat BB Gauge Increase",
             type: ["effect"],
-            func: function (effects, other_data) {
-                var msg = `${get_polarized_number(effects["increase bb gauge"])} BC fill`;
-                msg += get_duration_and_target(undefined, effects['target area'], effects['target type']);
+            func: function (effect, other_data) {
+                var msg = ""
+                if (effect["increase bb gauge"] !== undefined) msg += `${get_polarized_number(effect["increase bb gauge"])} BC fill`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "to "
+                });
+                // msg += get_duration_and_target(undefined, effect['target area'], effect['target type']);
                 return msg;
             }
         },
@@ -1753,7 +1757,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         }catch(err){
             console.log(`Error at ${to_proper_case(type)} ${id} =>`,err);
             if(err === no_buff_data_msg)
-                return `No valid data found for ${to_proper_case(type)} ID ${id}`;
+                return `No valid data found for ${to_proper_case(type)} ID ${id} (${handler[id].desc})`;
             else 
                 return `${to_proper_case(type)} ID ${id} has an error`;
         }
@@ -2352,9 +2356,9 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "818953", verbose: true})
-        // doUnitTest({ unit_name_id: "51027",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        doBurstTest("2101324")
-        // doESTest("3700")
+        // doUnitTest({ unit_name_id: "10127",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
+        doBurstTest("2005040")
+        // doESTest("36300")
     );
 }).then(function(){
     console.log(" ")  
