@@ -1265,10 +1265,27 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 var msg = ""
                 if (effect["increase bb gauge"] !== undefined) msg += `${get_polarized_number(effect["increase bb gauge"])} BC fill`;
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
-                if (!other_data.sp) msg += get_target(effect, other_data, {
-                    prefix: "to "
-                });
+                if (!other_data.sp) msg += get_target(effect, other_data);
                 // msg += get_duration_and_target(undefined, effect['target area'], effect['target type']);
+                return msg;
+            }
+        },
+        '32': {
+            desc: "Change Base Element",
+            type: ['buff'],
+            notes: ['This is first seen with Grah\'s attacks in Trial 2'],
+            func: function(effect,other_data){
+                let msg = "";
+                if(effect['set attack element attribute']){
+                    msg += `Change base element`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "of "
+                });
+                if (effect['set attack element attribute']) {
+                    msg += ` to ${to_proper_case(effect['set attack element attribute'])}`;
+                }
                 return msg;
             }
         },
@@ -2357,7 +2374,7 @@ loadPromise.then(function(){
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "818953", verbose: true})
         // doUnitTest({ unit_name_id: "10127",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        doBurstTest("2005040")
+        doBurstTest("9450086")
         // doESTest("36300")
     );
 }).then(function(){
