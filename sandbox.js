@@ -420,7 +420,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             var containsAll = true;
             var ailments = ['poison', 'weaken', 'sick', 'injury', 'curse', 'paralysis'];
             for(let a = 0; a < ailments.length; ++a){
-                if(arr.indexOf(ailments[i]) === -1){
+                if(arr.indexOf(ailments[a]) === -1){
                     containsAll = false; break;
                 }
             }
@@ -431,7 +431,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             var containsAll = true;
             var ailments = ['atk down', 'def down', 'rec down'];
             for (let a = 0; a < ailments.length; ++a) {
-                if (arr.indexOf(ailments[i]) === -1) {
+                if (arr.indexOf(ailments[a]) === -1) {
                     containsAll = false; break;
                 }
             }
@@ -1350,9 +1350,14 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             desc: "Status Cleanse (Ailments and/or Stat Reductions)",
             notes: ["Status ailments refers to the basic 6 paralysis,injury,etc.", "Stat reductions refer to ATK/DEF/REC down", "Ailments refers to both status ailments and stat reductions"],
             type: ["effect"],
-            func: function (effects, other_data) {
-                var msg = "Clears " + ailments_cured_handler(effects["ailments cured"]);
-                msg += get_duration_and_target(undefined,effects["target area"], effects["target type"]);
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect["ailments cured"]) msg += `Clears ${ailments_cured_handler(effect["ailments cured"])}`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "inflicted on "
+                });
+                // msg += get_duration_and_target(undefined,effect["target area"], effect["target type"]);
                 return msg;
             }
         },
@@ -2453,10 +2458,10 @@ loadPromise.then(function(){
     return (
         // sandbox_function()
         // getBuffDataForAll()
-        // doItemTest({ item_name_id: "818953", verbose: true})
-        // doUnitTest({ unit_name_id: "10127",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        doBurstTest("2101545")
-        // doESTest("36300")
+        // doItemTest({ item_name_id: "20240", verbose: true})
+        // doUnitTest({ unit_name_id: "11037",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
+        doBurstTest("2126620")
+        // doESTest("720197")
     );
 }).then(function(){
     console.log(" ")  
