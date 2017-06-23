@@ -545,7 +545,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
 
     function get_turns(turns, msg, sp, buff_desc){
         let turnMsg = "";
-        if ((msg.length === 0 && sp) || (turns === 0 && !sp) || (turns && sp)) {
+        if ((msg.length === 0 && sp) || (turns === 0 && !sp) || (turns && sp) || (turns !== undefined && turns !== 0)) {
             if (msg.length === 0 && sp) turnMsg = `Allows current ${buff_desc}${(buff_desc.toLowerCase().indexOf("buff") === -1) ? " buff(s)" : ""} to last for additional `;
             else turnMsg += ` for `;
             turnMsg += `${turns} ${(turns === 1 ? "turn" : "turns")}`;
@@ -1326,6 +1326,23 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if (effect['bb gauge reduction chance%'] !== undefined && reductions.length > 0) {
                     msg += ` by ${reductions.join(" and ")}`;
                 }
+                return msg;
+            }
+        },
+        '36': {
+            desc: "LS Lock",
+            type: ['debuff'],
+            func: function(effect,other_data){
+                let msg = "";
+                if (effect['invalidate LS chance%'] !== undefined){
+                    msg += `${effect['invalidate LS chance%']}% chance to nullify LS effects`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "of "
+                });
+                msg += get_turns(effect["invalidate LS turns (60)"], msg, other_data.sp, this.desc);
                 return msg;
             }
         },
@@ -2414,7 +2431,7 @@ loadPromise.then(function(){
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "818953", verbose: true})
         // doUnitTest({ unit_name_id: "10127",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        doBurstTest("700000103")
+        doBurstTest("2001971")
         // doESTest("36300")
     );
 }).then(function(){
