@@ -1689,6 +1689,30 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 let msg = `Unknown values: {${print_effect_legacy(effect).split(" / ").join("/")}}`;
                 return msg;
             }
+        },
+        '37': {
+            desc: "Add a Unit to Battle",
+            type: ['effect'],
+            notes: ['Not much is known about this except that it adds a unit to the field'],
+            func: function(effect,other_data){
+                let msg = "";
+                if(effect['unknown proc param'])
+                    msg +=`Adds a unit to the battle`;
+                
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp){
+                    switch(effect['target type']){
+                        case "self": msg += " on own side"; break;
+                        case "enemy": msg += " on enemy's side"; break;
+                        case "party": msg += " on ally's side"; break;
+                    }
+                }
+
+                if (effect['unknown proc param'])
+                    msg += `. Unknown params {${effect['unknown proc param']}}`
+
+                return msg;
+            }
         }
     };
 
@@ -2431,7 +2455,7 @@ loadPromise.then(function(){
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "818953", verbose: true})
         // doUnitTest({ unit_name_id: "10127",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        doBurstTest("2001971")
+        doBurstTest("2101545")
         // doESTest("36300")
     );
 }).then(function(){
