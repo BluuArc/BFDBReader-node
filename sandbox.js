@@ -1534,11 +1534,17 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             desc: "Chance Angel Idol (AI)",
             notes: ["This buff cannot be buff wiped"],
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = "gives " + effects["angel idol recover chance%"] + "% chance Angel Idol";
-                if (effects["angel idol recover hp%"]) msg += " (recovers " + effects["angel idol recover hp%"] + "% HP on proc)";
+            func: function (effect, other_data) {
+                var msg =  "";
+                
+                if (effect["angel idol recover chance%"])
+                    msg += `${effect["angel idol recover chance%"]}% chance Angel Idol`;
+                if (effect["angel idol recover hp%"]) 
+                    msg += " (recovers " + effect["angel idol recover hp%"] + "% HP on proc)";
 
-                msg += get_duration_and_target(effects["angel idol buff turns (91)"], effects["target area"], effects["target type"]);
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect['angel idol buff turns (91)'], msg, other_data.sp, this.desc);
                 return msg;
             }
         },
@@ -2596,8 +2602,8 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "alzeon pearl", verbose: true})
-        // doUnitTest({ unit_name_id: "(30867)",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
-        doBurstTest("213081")
+        doUnitTest({ unit_name_id: "(40907)",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
+        // doBurstTest("5001084")
         // doESTest("750237")
     );
 }).then(function(){
