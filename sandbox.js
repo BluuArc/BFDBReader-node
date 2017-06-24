@@ -1363,17 +1363,40 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         '47': {
             desc: "HP Scaling Attack",
             type: ["attack"],
-            func: function (effects, other_data) {
-                var numHits = damage_frames.hits;
-                var max_total = parseInt(effects["bb base atk%"]) + parseInt(effects["bb added atk% based on hp"]);
-                var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
-                msg += `${get_formatted_minmax(effects["bb base atk%"],max_total)}% `;
-                msg += (effects["target area"].toUpperCase() === "SINGLE") ? "ST" : effects["target area"].toUpperCase();
-                if (effects["bb flat atk"]) msg += ` (based on HP ${effects["bb added atk% proportional to hp"]}, +` + effects["bb flat atk"] + " flat ATK)";
-                else msg += ` (based on HP ${effects["bb added atk% proportional to hp"]})`;
-                if (effects["bb bc%"]) msg += ", innate +" + effects["bb bc%"] + "% BC drop rate";
-                if (effects["bb crit%"]) msg += ", innate +" + effects["bb crit%"] + "% crit rate";
-                // if (effects["bb hc%"]) msg += ", innate +" + effects["bb hc%"] + "% HC drop rate";
+            func: function (effect, other_data) {
+               other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var max_total = (+effect["bb base atk%"] || 0) + (+effect["bb added atk% based on hp"] || 0);
+                var msg = "";
+                if (!other_data.sp) {
+                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
+                }
+                if (effect["bb base atk%"] || effect["bb added atk% based on hp"]){
+                    if (effect["bb base atk%"] !== max_total)
+                        msg += ` ${get_formatted_minmax(effect["bb base atk%"] || 0, max_total)}%`;
+                    else   
+                        msg += ` ${max_total}-${max_total}%`;
+                }
+
+                if (!other_data.sp) msg += " ";
+                else msg += " to BB ATK%";
+
+                if (!other_data.sp) {
+                    msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                }
+                let extra = [];
+                if (effect["bb flat atk"]) extra.push("+" + effect["bb flat atk"] + " flat ATK");
+                if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100)
+                    extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
+                if (effect['bb added atk% proportional to hp']) extra.push(`proportional to ${effect['bb added atk% proportional to hp']} HP`);
+                if (extra.length > 0) msg += ` (${extra.join(", ")})`;
+
+                msg += regular_atk_helper(effect);
+
+                if (!other_data.sp) {
+                    if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
+                }
                 return msg;
             }
         },
@@ -2419,8 +2442,8 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "22420", verbose: true})
-        // doUnitTest({ unit_name_id: "50317",server:'jp',strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        doBurstTest("2004557")
+        // doUnitTest({ unit_name_id: "rize",rarity:8,server:'jp',strict: "false", verbose:true,burstType: "sbb", type: "burst"})
+        doBurstTest("1760176")
         // doESTest("3500")
     );
 }).then(function(){
