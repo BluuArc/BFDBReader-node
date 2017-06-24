@@ -1440,6 +1440,23 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 return msg;
             }
         },
+        '52': {
+            desc: "BB Fill Rate Increase/BC Efficacy/Ares Buff",
+            type: ['buff'],
+            func: function(effect,other_data){
+                let msg = "";
+                if(effect['bb gauge fill rate% buff']){
+                    msg += `${get_polarized_number(effect['bb gauge fill rate% buff'])}% BB gauge fill rate`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "of "
+                });
+                msg += get_turns(effect['buff turns (77)'], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
         '53': {
             desc: "Ailment Reflect",
             type: ["buff"],
@@ -2537,10 +2554,10 @@ loadPromise.then(function(){
     return (
         // sandbox_function()
         // getBuffDataForAll()
-        // doItemTest({ item_name_id: "22420", verbose: true})
-        // doUnitTest({ unit_name_id: "11017",server:'jp',strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        doBurstTest("2127044")
-        // doESTest("3500")
+        // doItemTest({ item_name_id: "alzeon pearl", verbose: true})
+        // doUnitTest({ unit_name_id: "30897",strict: "false", verbose:true,burstType: "bb", type: "sp"})
+        doBurstTest("30276")
+        // doESTest("8700")
     );
 }).then(function(){
     console.log(" ")  
