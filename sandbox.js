@@ -1589,6 +1589,26 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         },
     };//end proc_buffs
 
+    //general handler for all unknown procs
+    function unknown_proc_handler(effect,other_data){
+        let msg = "";
+        if (effect['unknown proc param']) msg += `Unknown proc effects {${effect['unknown proc param']}}`;
+        if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+        if (!other_data.sp) msg += get_target(effect, other_data);
+        return msg;
+    }
+
+    function unknown_proc_attack_handler(effect,other_data){
+        other_data = other_data || {};
+        let damage_frames = other_data.damage_frames || {};
+        var numHits = damage_frames.hits || "NaN";
+        var msg = `${numHits} hit attack (?)`;
+        if (effect['unknown proc param'])
+            msg += `, unknown proc effects {${effect['unknown proc param']}}`;
+        if (!other_data.sp) msg += get_target(effect, other_data);
+        return msg;
+    }
+
     var unknown_proc_buffs = {
         '': {
             desc: "Damage over Time (EU Version?)",
@@ -1619,7 +1639,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         '0': {
             desc: "None",
             type: ["none"],
-            notes: ["First found on itme 800104"],
+            notes: ["First found on item 800104"],
             func: function (effect) {
                 return "No effect";
             }
@@ -1651,16 +1671,15 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         '27 ': {
             desc: "Unknown values",
             type: ["unknown"],
-            notes: ["Note that this is unknown proc '27 ', and not '27'", "This is only found on bb 70640027"],
+            notes: ["Note that this is unknown proc '27 ', and not '27'", "This is only found on BB 70640027"],
             func: function(effect,other_data){
-                let msg = `Unknown values: {${print_effect_legacy(effect).split(" / ").join("/")}}`;
-                return msg;
+                return unknown_proc_handler(effect,other_data);
             }
         },
         '37': {
             desc: "Add a Unit to Battle",
             type: ['effect','unknown'],
-            notes: ['Not much is known about this except that it adds a unit to the field'],
+            notes: ['Not much is known about this except that it adds a unit to the field', 'This is first found on BB 3181'],
             func: function(effect,other_data){
                 let msg = "";
                 if(effect['unknown proc param'])
@@ -1684,35 +1703,33 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         '42': {
             desc: "Unknown values",
             type: ['unknown'],
+            notes: ['This is first found on BB 3000655'],
             func: function(effect,other_data){
-                let msg = `Unknown values: {${print_effect_legacy(effect).split(" / ").join("/")}}`;
-                return msg;
+                return unknown_proc_attack_handler(effect,other_data);
             }
         },
         '46': {
             desc: "Unknown attack",
             type: ['attack', 'unknown'],
+            notes: ['This is first found on BB 2002561'],
             func: function(effect,other_data){
-                other_data = other_data || {};
-                let damage_frames = other_data.damage_frames || {};
-                var numHits = damage_frames.hits || "NaN";
-                var msg = `${numHits} hit attack`;
-                if (effect['unknown proc param'])
-                    msg += `. Unknown params {${effect['unknown proc param']}}`;
-                return msg;
+                return unknown_proc_attack_handler(effect,other_data);
             }
         },
         '48': {
             desc: "Unknown attack",
             type: ['attack', 'unknown'],
+            notes: ['This is first found on BB 310990'],
             func: function (effect, other_data) {
-                other_data = other_data || {};
-                let damage_frames = other_data.damage_frames || {};
-                var numHits = damage_frames.hits || "NaN";
-                var msg = `${numHits} hit attack`;
-                if (effect['unknown proc param'])
-                    msg += `. Unknown params {${effect['unknown proc param']}}`;
-                return msg;
+                return unknown_proc_attack_handler(effect,other_data);
+            }
+        },
+        '49': {
+            desc: "Unknown values",
+            type: ['unknown'],
+            notes: ['This is first found on BB 3669'],
+            func: function (effect, other_data) {
+                return unknown_proc_handler(effect,other_data);
             }
         },
     };
@@ -2456,7 +2473,7 @@ loadPromise.then(function(){
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "22420", verbose: true})
         // doUnitTest({ unit_name_id: "rize",rarity:8,server:'jp',strict: "false", verbose:true,burstType: "sbb", type: "burst"})
-        doBurstTest("11021101")
+        doBurstTest("706209")
         // doESTest("3500")
     );
 }).then(function(){
