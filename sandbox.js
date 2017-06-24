@@ -1548,6 +1548,32 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 return msg;
             }
         },
+        '57': {
+            desc: "BC Drop Resistance",
+            type: ['buff'],
+            notes: ['A positive value means that less BC are likely to be dropped when hit', 'A negative value means that more BC are likely to be dropped when hit'],
+            func: function(effect,other_data){
+                let msg = "";
+
+                let options = {
+                    all: [
+                        {value: effect['base bc drop% resist buff'], name: "base"},
+                        {value: effect['buffed bc drop% resist buff'], name: "buffed"}
+                    ],
+                    numberFn: (d) => {return `${d}% `;}
+                }
+
+                let resistances = multi_param_buff_handler(options);
+
+                if(resistances.length > 0)
+                    msg += `${resistances} BC drop resistance`;
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect['bc drop% resist buff turns (92))'], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
         '58': {
             desc: "Spark Vulnerability to Enemy",
             type: ["debuff"],
@@ -2602,8 +2628,8 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "alzeon pearl", verbose: true})
-        doUnitTest({ unit_name_id: "(40907)",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
-        // doBurstTest("5001084")
+        // doUnitTest({ unit_name_id: "(40907)",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
+        doBurstTest("1001112")
         // doESTest("750237")
     );
 }).then(function(){
