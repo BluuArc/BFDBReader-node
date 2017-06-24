@@ -1570,16 +1570,22 @@ var BuffProcessor = function(/*unit_names, item_names*/){
 
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data);
-                msg += get_turns(effect['bc drop% resist buff turns (92))'], msg, other_data.sp, this.desc);
+                msg += get_turns(effect['bc drop% resist buff turns (92)'], msg, other_data.sp, this.desc);
                 return msg;
             }
         },
         '58': {
             desc: "Spark Vulnerability to Enemy",
             type: ["debuff"],
-            func: function (effects, other_data) {
-                var msg = `${effects["spark dmg received apply%"]}% chance to inflict ${parseInt(effects["spark dmg received debuff turns (94)"])+1} turn ${get_polarized_number(effects["spark dmg% received"])}% Spark vulnerability debuff`;
-                msg += get_duration_and_target(undefined, effects["target area"], effects["target type"]);
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect["spark dmg received apply%"] || effect["spark dmg% received"]){
+                    msg += `${effect["spark dmg received apply%"] || 0}% chance to inflict ${get_polarized_number(effect["spark dmg% received"] || 0)}% Spark vulnerability debuff`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                msg += get_turns(+(effect["spark dmg received debuff turns (94)"] || 0) + 1, msg, other_data.sp, this.desc);
+                if (!other_data.sp) msg += get_target(effect, other_data);
                 return msg;
             }
         },
@@ -2628,9 +2634,9 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "alzeon pearl", verbose: true})
-        // doUnitTest({ unit_name_id: "(40907)",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
-        doBurstTest("1001112")
-        // doESTest("750237")
+        doUnitTest({ unit_name_id: "(10917)",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
+        // doBurstTest("10757")
+        // doESTest("11400")
     );
 }).then(function(){
     console.log(" ")  
