@@ -1593,13 +1593,26 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             desc: "Elemental Barrier",
             type: ["buff"],
             notes: ["This buff cannot be buff wiped", "Unless otherwise specified, assume that the barrier has 100% DMG absorption"],
-            func: function (effects, other_data) {
-                var msg = `${effects["elemental barrier hp"]} HP (${effects["elemental barrier def"]} DEF`;
-                if(effects["elemental barrier absorb dmg%"] != 100){
-                    msg += `/${effects["elemental barrier absorb dmg%"]}% DMG absorption`;
+            func: function (effect, other_data) {
+                var msg = "";
+                let extra_effects = [];
+                if (effect["elemental barrier hp"]) 
+                    msg +=`${effect["elemental barrier hp"]} HP`;
+                if (effect["elemental barrier def"] !== undefined)
+                    extra_effects.push(`${effect["elemental barrier def"]} DEF`);
+                if (effect["elemental barrier absorb dmg%"] !== undefined && effect["elemental barrier absorb dmg%"] != 100){
+                    extra_effects.push(`${effect["elemental barrier absorb dmg%"]}% DMG absorption`);
                 }
-                msg += `) ${effects["elemental barrier element"]} barrier`;
-                msg += get_duration_and_target(effects);
+                if(extra_effects.length > 0)
+                    msg += ` (${extra_effects.join("/")})`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                msg += ` ${to_proper_case(effect["elemental barrier element"] || "none")} barrier`;
+                if(!other_data.sp) msg = msg.replace("All", "all elemental");
+                else msg = msg.replace("All ","");
+                msg = msg.replace("None", "non-elemental");
+                if (!other_data.sp) msg += get_target(effect, other_data,{
+                    prefix: "on "
+                });
                 return msg;
             }
         },
@@ -2665,10 +2678,10 @@ loadPromise.then(function(){
     return (
         // sandbox_function()
         // getBuffDataForAll()
-        // doItemTest({ item_name_id: "alzeon pearl", verbose: true})
-        // doUnitTest({ unit_name_id: "(10917)",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        doBurstTest("5000253")
-        // doESTest("11400")
+        // doItemTest({ item_name_id: "800508", verbose: true})
+        // doUnitTest({ unit_name_id: "(820178)",rarity:8,strict: "false", verbose:true,burstType: "sbb", type: "sp"})
+        doBurstTest("2003996")
+        // doESTest("740237")
     );
 }).then(function(){
     console.log(" ")  
