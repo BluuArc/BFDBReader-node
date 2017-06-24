@@ -1893,6 +1893,30 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if(dmg_reflect_turns !== undefined) msg += get_turns(dmg_reflect_turns, msg, other_data.sp, this.desc);
                 return msg;
             }
+        },
+        '59': {
+            desc: "BB ATK Reduction",
+            type: ['debuff'],
+            func: function(effect,other_data){
+                let msg = "";
+                let data = effect['unknown proc param'].split(",");
+                let [bb,sbb,ubb] = [data[0],data[1],data[2]];
+                let turns = data[3];
+                let unknown_params = data.slice(4);
+                if (bb || sbb || ubb)
+                    msg += bb_atk_buff_handler(bb, sbb, ubb, {
+                        suffix: " ATK"
+                    });
+
+                if (unknown_params.length > 0) {
+                    msg += ` (unknown extra ${unknown_params.length === 1 ? "value" : "values"} ${unknown_params.join(",")})`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(turns, msg, other_data.sp, this.desc);
+                return msg;
+            }
         }
     };
 
@@ -2634,8 +2658,8 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "alzeon pearl", verbose: true})
-        doUnitTest({ unit_name_id: "(10917)",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        // doBurstTest("10757")
+        // doUnitTest({ unit_name_id: "(10917)",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
+        doBurstTest("8470200")
         // doESTest("11400")
     );
 }).then(function(){
