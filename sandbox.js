@@ -1701,7 +1701,20 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                     msg += `. Unknown params {${effect['unknown proc param']}}`;
                 return msg;
             }
-        }
+        },
+        '48': {
+            desc: "Unknown attack",
+            type: ['attack', 'unknown'],
+            func: function (effect, other_data) {
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var msg = `${numHits} hit attack`;
+                if (effect['unknown proc param'])
+                    msg += `. Unknown params {${effect['unknown proc param']}}`;
+                return msg;
+            }
+        },
     };
 
     //get names of IDs in array
@@ -2443,7 +2456,7 @@ loadPromise.then(function(){
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "22420", verbose: true})
         // doUnitTest({ unit_name_id: "rize",rarity:8,server:'jp',strict: "false", verbose:true,burstType: "sbb", type: "burst"})
-        doBurstTest("1760176")
+        doBurstTest("11021101")
         // doESTest("3500")
     );
 }).then(function(){
