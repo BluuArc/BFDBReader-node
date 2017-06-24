@@ -422,7 +422,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         if ((msg.length === 0 && sp) || (turns === 0 && !sp) || (turns && sp) || (turns !== undefined && turns !== 0)) {
             if (msg.length === 0 && sp) turnMsg = `Allows current ${buff_desc}${(buff_desc.toLowerCase().indexOf("buff") === -1) ? " buff(s)" : ""} to last for additional `;
             else turnMsg += ` for `;
-            turnMsg += `${turns} ${(turns === 1 ? "turn" : "turns")}`;
+            turnMsg += `${turns} ${(+turns === 1 ? "turn" : "turns")}`;
         }
         return turnMsg;
     }
@@ -1355,8 +1355,6 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data);
                 msg += get_turns(effect["buff turns (72)"], msg, other_data.sp, this.desc);
-
-                // msg += get_duration_and_target(effect["buff turns (72)"], effect["target area"], effect["target type"]);
                 return msg;
             }
         },
@@ -1732,6 +1730,32 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 return unknown_proc_handler(effect,other_data);
             }
         },
+        '50': {
+            desc: "Damage Reflect",
+            type: ['buff'],
+            notes: ['I\'ve interpreted this to the best of my ability, but the meanings for the values may be incorrect','First found on BB 310833, but it\'s more remembered by Revenge Shift (BB 5000193)'],
+            func: function(effect,other_data){
+                let msg = "";
+                let dmg_reflect_turns;
+                if(effect['unknown proc param']){
+                    let data = effect['unknown proc param'].split(",");
+                    let dmg_reflect_low = data[0];
+                    let dmg_reflect_high = data[1];
+                    let dmg_reflect_chance = data[2];
+                    dmg_reflect_turns = data[3];
+                    let unknown_params = data.slice(4);
+                    if(dmg_reflect_low || dmg_reflect_high || dmg_reflect_chance)
+                        msg += `Adds ${dmg_reflect_chance}% chance to reflect ${get_formatted_minmax(dmg_reflect_low, dmg_reflect_high)}% damage when hit`;
+                    if(unknown_params.length > 0){
+                        msg += ` (unknown extra ${unknown_params.length === 1 ? "value": "values"} ${unknown_params.join(",")})`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                if(dmg_reflect_turns !== undefined) msg += get_turns(dmg_reflect_turns, msg, other_data.sp, this.desc);
+                return msg;
+            }
+        }
     };
 
     //get names of IDs in array
@@ -2473,7 +2497,7 @@ loadPromise.then(function(){
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "22420", verbose: true})
         // doUnitTest({ unit_name_id: "rize",rarity:8,server:'jp',strict: "false", verbose:true,burstType: "sbb", type: "burst"})
-        doBurstTest("706209")
+        doBurstTest("702400128")
         // doESTest("3500")
     );
 }).then(function(){
