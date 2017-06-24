@@ -1361,7 +1361,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             desc: "HP Scaling Attack",
             type: ["attack"],
             func: function (effect, other_data) {
-               other_data = other_data || {};
+                other_data = other_data || {};
                 let damage_frames = other_data.damage_frames || {};
                 var numHits = damage_frames.hits || "NaN";
                 var max_total = (+effect["bb base atk%"] || 0) + (+effect["bb added atk% based on hp"] || 0);
@@ -1586,6 +1586,46 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 msg += get_turns(+(effect["spark dmg received debuff turns (94)"] || 0) + 1, msg, other_data.sp, this.desc);
                 if (!other_data.sp) msg += get_target(effect, other_data);
+                return msg;
+            }
+        },
+        '61': {
+            desc: "Team BB Gauge Scaling Attack",
+            type: ['attack'],
+            func: function(effect,other_data){
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var max_total = (+effect["bb base atk%"] || 0) + (+effect["bb max atk% based on ally bb gauge and clear bb gauges"] || 0);
+                var msg = "";
+                if (!other_data.sp) {
+                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
+                }
+                if (effect["bb base atk%"] || effect["bb max atk% based on ally bb gauge and clear bb gauges"]) {
+                    if (effect["bb base atk%"] !== max_total)
+                        msg += ` ${get_formatted_minmax(effect["bb base atk%"] || 0, max_total)}%`;
+                    else
+                        msg += ` ${max_total}-${max_total}%`;
+                }
+
+                if (!other_data.sp) msg += " ";
+                else msg += " to BB ATK%";
+
+                if (!other_data.sp) {
+                    msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                }
+                let extra = [];
+                if (effect["bb flat atk"]) extra.push("+" + effect["bb flat atk"] + " flat ATK");
+                if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100)
+                    extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
+                if (effect['bb max atk% based on ally bb gauge and clear bb gauges']) extra.push(`proportional to allies' BB gauges, drains BB gauges`);
+                if (extra.length > 0) msg += ` (${extra.join(", ")})`;
+
+                // msg += regular_atk_helper(effect);
+
+                if (!other_data.sp) {
+                    if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
+                }
                 return msg;
             }
         },
@@ -2679,8 +2719,8 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "800508", verbose: true})
-        // doUnitTest({ unit_name_id: "(820178)",rarity:8,strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        doBurstTest("2003996")
+        doUnitTest({ unit_name_id: "51227",strict: "false", verbose:true,burstType: "ubb", type: "burst"})
+        // doBurstTest("2730216")
         // doESTest("740237")
     );
 }).then(function(){
