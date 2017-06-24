@@ -831,7 +831,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                     if(msg.length > 0) msg += ", ";
                     msg += `${effect['mitigate all attacks (20)']}% all attack mitigation`;
                 }
-                if (!other_data.sp) msg += get_target(effect);
+                if (!other_data.sp) msg += get_target(effect,other_data);
                 msg += get_turns(effect['buff turns'],msg,other_data.sp,this.desc);
                 return msg;
             }
@@ -1253,15 +1253,14 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 };
 
                 let any_element = effect['mitigate fire attacks'] || effect['mitigate water attacks'] || effect['mitigate earth attacks'] || effect['mitigate thunder attacks'] || effect['mitigate light attacks'] || effect['mitigate dark attacks'];
-                // if (effect['dmg% mitigation for elemental attacks'] || any_element){
-                    if (effect['dmg% mitigation for elemental attacks'])
-                        msg += `${effect['dmg% mitigation for elemental attacks']}% elemental mitigation`;
-                    if(any_element){
-                        msg += ` from ${elemental_bool_handler(options)} attacks`;
-                    }
-                // }
+                if (effect['dmg% mitigation for elemental attacks'])
+                    msg += `${effect['dmg% mitigation for elemental attacks']}% elemental mitigation`;
+                if(any_element){
+                    msg += ` from ${elemental_bool_handler(options)} attacks`;
+                }
 
-                if (!other_data.sp) msg += get_target(effect);
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect,other_data);
                 msg += get_turns(effect['dmg% mitigation for elemental attacks buff turns'], msg, other_data.sp, this.desc);
                 return msg;
             }
@@ -1501,12 +1500,33 @@ var BuffProcessor = function(/*unit_names, item_names*/){
             desc: "Elemental Weakness Damage (EWD)",
             notes: ["FWETLD corresponds to fire, water, earth, thunder, light, and dark, respectively"],
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = ewd_buff_handler(effects);
-                if (msg.length === 0) {
-                    throw no_buff_data_msg;
+            func: function (effect, other_data) {
+                let msg = "";
+                let options = {
+                    values: [
+                        effect['fire units do extra elemental weakness dmg'],
+                        effect['water units do extra elemental weakness dmg'],
+                        effect['earth units do extra elemental weakness dmg'],
+                        effect['thunder units do extra elemental weakness dmg'],
+                        effect['light units do extra elemental weakness dmg'],
+                        effect['dark units do extra elemental weakness dmg'],
+                    ]
+                };
+
+                let any_element = (effect['fire units do extra elemental weakness damage'] || effect['water units do extra elemental weakness damage'] || 
+                    effect['earth units do extra elemental weakness damage'] || effect['thunder units do extra elemental weakness damage'] || 
+                    effect['light units do extra elemental weakness damage'] || effect['dark units do extra elemental weakness damage']);
+
+                let elements = elemental_bool_handler(options);
+                if(effect['elemental weakness multiplier%'] || any_element){
+                    msg += `${get_polarized_number(effect['elemental weakness multiplier%'] || 0)}%${(elements.length > 0 ? ` ${elements} ` : " ")}EWD to attacks`;
                 }
-                msg += get_duration_and_target(effects["elemental weakness buff turns"], effects["target area"], effects["target type"]);
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect,other_data, {
+                    prefix: "of "
+                });
+                msg += get_turns(effect['elemental weakness buff turns'], msg, other_data.sp, this.desc);
                 return msg;
             }
         },
@@ -2576,9 +2596,9 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "alzeon pearl", verbose: true})
-        // doUnitTest({ unit_name_id: "(11087)",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
-        doBurstTest("161056")
-        // doESTest("15100")
+        // doUnitTest({ unit_name_id: "(30867)",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
+        doBurstTest("213081")
+        // doESTest("750237")
     );
 }).then(function(){
     console.log(" ")  
