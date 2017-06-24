@@ -1487,10 +1487,13 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         '54': {
             desc: "Critical Hit Damage",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = get_polarized_number(effects["crit multiplier%"]) + "% crit DMG";
+            func: function (effect, other_data) {
+                var msg = "";
+                if(effect['crit multiplier%']) msg += get_polarized_number(effect["crit multiplier%"]) + "% crit DMG";
 
-                msg += get_duration_and_target(effects["buff turns (84)"], effects["target area"], effects["target type"]);
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect['buff turns (84)'], msg, other_data.sp, this.desc);
                 return msg;
             }
         },
@@ -2573,9 +2576,9 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "alzeon pearl", verbose: true})
-        // doUnitTest({ unit_name_id: "720197",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
-        doBurstTest("840397")
-        // doESTest("8700")
+        // doUnitTest({ unit_name_id: "(11087)",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
+        doBurstTest("161056")
+        // doESTest("15100")
     );
 }).then(function(){
     console.log(" ")  
