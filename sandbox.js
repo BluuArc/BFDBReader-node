@@ -1291,7 +1291,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
 
                 let ails = ailment_handler(options);
                 if(ails.length > 0) msg += `Adds ${ails} to attacks`;
-                if (msg.length === 0 && (!effect[null] || !other_data.sp)) throw no_buff_data_msg;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data, {
                     prefix: "of "
                 });
@@ -1395,6 +1395,48 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 if (!other_data.sp) {
                     if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
                 }
+                return msg;
+            }
+        },
+        '51': {
+            desc: "Status Reduction Inflict When Attacking",
+            type: ["buff"],
+            func: function (effect, other_data) {
+                let msg = "";
+                let options = {};
+                let reduction_turns = effect['stat% debuff turns'] || 0;
+                options.values = [
+                    effect["inflict atk% debuff chance% (74)"],
+                    effect["inflict def% debuff chance% (75)"],
+                    effect["inflict rec% debuff chance% (76)"],
+                ];
+
+                options.suffix = function (names) {
+                    if (names.length === 6) {
+                        return ` chance to inflict any status reduction for ${reduction_turns} ${reduction_turns === 1 ? "turn" : "turns"}`;
+                    } else {
+                        return ` chance to inflict ${reduction_turns} turn ${names.join("/")}`;
+                    }
+                }
+
+                let ails = ailment_handler(options);
+                //insert reduction values
+                if (effect['inflict atk% debuff (2)'] !== undefined){
+                    ails = ails.replace("ATK", `${effect['inflict atk% debuff (2)']}% ATK`);
+                }
+                if (effect['inflict def% debuff (4)'] !== undefined){
+                    ails = ails.replace("DEF", `${effect['inflict def% debuff (4)']}% DEF`);
+                }
+                if (effect['inflict rec% debuff (6)'] !== undefined){
+                    ails = ails.replace("REC", `${effect['inflict rec% debuff (6)']}% REC`);
+                }
+
+                if (ails.length > 0) msg += `Adds ${ails} to attacks`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "of "
+                });
+                msg += get_turns(effect['buff turns'], msg, other_data.sp, this.desc);
                 return msg;
             }
         },
@@ -2496,8 +2538,8 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "22420", verbose: true})
-        // doUnitTest({ unit_name_id: "rize",rarity:8,server:'jp',strict: "false", verbose:true,burstType: "sbb", type: "burst"})
-        doBurstTest("702400128")
+        // doUnitTest({ unit_name_id: "11017",server:'jp',strict: "false", verbose:true,burstType: "sbb", type: "sp"})
+        doBurstTest("2127044")
         // doESTest("3500")
     );
 }).then(function(){
