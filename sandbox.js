@@ -1917,6 +1917,14 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 msg += get_turns(turns, msg, other_data.sp, this.desc);
                 return msg;
             }
+        },
+        '60': {
+            desc: "Unknown values",
+            type: ['unknown'],
+            notes: ['This is only found on BB 5000253'],
+            func: function (effect, other_data) {
+                return unknown_proc_handler(effect, other_data);
+            }
         }
     };
 
@@ -2659,7 +2667,7 @@ loadPromise.then(function(){
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "alzeon pearl", verbose: true})
         // doUnitTest({ unit_name_id: "(10917)",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        doBurstTest("8470200")
+        doBurstTest("5000253")
         // doESTest("11400")
     );
 }).then(function(){
