@@ -1412,11 +1412,7 @@ var BuffProcessor = function(/*unit_names, item_names*/){
                 ];
 
                 options.suffix = function (names) {
-                    if (names.length === 6) {
-                        return ` chance to inflict any status reduction for ${reduction_turns} ${reduction_turns === 1 ? "turn" : "turns"}`;
-                    } else {
-                        return ` chance to inflict ${reduction_turns} turn ${names.join("/")}`;
-                    }
+                    return ` chance to inflict ${reduction_turns} turn ${names.join("/")}`;
                 }
 
                 let ails = ailment_handler(options);
@@ -1460,9 +1456,31 @@ var BuffProcessor = function(/*unit_names, item_names*/){
         '53': {
             desc: "Ailment Reflect",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = ailment_reflect_handler(effects);
-                msg += get_duration_and_target(effects["counter inflict ailment turns"], effects["target area"], effects["target type"]);
+            func: function (effect, other_data) {
+                let msg = "";
+                let options = {};
+                options.values = [
+                    effect["counter inflict injury% (81)"],
+                    effect["counter inflict poison% (78)"],
+                    effect["counter inflict sick% (80)"],
+                    effect["counter inflict weaken% (79)"],
+                    effect["counter inflict curse% (82)"],
+                    effect["counter inflict paralysis% (83)"]
+                ];
+
+                options.suffix = function (names) {
+                    if (names.length === 6) {
+                        return " chance to inflict any status ailment";
+                    } else {
+                        return ` chance to inflict ${names.join("/")}`;
+                    }
+                }
+
+                let ails = ailment_handler(options);
+                if (ails.length > 0) msg += `Adds ${ails} when hit`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect['counter inflict ailment turns'], msg, other_data.sp, this.desc);
                 return msg;
             }
         },
@@ -2555,8 +2573,8 @@ loadPromise.then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "alzeon pearl", verbose: true})
-        // doUnitTest({ unit_name_id: "30897",strict: "false", verbose:true,burstType: "bb", type: "sp"})
-        doBurstTest("30276")
+        // doUnitTest({ unit_name_id: "720197",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
+        doBurstTest("840397")
         // doESTest("8700")
     );
 }).then(function(){
