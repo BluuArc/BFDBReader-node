@@ -1761,13 +1761,20 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 }
                 return msg;
             }
-        },/*
+        },
         '65': {
             desc: "Damage Boost to Status Afflicted Foes",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = `${get_polarized_number(effects["atk% buff when enemy has ailment"])}% ATK to status afflicted foes`;
-                msg += get_duration_and_target(effects["atk% buff turns (110)"], effects);
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect["atk% buff when enemy has ailment"])
+                    msg += `${get_polarized_number(effect["atk% buff when enemy has ailment"])}% ATK to status afflicted foes to attacks`;
+                
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data,{
+                    prefix: "of "
+                });
+                msg += get_turns(effect['atk% buff turns (110)'], msg, other_data.sp, this.desc);
                 return msg;
             }
         },/*
