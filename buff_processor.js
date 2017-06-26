@@ -1717,7 +1717,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 });
                 return msg;
             }
-        },
+        },/*
         '64': {
             desc: "Consective Use Boosting Attack",
             type: ["attack"],
@@ -1734,7 +1734,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (effects["bb bc%"]) msg += ", innate +" + effects["bb bc%"] + "% BC drop rate";
                 return msg;
             }
-        },
+        },/*
         '65': {
             desc: "Damage Boost to Status Afflicted Foes",
             type: ["buff"],
@@ -1743,7 +1743,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_duration_and_target(effects["atk% buff turns (110)"], effects);
                 return msg;
             }
-        },
+        },/*
         '66': {
             desc: "Chance Revive",
             type: ["effect"],
@@ -1752,7 +1752,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += ` (${effects["target area"]},${effects["target type"]})`
                 return msg;
             }
-        },
+        },/*
         '67': {
             desc: "BC Fill on Spark",
             type: ["buff"],
@@ -1761,7 +1761,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_duration_and_target(effects["bc fill on spark buff turns (111)"], effects["target area"], effects["target type"]);
                 return msg;
             }
-        },
+        },/*
         '78': {
             desc: "Self ATK/DEF/REC/Crit Rate",
             notes: ["Stacks with the regular party ATK/DEF/REC/Crit Rate buff", "Example of a unit having both party and self is Silvie (840128)"],
@@ -1793,7 +1793,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 }
                 return msg;
             }
-        },
+        },/*
         '83': {
             desc: "Spark Critical",
             type: ["buff"],
@@ -1802,7 +1802,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_duration_and_target(effects["spark dmg inc buff turns (131)"], effects);
                 return msg;
             }
-        },
+        },/*
         '84': {
             desc: "OD Fill Rate",
             type: ["buff"],
@@ -1811,7 +1811,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_duration_and_target(effects["od fill rate buff turns (132)"], effects);
                 return msg;
             }
-        },
+        },/*
         '85': {
             desc: "Heal on Hit",
             type: ["buff"],
@@ -1822,7 +1822,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_duration_and_target(effects["hp recover from dmg buff turns (133)"], effects["target area"], effects["target type"]);
                 return msg;
             }
-        },
+        },/*
         '88': {
             desc: "Spark Damage (Self)",
             type: ["buff"],
@@ -1837,7 +1837,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 }
                 return msg;
             }
-        },
+        },*/
     };//end proc_buffs
 
     //general handler for all unknown procs
