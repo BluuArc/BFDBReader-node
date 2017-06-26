@@ -1794,13 +1794,24 @@ var BuffProcessor = function (unit_names, item_names, options) {
                     msg += ` with ${effect["revive unit hp%"] || 0 }% HP`;
                 return msg;
             }
-        },/*
+        },
         '67': {
             desc: "BC Fill on Spark",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = `${effects["bc fill on spark%"]}% chance to fill ${get_formatted_minmax(effects["bc fill on spark low"], effects["bc fill on spark high"])} BC on spark`;
-                msg += get_duration_and_target(effects["bc fill on spark buff turns (111)"], effects["target area"], effects["target type"]);
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect["bc fill on spark%"] || effect["bc fill on spark high"] || effect["bc fill on spark low"]){
+                    if (effect["bc fill on spark%"] && effect["bc fill on spark%"] === 100)
+                        msg += "Fills ";
+                    else
+                        msg += `${effect["bc fill on spark%"] || 0}% chance to fill `;
+                    msg += `${get_formatted_minmax(effect["bc fill on spark low"] || 0, effect["bc fill on spark high"] || 0) } BC on spark`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "for "
+                });
+                msg += get_turns(effect['bc fill on spark buff turns (111)'], msg, other_data.sp, this.desc);
                 return msg;
             }
         },/*
