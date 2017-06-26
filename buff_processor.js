@@ -1717,21 +1717,48 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 });
                 return msg;
             }
-        },/*
+        },
         '64': {
             desc: "Consective Use Boosting Attack",
             type: ["attack"],
             notes: ["This refers to attacks whose power increases on consecutive use"],
-            func: function (effects, other_data) {
-                var numHits = damage_frames.hits;
-                var max_total = parseInt(effects["bb base atk%"]) + parseInt(effects["bb atk% inc per use"]) * parseInt(effects["bb atk% max number of inc"]);
-                var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
-                // msg += effects["bb atk%"] + "% ";
-                msg += `${get_formatted_minmax(effects["bb base atk%"], max_total)}% `;
-                msg += (effects["target area"].toUpperCase() === "SINGLE") ? "ST" : effects["target area"].toUpperCase();
-                if (effects["bb flat atk"]) msg += ` (+${effects["bb atk% inc per use"]}%/use, max ${effects["bb atk% max number of inc"]} uses, +` + effects["bb flat atk"] + " flat ATK)";
-                else msg += ` (+${effects["bb atk% inc per use"]}%/use, max ${effects["bb atk% max number of inc"]} uses)`;
-                if (effects["bb bc%"]) msg += ", innate +" + effects["bb bc%"] + "% BC drop rate";
+            func: function (effect, other_data) {
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var max_total = (+effect["bb base atk%"] || 0) + (+effect["bb atk% inc per use"] || 0) * (+effect["bb atk% max number of inc"] || 0);
+                var msg = "";
+                if (!other_data.sp) {
+                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
+                }
+                if (effect["bb base atk%"] || effect["bb atk% inc per use"] || effect['bb atk% max number of inc']) {
+                    if (effect["bb base atk%"] !== max_total)
+                        msg += ` ${get_formatted_minmax(effect["bb base atk%"] || 0, max_total)}%`;
+                    else
+                        msg += ` ${max_total}-${max_total}%`;
+                }
+
+                if (!other_data.sp) msg += " ";
+                else msg += " to BB ATK%";
+
+                if (!other_data.sp) {
+                    msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                }
+                let extra = [];
+                if (effect["bb flat atk"]) extra.push("+" + effect["bb flat atk"] + " flat ATK");
+                if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100)
+                    extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
+                // if (effect['bb added atk% proportional to hp']) extra.push(`proportional to ${effect['bb added atk% proportional to hp']} HP`);
+                if(effect["bb atk% inc per use"] || effect['bb atk% max number of inc']){
+                    extra.push(`${get_polarized_number(effect["bb atk% inc per use"])}%/use, max ${effect["bb atk% max number of inc"]} uses`);
+                }
+                if (extra.length > 0) msg += ` (${extra.join(", ")})`;
+
+                msg += regular_atk_helper(effect);
+
+                if (!other_data.sp) {
+                    if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
+                }
                 return msg;
             }
         },/*
