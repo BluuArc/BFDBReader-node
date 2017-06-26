@@ -1,6 +1,6 @@
 var client = require('./data_tier_client.js');
 var fs = require('fs');
-let EffectPrinter = require('./unit_effect_printer.js');
+let EffectPrinter = require('./effect_printer.js');
 
 client.setAddress("http://127.0.0.1:8081");
 
