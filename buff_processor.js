@@ -1777,13 +1777,21 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_turns(effect['atk% buff turns (110)'], msg, other_data.sp, this.desc);
                 return msg;
             }
-        },/*
+        },
         '66': {
             desc: "Chance Revive",
             type: ["effect"],
-            func: function (effects, other_data) {
-                var msg = `${effects["revive unit chance%"]}% chance to revive allies with ${effects["revive unit hp%"]}% HP`;
-                msg += ` (${effects["target area"]},${effects["target type"]})`
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect['revive unit chance%'] || effect['revive unit hp%'])
+                    msg +=`${effect["revive unit chance%"] || 0}% chance to revive`
+                
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: ""
+                });
+                if (effect['revive unit chance%'] || effect['revive unit hp%'])
+                    msg += ` with ${effect["revive unit hp%"] || 0 }% HP`;
                 return msg;
             }
         },/*

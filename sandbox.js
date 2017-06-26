@@ -345,9 +345,9 @@ ep.init().then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "800508", verbose: true})
-        // doUnitTest({ unit_name_id: "(10937)",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
-        doBurstTest("213081")
-        // doESTest("860167")
+        // doUnitTest({ unit_name_id: "(740227)",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
+        doBurstTest("210116")
+        // doESTest("760247")
     );
 }).then(function(){
     console.log(" ")  
