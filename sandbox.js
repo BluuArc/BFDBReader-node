@@ -5,7 +5,7 @@ let EffectPrinter = require('./effect_printer.js');
 client.setAddress("http://127.0.0.1:8081");
 
 let ep = new EffectPrinter({},{
-    // verbose: true
+    verbose: true
 });
 
 //apply a function to all DBs
@@ -346,8 +346,8 @@ ep.init().then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "800508", verbose: true})
-        // doUnitTest({ unit_name_id: "(810357)",strict: "false", verbose:true,burstType: "bb", type: "sp"})
-        doBurstTest("810357")
+        doUnitTest({ unit_name_id: "randolph",strict: "false", verbose:true,burstType: "sbb", type: "burst"})
+        // doBurstTest("2830188")
         // doESTest("740216")
     );
 }).then(function(){

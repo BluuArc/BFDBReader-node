@@ -1979,36 +1979,29 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_turns(effect['extra action buff turns (123)'], msg, other_data.sp, this.desc);
                 return msg;
             }
-        }/*
+        },
         '78': {
             desc: "Self ATK/DEF/REC/Crit Rate",
             notes: ["Stacks with the regular party ATK/DEF/REC/Crit Rate buff", "Example of a unit having both party and self is Silvie (840128)"],
             type: ["buff"],
-            func: function (effects, other_data) {
+            func: function (effect, other_data) {
                 var msg = "";
-                if (effects["self atk% buff"] || effects["self def% buff"] || effects["self rec% buff"]) { //regular tri-stat
-                    msg += adr_buff_handler(effects["self atk% buff"], effects["self def% buff"], effects["self rec% buff"]);
+                let own_msg = ((effect['target area']) === 'single' && (effect['target type']) === 'self') ? "own " : "";
+                if (effect["self atk% buff"] || effect["self def% buff"] || effect["self rec% buff"]) { //regular tri-stat
+                    msg += hp_adr_buff_handler(undefined, effect["self atk% buff"], effect["self def% buff"], effect["self rec% buff"], {
+                        numberFn: (v) => {return `${v}% ${own_msg}`;}
+                    });
                 }
-                if (effects["self crit% buff"]) {//crit rate buff
+                if (effect["self crit% buff"]) {//crit rate buff
                     if (msg.length > 0) msg += ", ";
-                    msg += "+" + effects["self crit% buff"] + "% crit rate";
+                    msg += get_polarized_number(effect["self crit% buff"]) + `% ${own_msg}crit rate`;
                 }
 
-                if (msg.length === 0) {
-                    throw no_buff_data_msg;
-                }
-                //insert own into message
-                if (effects["target area"] === 'single' && effects["target type"] === "self") {
-                    while (msg.indexOf("% ") > -1) {
-                        msg = msg.replace("% ", "# own ");
-                    }
-                    while (msg.indexOf("# ") > -1) {
-                        msg = msg.replace("# ", "% ");
-                    }
-                    msg += ` for ${effects["self stat buff turns"]} turns`;
-                } else {
-                    msg += get_duration_and_target(effects["self stat buff turns"], effects["target area"], effects["target type"]);
-                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp && own_msg.length === 0) msg += get_target(effect, other_data);
+
+                msg += get_turns(effect["self stat buff turns"], msg, other_data.sp, this.desc);
+
                 return msg;
             }
         },/*
