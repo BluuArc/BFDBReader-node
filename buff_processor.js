@@ -1843,6 +1843,24 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_turns(effect['bb bc fill on guard buff turns (114)'], msg, other_data.sp, this.desc);
                 return msg;
             }
+        },
+        '71': {
+            desc: "BB Gauge Fill Rate Debuff/Ares Debuff",
+            type: ['debuff'],
+            notes: ['As of June 27, 2017, this is only found on enemy skills'],
+            func: function(effect,other_data){
+                let msg = "";
+                if (effect['bb fill inc%']) {
+                    msg += `${get_polarized_number(effect['bb fill inc%'])}% BB gauge fill rate`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "of "
+                });
+                msg += get_turns(effect['bb fill inc buff turns (112)'], msg, other_data.sp, this.desc);
+                return msg;
+            }
         },/*
         '78': {
             desc: "Self ATK/DEF/REC/Crit Rate",
