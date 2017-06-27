@@ -1814,6 +1814,21 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_turns(effect['bc fill on spark buff turns (111)'], msg, other_data.sp, this.desc);
                 return msg;
             }
+        },
+        '68': {
+            desc: "Guard Mitigation",
+            type: ['buff'],
+            func: function(effect,other_data){
+                let msg = "";
+                if (effect['guard increase mitigation%']){
+                    msg += `${get_polarized_number(effect['guard increase mitigation%'])}% guard mitigation`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect['guard increase mitigation buff turns (113)'], msg, other_data.sp, this.desc);
+                return msg;
+            }
+
         },/*
         '78': {
             desc: "Self ATK/DEF/REC/Crit Rate",
