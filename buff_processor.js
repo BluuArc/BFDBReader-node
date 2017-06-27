@@ -930,9 +930,10 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 options.special_case = {
                     isSpecialCase: function (value, names) {
                         // debug_log("Received:", value, names.length, value == 100, names.length === 6);
-                        return names.length === 6;
+                        return value == 0 || names.length === 6;
                     },
                     func: function (value, names) {
+                        if(value == 0) return "";
                         if(value == 100)
                             return "Negates all status ailments";
                         else
@@ -1897,9 +1898,10 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 options.special_case = {
                     isSpecialCase: function (value, names) {
                         // debug_log("Received:", value, names.length, value == 100, names.length === 6);
-                        return names.length === 3;
+                        return value == 0 || names.length === 3;
                     },
                     func: function (value, names) {
+                        if(value == 0) return "";
                         if(value == 100)
                             return "Negates all stat reductions";
                         else   
