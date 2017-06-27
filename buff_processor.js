@@ -2139,6 +2139,14 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 });
                 return msg;
             }
+        },
+        '70': {
+            desc: "Unknown values",
+            type: ['unknown'],
+            notes: ['This is first found on BB 9103900'],
+            func: function(effect,other_data){
+                return unknown_proc_handler(effect,other_data);
+            }
         }
     };
 
