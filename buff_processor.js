@@ -930,14 +930,20 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 options.special_case = {
                     isSpecialCase: function (value, names) {
                         // debug_log("Received:", value, names.length, value == 100, names.length === 6);
-                        return value == 100 && names.length === 6;
+                        return names.length === 6;
                     },
                     func: function (value, names) {
-                        return "Negates all status ailments";
+                        if(value == 100)
+                            return "Negates all status ailments";
+                        else
+                            return `${value}% resistance to all status ailments`;
                     }
                 };
 
-                let msg = ailment_handler(options);
+                let msg = "";
+                if (effect["resist injury% (33)"] || effect["resist poison% (30)"] || effect["resist sick% (32)"] || 
+                    effect["resist weaken% (31)"] || effect["resist curse% (34)"] || effect["resist paralysis% (35)"])
+                    msg += ailment_handler(options);
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
 
                 if (!other_data.sp) msg += get_target(effect, other_data, {
@@ -1859,6 +1865,57 @@ var BuffProcessor = function (unit_names, item_names, options) {
                     prefix: "of "
                 });
                 msg += get_turns(effect['bb fill inc buff turns (112)'], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '73': {
+            desc: "Stat Down/Reduction Negation/Resistance",
+            type: ["buff"],
+            func: function (effect, other_data) {
+                let options = {};
+                options.values = [
+                    effect["atk down resist% (120)"],
+                    effect["def down resist% (121)"],
+                    effect["rec down resist% (122)"],
+                ];
+
+                options.suffix = function (names) {
+                    if (names.length === 6) {
+                        return " all stat reductions";
+                    } else {
+                        return ` ${names.join("/")}`;
+                    }
+                };
+
+                options.numberFn = function (value) {
+                    if (value === 100)
+                        return "full resistance to";
+                    else
+                        return `${value}% resistance to`;
+                };
+
+                options.special_case = {
+                    isSpecialCase: function (value, names) {
+                        // debug_log("Received:", value, names.length, value == 100, names.length === 6);
+                        return names.length === 3;
+                    },
+                    func: function (value, names) {
+                        if(value == 100)
+                            return "Negates all stat reductions";
+                        else   
+                            return `${value}% resistance to all stat reductions`;
+                    }
+                };
+
+                let msg = "";
+                if (effect["atk down resist% (120)"] || effect["def down resist% (121)"] || effect["rec down resist% (122)"])
+                    msg += ailment_handler(options);
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: 'for '
+                });
+                msg += get_turns(effect['stat down immunity buff turns'], msg, other_data.sp, this.desc);
                 return msg;
             }
         },/*
