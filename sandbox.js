@@ -307,6 +307,7 @@ function doBurstTest(id){
     if(burst_object){
         let msg = printBurst(burst_object);
         console.log(burst_object.name);
+        console.log(burst_object.desc);
         console.log(msg);
     } else 
         console.log("No burst found with ID",id);
@@ -345,8 +346,8 @@ ep.init().then(function(){
         // sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "800508", verbose: true})
-        doUnitTest({ unit_name_id: "(21015)",strict: "false", verbose:true,burstType: "sbb", type: "burst"})
-        // doBurstTest("121015")
+        // doUnitTest({ unit_name_id: "(810357)",strict: "false", verbose:true,burstType: "bb", type: "sp"})
+        doBurstTest("810357")
         // doESTest("740216")
     );
 }).then(function(){

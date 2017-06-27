@@ -1963,7 +1963,23 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 }
                 return msg;
             }
-        },/*
+        },
+        '76': {
+            desc: "Chance for Extra Actions",
+            type: ['buff'],
+            func: function(effect,other_data){
+                let msg = "";
+
+                if (effect['chance% for extra action'] || effect['max number of extra actions']){
+                    msg += `Adds ${effect['chance% for extra action'] || 0}% chance to do at most ${effect['max number of extra actions'] || 0} extra ${effect['max number of extra actions'] === 1 ? "action" : "actions"}`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect['extra action buff turns (123)'], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        }/*
         '78': {
             desc: "Self ATK/DEF/REC/Crit Rate",
             notes: ["Stacks with the regular party ATK/DEF/REC/Crit Rate buff", "Example of a unit having both party and self is Silvie (840128)"],
