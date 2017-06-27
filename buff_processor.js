@@ -1202,7 +1202,6 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (effect["increase bb gauge"] !== undefined) msg += `${get_polarized_number(effect["increase bb gauge"])} BC fill`;
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data);
-                // msg += get_duration_and_target(undefined, effect['target area'], effect['target type']);
                 return msg;
             }
         },
@@ -1829,6 +1828,21 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
 
+        },
+        '69': {
+            desc: "BC Fill on Guard",
+            type: ["effect"],
+            notes: ['The BC fill mentioned here is an instant increase, not gradual'],
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect['bb bc fill% on guard']) msg += `${get_polarized_number(effect["bb bc fill% on guard"])}% BB gauge`;
+                if (effect["bb bc fill on guard"] !== undefined) msg += `${msg.length > 0 ? " and " : ""}${get_polarized_number(effect["bb bc fill on guard"])} BC fill`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (effect["bb bc fill on guard"] !== undefined) msg += ` when guarding`;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect['bb bc fill on guard buff turns (114)'], msg, other_data.sp, this.desc);
+                return msg;
+            }
         },/*
         '78': {
             desc: "Self ATK/DEF/REC/Crit Rate",
