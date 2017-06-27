@@ -1920,6 +1920,49 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_turns(effect['stat down immunity buff turns'], msg, other_data.sp, this.desc);
                 return msg;
             }
+        },
+        '75': {
+            desc: 'Element Scaling Attack',
+            type: ['attack'],
+            notes: ['The original description on BB 20892 states that BB Atk would be boosted relative to number of water types in party','However, data shows ATK, DEF, and REC values that may be boosted at time of attack', "I'm not sure if the value given is a base or a max, so this value may be incorrect"],
+            func: function (effect, other_data) {
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var max_total = (+effect["atk% buff (1)"] || 0);
+                var msg = "";
+                if (!other_data.sp) {
+                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
+                }
+                if (effect["atk% buff (1)"]) {
+                    msg += ` 0-${max_total}%`;
+                }
+
+                if (!other_data.sp) msg += " ";
+                else msg += " to BB ATK%";
+
+                if (!other_data.sp) {
+                    msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                }
+                let extra = [];
+                if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100)
+                    extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
+                if (effect['counted element for buff multiplier']) extra.push(`proportional to number of ${to_proper_case(effect['counted element for buff multiplier'])} types in party`);
+                if (effect['def% buff (3)'] || effect['rec% buff (5)']){
+                    let stat_msg = hp_adr_buff_handler(undefined, undefined, effect['def% buff (3)'],effect['rec% buff (5)'],{
+                        message_separator: " and "
+                    });
+                    extra.push(stat_msg + " to self for duration of attack");
+                }
+                if (extra.length > 0) msg += ` (${extra.join(", ")})`;
+
+                msg += regular_atk_helper(effect);
+
+                if (!other_data.sp) {
+                    if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
+                }
+                return msg;
+            }
         },/*
         '78': {
             desc: "Self ATK/DEF/REC/Crit Rate",
