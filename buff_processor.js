@@ -2028,15 +2028,21 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_turns(effect["od fill rate buff turns (132)"], msg, other_data.sp, this.desc);
                 return msg;
             }
-        },/*
+        },
         '85': {
             desc: "Heal on Hit",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = effects["hp recover from dmg chance"] + "% chance to heal ";
-                msg += get_formatted_minmax(effects["hp recover from dmg% low"], effects["hp recover from dmg% high"]) + "% DMG when hit";
+            func: function (effect, other_data) {
+                var msg = "";
+                
+                if (effect["hp recover from dmg chance"] || effect["hp recover from dmg% low"] || effect["hp recover from dmg% high"]){
+                    msg += `${effect["hp recover from dmg chance"] || 0}% chance to heal `;
+                    msg += `${get_formatted_minmax(effect["hp recover from dmg% low"] || 0, effect["hp recover from dmg% high"] || 0)}% DMG when hit`;
+                }
 
-                msg += get_duration_and_target(effects["hp recover from dmg buff turns (133)"], effects["target area"], effects["target type"]);
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["hp recover from dmg buff turns (133)"], msg, other_data.sp, this.desc);
                 return msg;
             }
         },/*
@@ -2311,6 +2317,31 @@ var BuffProcessor = function (unit_names, item_names, options) {
             func: function(effect,other_data){
                 return unknown_proc_handler(effect,other_data);
             }
+        },
+        '85 ': {
+            desc: "Heal on Hit (typo)",
+            type: ["buff"],
+            notes: ['This is the same as the regular proc 85 (Heal on Hit)', 'There may have been a typo putting this into the data, causing it to look like an unknown proc'],
+            func: function(effect,other_data){
+                let msg = "";
+                let proc_85_effect;
+                if(effect['unknown proc param']){
+                    let data = effect['unknown proc param'].split(',');
+                    proc_85_effect = {
+                        'hp recover from dmg% low': data[0],
+                        'hp recover from dmg% high': data[1],
+                        'hp recover from dmg chance': data[2],
+                        'hp recover from dmg buff turns (133)': data[3],
+                        'target area': effect['target area'],
+                        'target type': effect['target type']
+                    };
+                    msg += proc_buffs['85'].func(proc_85_effect,other_data);
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+
         }
     };
 
