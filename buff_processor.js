@@ -2033,7 +2033,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
             desc: "Heal on Hit",
             type: ["buff"],
             func: function (effect, other_data) {
-                var msg = "";
+                let msg = "";
                 
                 if (effect["hp recover from dmg chance"] || effect["hp recover from dmg% low"] || effect["hp recover from dmg% high"]){
                     msg += `${effect["hp recover from dmg chance"] || 0}% chance to heal `;
@@ -2045,7 +2045,26 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_turns(effect["hp recover from dmg buff turns (133)"], msg, other_data.sp, this.desc);
                 return msg;
             }
-        },/*
+        },
+        '86': {
+            desc: "Chance HP Drain/Absorption When Attacking",
+            type: ['buff'],
+            func: function(effect,other_data){
+                let msg = "";
+
+                if (effect["hp drain chance%"] || effect["hp drain% low"] || effect["hp drain% high"]) {
+                    msg += `${effect["hp drain chance%"] || 0}% chance of `;
+                    msg += `${get_formatted_minmax(effect["hp drain% low"] || 0, effect["hp drain% high"] || 0)}% HP absorption`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data,{
+                    prefix: 'for '
+                });
+                msg += get_turns(effect["hp drain buff turns (134)"], msg, other_data.sp, this.desc);
+                return msg;
+            }    
+        }/*
         '88': {
             desc: "Spark Damage (Self)",
             type: ["buff"],
