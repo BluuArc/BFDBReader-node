@@ -1017,7 +1017,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
             type: ["buff"],
             func: function (effect, other_data) {
                 var msg = "";
-                if (effect["spark dmg% buff (40)"]) msg += get_polarized_number(effect["spark dmg% buff (40)"]) + "% spark DMG boost";
+                if (effect["spark dmg% buff (40)"]) msg += get_polarized_number(effect["spark dmg% buff (40)"]) + "% spark DMG";
 
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data, {
@@ -2086,22 +2086,29 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_turns(effect["spark recover hp buff turns (135)"], msg, other_data.sp, this.desc);
                 return msg;
             }
-        },/*
+        },
         '88': {
             desc: "Spark Damage (Self)",
             type: ["buff"],
             notes: ["Should stack with other spark buffs (such as 23)"],
-            func: function (effects, other_data) {
-                var msg = get_polarized_number(effects["spark dmg inc%"]);
-
-                if (effects["target area"] === "single" && effects["target type"] === "self") {
-                    msg += `% own spark DMG for ${effects["spark dmg inc% turns (136)"]} turns`;
-                } else {
-                    msg += `% spark DMG${get_duration_and_target(effects["spark dmg inc% turns (136)"], effects)}`;
+            func: function (effect, other_data) {
+                let msg = "";
+                if (effect["spark dmg inc%"]) msg += get_polarized_number(effect["spark dmg inc%"]);
+                if(msg.length > 0){
+                    if (effect["target area"] === "single" && effect["target type"] === "self") {
+                        msg += "% own spark DMG";
+                    }else{
+                        msg += "% spark DMG";
+                    }
                 }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp && (effect['target area'] !== 'single' || effect['target type'] !== 'self')) msg += get_target(effect, other_data, {
+                    prefix: "to attacks of "
+                });
+                msg += get_turns(effect["spark dmg inc% turns (136)"], msg, other_data.sp, this.desc);
                 return msg;
             }
-        },*/
+        },
     };//end proc_buffs
 
     //general handler for all unknown procs
