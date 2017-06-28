@@ -2297,6 +2297,14 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 return msg;
             }
+        },
+        '82': {
+            desc: "Unknown values",
+            type: ['unknown'],
+            notes: ['This is first found on BB 2004356'],
+            func: function(effect,other_data){
+                return unknown_proc_handler(effect,other_data);
+            }
         }
     };
 
