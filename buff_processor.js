@@ -2276,6 +2276,27 @@ var BuffProcessor = function (unit_names, item_names, options) {
             func: function(effect,other_data){
                 return unknown_proc_handler(effect,other_data);
             }
+        },
+        '79': {
+            desc: "Increase XP Received",
+            type: ['buff'],
+            notes: ['This seems to apply to regular XP, not anything in Summoner Arc'],
+            func: function(effect,other_data){
+                let msg = "";
+                let data = effect['unknown proc param'].split(",");
+                if(data.length > 0){
+                    let xp_boost = (100 + (+data[0]))/100;
+                    let timer = data[1];
+                    msg += `gain x${xp_boost} XP`;
+                    if(timer){
+                        msg += ` for ${timer} minutes`;
+                    }else{
+                        msg += ` from the next quest`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
         }
     };
 
