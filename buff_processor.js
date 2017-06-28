@@ -2015,13 +2015,17 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_turns(effect["spark dmg inc buff turns (131)"], msg, other_data.sp, this.desc);
                 return msg;
             }
-        },/*
+        },
         '84': {
             desc: "OD Fill Rate",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = `${get_polarized_number(effects["od fill rate% buff"])}% OD gauge fill rate`;
-                msg += get_duration_and_target(effects["od fill rate buff turns (132)"], effects);
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect["od fill rate% buff"])
+                    msg += `${get_polarized_number(effect["od fill rate% buff"])}% OD gauge fill rate`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["od fill rate buff turns (132)"], msg, other_data.sp, this.desc);
                 return msg;
             }
         },/*

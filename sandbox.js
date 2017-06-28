@@ -345,10 +345,10 @@ ep.init().then(function(){
     return (
         // sandbox_function()
         // getBuffDataForAll()
-        // doItemTest({ item_name_id: "120000", verbose: true})
-        // doUnitTest({ unit_name_id: "(40927)",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
-        doBurstTest("10875")
-        // doESTest("740157")
+        // doItemTest({ item_name_id: "(52600)", verbose: true})
+        // doUnitTest({ unit_name_id: "(710217)",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
+        doBurstTest("213781")
+        // doESTest("750167")
     );
 }).then(function(){
     console.log(" ")  
