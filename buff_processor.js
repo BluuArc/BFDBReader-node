@@ -1999,18 +1999,20 @@ var BuffProcessor = function (unit_names, item_names, options) {
 
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp && own_msg.length === 0) msg += get_target(effect, other_data);
-
                 msg += get_turns(effect["self stat buff turns"], msg, other_data.sp, this.desc);
-
                 return msg;
             }
-        },/*
+        },
         '83': {
             desc: "Spark Critical",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = `${effects["spark dmg inc chance%"]}% chance for a ${get_polarized_number(effects["spark dmg inc% buff"])}% spark critical`;
-                msg += get_duration_and_target(effects["spark dmg inc buff turns (131)"], effects);
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect["spark dmg inc chance%"] || effect["spark dmg inc% buff"])
+                    msg += `${effect["spark dmg inc chance%"] || 0}% chance for ${get_polarized_number(effect["spark dmg inc% buff"] || 0)}% spark critical`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["spark dmg inc buff turns (131)"], msg, other_data.sp, this.desc);
                 return msg;
             }
         },/*
