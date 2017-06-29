@@ -2369,7 +2369,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
         '85 ': {
             desc: "Heal on Hit (typo)",
             type: ["buff"],
-            notes: ['This is the same as the regular proc 85 (Heal on Hit)', 'There may have been a typo putting this into the data, causing it to look like an unknown proc'],
+            notes: ['This is the same as the regular proc 85 (Heal on Hit)', 'There may have been a typo putting this into the data, causing it to look like an unknown proc','This is first found on BB 760247'],
             func: function(effect,other_data){
                 let msg = "";
                 let proc_85_effect;
@@ -2390,6 +2390,42 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
 
+        },
+        '89': {
+            desc: "Stat Conversion relative to Max HP (?)",
+            type: ['buff', 'unknown'],
+            notes: ['Not sure what the difference is between this and the normal stat conversion (24)', 'This is first found on BB 60097', 'Not too sure if I translated these values correcty'],
+            func: function(effect,other_data){
+                let msg = "";
+                if(effect['unknown proc param']){
+                    // 4,10,0,0,3,10
+                    let data = effect['unknown proc param'].split(",");
+                    let proc_24_effect = {
+                        'converted attribute': ((type) => {
+                            switch(type){
+                                case '1': return "ATK";
+                                case '2': return "DEF";
+                                case '3': return "REC";
+                                case '4': return "HP";
+                                default: return type;
+                            }
+                        })(data[0].toString()),
+                        'atk% buff (46)': (data[1] != 0) ? data[1] : undefined,
+                        'def% buff (47)': (data[2] != 0) ? data[2] : undefined,
+                        'rec% buff (48)': (data[3] != 0) ? data[3] : undefined,
+                        '% converted turns': data[4],
+                        'target area': effect['target area'],
+                        'target type': effect['target type']
+                    };
+                    // console.log(proc_24_effect);
+                    msg += proc_buffs['24'].func(proc_24_effect,other_data);
+                    if(data.slice(5).length > 0){
+                        msg += `, unknown proc effects {${data.slice(5).join(",")}}`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
         }
     };
 
