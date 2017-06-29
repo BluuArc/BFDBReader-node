@@ -2595,6 +2595,14 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
         },
+        '119': {
+            desc: 'Unknown values',
+            type: ['unknown'],
+            notes: ['This can be found on BB 7500129 and 7500143'],
+            func: function(effect,other_data){
+                return unknown_proc_handler(effect,other_data);
+            }
+        }
     };
 
     //get names of IDs in array
