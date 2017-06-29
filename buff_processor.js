@@ -919,7 +919,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
             type: ["buff"],
             func: function (effect, other_data) {
                 var msg = "";
-                if (effect['increase bb gauge gradual']) msg += effect["increase bb gauge gradual"] + " BC/turn";
+                if (effect['increase bb gauge gradual']) msg += get_polarized_number(effect["increase bb gauge gradual"]) + " BC/turn";
 
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data);
@@ -2567,7 +2567,34 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 return msg;
             }
-        }
+        },
+        '113': {
+            desc: "OD Fill per Turn",
+            type: ["buff"],
+            func: function (effect, other_data) {
+                var msg = "";
+                if(effect['unknown proc param']){
+                    let data = effect['unknown proc param'].split(",");
+                    let translated_effect = {
+                        'od fill gradual': +data[2],
+                        'od fill gradual turns': +data[3],
+                        'unknown params': data.slice(0,2).concat(data.slice(4)),
+                        'target area': effect['target area'],
+                        'target type': effect['target type']
+                    };
+                    if (translated_effect['od fill gradual']) msg += get_polarized_number(translated_effect["od fill gradual"]) + " OD fill/turn";
+
+                    if(translated_effect['unknown params'].length > 0){
+                        msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                    }
+                    if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                    if (!other_data.sp) msg += get_target(translated_effect, other_data);
+                    msg += get_turns(translated_effect['od fill gradual turns'], msg, other_data.sp, this.desc);
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+        },
     };
 
     //get names of IDs in array
