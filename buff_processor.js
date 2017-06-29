@@ -304,78 +304,6 @@ var BuffProcessor = function (unit_names, item_names, options) {
         return multi_param_buff_handler(options);
     }
 
-    function ewd_buff_handler(effects) {
-        var elements = ['Fire', 'Water', 'Earth', 'Thunder', 'Light', 'Dark'];
-        var suffix = " units do extra elemental weakness dmg";
-        var found = [];
-        var i;
-        var msg = get_polarized_number(effects["elemental weakness multiplier%"]) + "% ";
-        for (i = 0; i < elements.length; ++i) {
-            var curBuff = effects[elements[i].toLowerCase() + suffix];
-            if (curBuff) { //add first letter to message
-                found.push(elements[i]);
-            }
-        }
-
-        if (found.length === 0) {
-            throw "No EWD buffs found";
-        } else if (found.length <= 2) { //only 1 or 2 EWD buffs, so full names are fine
-            msg += found[0];
-            for (i = 1; i < found.length; ++i) {
-                msg += "/" + found[i];
-            }
-        } else if (found.length === elements.length) { //buff for all elements
-            msg += "all elements";
-        } else {
-            for (i = 0; i < found.length; ++i) { //multiple EWD buffs, so use first letter only
-                msg += found[i][0];
-            }
-        }
-        msg += " EWD";
-
-        //format: #% FWETLD EWD
-        return msg;
-    }
-
-    function ailment_reflect_handler(effects) {
-        var ailments = ["injury%", "poison%", "sick%", "weaken%", "curse%", "paralysis%"];
-        var ailments_full_name = ["counter inflict injury% (81)", "counter inflict poison% (78)", "counter inflict sick% (80)", "counter inflict weaken% (79)", "counter inflict curse% (82)", "counter inflict paralysis% (83)"];
-        var values = {};
-        var msg = "";
-        //sort values by proc chance
-        for (var i = 0; i < ailments.length; ++i) {
-            var curAilment = effects[ailments_full_name[i]];
-            debug_log(ailments_full_name[i], curAilment);
-            if (curAilment) {
-                // debug_log(ailments[i], curAilment);
-                if (!values[curAilment.toString()]) {
-                    values[curAilment.toString()] = [];
-                }
-                values[curAilment.toString()].push(ailments[i].replace('%', ""));
-            }
-        }
-
-        // debug_log(values);
-
-        for (var a in values) {
-            if (msg.length > 0) msg += ", ";
-
-            msg += a + "% chance to inflict ";
-            if (values[a].length === ailments.length) {
-                msg += "any ailment"
-            } else {
-                for (var ailment = 0; ailment < values[a].length; ++ailment) {
-                    msg += values[a][ailment];
-                    if (ailment !== values[a].length - 1) {
-                        msg += "/";
-                    }
-                }
-            }
-        }
-        msg += " when hit";
-        return msg;
-    }
-
     //give an options object with at least an array of values for each ailment
     function ailment_handler(options) {
         if (!options || !options.values) throw "ailment_handler: No options or values defined";
@@ -496,6 +424,26 @@ var BuffProcessor = function (unit_names, item_names, options) {
         if (effect["bb crit%"]) msg += ", innate " + get_polarized_number(effect["bb crit%"]) + "% crit rate";
         if (effect["bb hc%"]) msg += ", innate " + get_polarized_number(effect["bb hc%"]) + "% HC drop rate";
         return msg;
+    }
+
+    function base_buffed_resistance_handler(base,buffed,buff_name){
+        if(base === 100 && buffed === 100){
+            return buff_name;
+        }else{
+            let options = {
+                all: [
+                    { value: base, name: "base" },
+                    { value: buffed, name: "buffed" }
+                ],
+                numberFn: (d) => { return `${get_polarized_number(d)}% `; }
+            }
+
+            let resist = multi_param_buff_handler(options);
+            if (resist.length > 0) {
+                resist += ` ${buff_name}`;
+            }
+            return resist;
+        }
     }
 
     var buff_types = {
@@ -1628,7 +1576,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
                         { value: effect['base bc drop% resist buff'], name: "base" },
                         { value: effect['buffed bc drop% resist buff'], name: "buffed" }
                     ],
-                    numberFn: (d) => { return `${d}% `; }
+                    numberFn: (d) => { return `${get_polarized_number(d)}% `; }
                 }
 
                 let resistances = multi_param_buff_handler(options);
@@ -2109,6 +2057,58 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
         },
+        '93': {
+            desc: "Critical, Spark, and EWD Damage Resistance",
+            type: ['buff'],
+            notes: ['Negation means that the buff has 100% resistance'],
+            func: function (effect, other_data) {
+                let msg = "";
+                let resistances = [];
+                let negations = [];
+
+                //check for available resistances/negations
+                let critResist = base_buffed_resistance_handler(effect['crit dmg base damage resist% (143)'], effect['crit dmg buffed damage resist% (143)'],"Critical");
+                if(critResist.length > 0){
+                    if (critResist.indexOf("%") === -1){ //100% resistance -> negation
+                        negations.push(critResist);
+                    }else{
+                        resistances.push(critResist);
+                    }
+                }
+
+                let ewdResist = base_buffed_resistance_handler(effect['strong base element damage resist% (144)'], effect['strong buffed element damage resist% (144)'],"Elemental");
+                if(ewdResist.length > 0){
+                    if(ewdResist.indexOf("%") === -1){ //100% resistance -> negation
+                        negations.push(ewdResist);
+                    }else{
+                        resistances.push(ewdResist);
+                    }
+                }
+
+                let sparkResist = base_buffed_resistance_handler(effect['spark dmg base resist% (145)'], effect['spark dmg buffed resist% (145)'],"Spark");
+                if(sparkResist.length > 0){
+                    if(sparkResist.indexOf("%") === -1){ //100% resistance -> negation
+                        negations.push(sparkResist);
+                    }else{
+                        resistances.push(sparkResist);
+                    }
+                }
+
+                //join them together in the message
+                if(negations.length > 0){
+                    msg += `${negations.join("/")} damage negation`;
+                }
+                if (resistances.length > 0){
+                    if(msg.length > 0) msg += " and ";
+                    msg += `${resistances.join(", ")} damage resistance`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect['dmg resist turns'], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        }
     };//end proc_buffs
 
     //general handler for all unknown procs
