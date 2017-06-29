@@ -2447,6 +2447,34 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 return msg;
             }
+        },
+        '95': {
+            desc: 'ES Lock',
+            type: ['debuff'],
+            func: function(effect,other_data){
+                let msg = "";
+                let es_lock_turns;
+                if(effect['unknown proc param']){
+                    let data = effect['unknown proc param'].split(",");
+                    let es_lock_chance = parseInt(data[0]);
+                    es_lock_turns = parseInt(data[1]);
+                    if(!isNaN(es_lock_chance)){
+                        if(es_lock_chance === 100){
+                            msg += "Locks";
+                        }else{
+                            msg += `${es_lock_chance}% chance to lock`;
+                        }
+                        msg += " ES";
+                    }
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "of "
+                });
+                msg += get_turns(es_lock_turns, msg, other_data.sp, this.desc);
+                return msg;
+            }
         }
     };
 
