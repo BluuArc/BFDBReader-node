@@ -2455,6 +2455,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
         '95': {
             desc: 'ES Lock',
             type: ['debuff'],
+            notes: ['This can be found on BB 8470189'],
             func: function(effect,other_data){
                 let msg = "";
                 let es_lock_turns;
@@ -2487,6 +2488,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
         '96': {
             desc: 'Sphere Lock',
             type: ['debuff'],
+            notes: ['This can be found on BB 8470189'],
             func: function (effect, other_data) {
                 let msg = "";
                 let es_lock_turns;
@@ -2516,6 +2518,56 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
         },
+        '97': {
+            desc: "Attack to Specific Element (Opposing Type?)",
+            type: ['attack'],
+            notes: ['This can be found on unit 11047','Not sure what determines the targeted element','If the unit is a Fire type, then the weaker element would be Earth'],
+            func: function(effect,other_data){
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var msg = "";
+                if(effect['unknown proc param']){
+                    let data = effect['unknown proc param'].split(",");
+                    let translated_effect = {
+                        'bb atk%': +data[1],
+                        'bb flat atk': +data[2],
+                        'unknown params': ([data[0]] || []).concat(data.slice(3)),
+                        'target area': effect['target area'],
+                        'target type': effect['target type']
+                    };
+                    if (!other_data.sp) {
+                        msg += numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
+                    }
+
+                    if (translated_effect["bb atk%"]) msg += `${translated_effect["bb atk%"]}%`;
+
+                    if (!other_data.sp) msg += " ";
+                    else msg += " to BB ATK%";
+
+                    if (!other_data.sp) {
+                        msg += (translated_effect["target area"].toUpperCase() === "SINGLE") ? "ST" : translated_effect["target area"].toUpperCase();
+                    }
+                    let extra = [];
+                    if (translated_effect["bb flat atk"]) extra.push("+" + translated_effect["bb flat atk"] + " flat ATK");
+                    if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100)
+                        extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
+                    if(translated_effect['unknown params'].length > 0){
+                        extra.push( `unknown proc effects '${translated_effect['unknown params'].join(",")}'`);
+                    }
+                    if (extra.length > 0) msg += ` (${extra.join(", ")})`;
+
+                    msg += regular_atk_helper(translated_effect);
+
+                    if (!other_data.sp) msg += get_target(effect, other_data, {
+                        prefix: "on ",
+                        suffix: " of the weaker element"
+                    });
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+        }
     };
 
     //get names of IDs in array
