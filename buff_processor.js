@@ -2392,9 +2392,9 @@ var BuffProcessor = function (unit_names, item_names, options) {
 
         },
         '89': {
-            desc: "Stat Conversion relative to Max HP (?)",
+            desc: "Stat Conversion (Self)",
             type: ['buff', 'unknown'],
-            notes: ['Not sure what the difference is between this and the normal stat conversion (24)', 'This is first found on BB 60097', 'Not too sure if I translated these values correcty'],
+            notes: ['Should stack with the normal stat conversion (24)', 'This is first found on BB 60097', 'Not too sure if I translated these values correcty'],
             func: function(effect,other_data){
                 let msg = "";
                 if(effect['unknown proc param']){
