@@ -2596,11 +2596,16 @@ var BuffProcessor = function (unit_names, item_names, options) {
             }
         },
         '119': {
-            desc: 'Unknown values',
+            desc: 'Lose BC Per Turn',
             type: ['unknown'],
-            notes: ['This can be found on BB 7500129 and 7500143'],
+            notes: ['This can be found on BB 5001083 and 7500129'],
             func: function(effect,other_data){
-                return unknown_proc_handler(effect,other_data);
+                let msg = '';
+                if(effect['unknown proc param']){
+                    msg += `Lose BC per turn (unknown proc effects '${effect['unknown proc param']}')`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
             }
         }
     };
