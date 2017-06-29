@@ -467,19 +467,18 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 var numHits = damage_frames.hits || "NaN";
                 var msg = "";
                 if (!other_data.sp) {
-                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
+                    msg += numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
                 }
                 let damage = [];
                 if (effect["bb atk%"]) damage.push(`${effect["bb atk%"]}%`);
                 if (effect["bb dmg%"]) damage.push(`${effect["bb dmg%"]}%`); //case when using a burst from bbs.json
                 switch (damage.length) {
-                    case 1: msg += ` ${damage[0]}`; break;
-                    case 2: msg += ` ${damage[0]} (${damage[1]} power)`; break;
+                    case 1: msg += `${damage[0]} `; break;
+                    case 2: msg += `${damage[0]} (${damage[1]} power) `; break;
                     default: break;
                 }
 
-                if (!other_data.sp) msg += " ";
-                else msg += " to BB ATK%";
+                if (other_data.sp) msg += "to BB ATK%";
 
                 if (!other_data.sp) {
                     msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
@@ -2597,7 +2596,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
         },
         '119': {
             desc: 'Lose BC Per Turn',
-            type: ['unknown'],
+            type: ['debuff','unknown'],
             notes: ['This can be found on BB 5001083 and 7500129'],
             func: function(effect,other_data){
                 let msg = '';
@@ -2607,7 +2606,34 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 return msg;
             }
-        }
+        },
+        '126': {
+            desc: "Damage over Time (DoT) Mitigation",
+            type: ["buff"],
+            func: function (effect, other_data) {
+                var msg = "";
+                if(effect['unknown proc param']){
+                    let data = effect['unknown proc param'].split(",");
+                    let translated_effect = {
+                        'dot miti%': +data[0],
+                        'dot miti turns': +data[1],
+                        'unknown params': data.slice(2),
+                        'target area': effect['target area'],
+                        'target type': effect['target type']
+                    };
+
+                    if (translated_effect['dot miti%']) msg += `${translated_effect["dot miti%"]}% DoT mitigation`;
+                    if (translated_effect['unknown params'].length > 0) {
+                        msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                    }
+                    if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                    if (!other_data.sp) msg += get_target(translated_effect, other_data);
+                    msg += get_turns(translated_effect['dot miti turns'], msg, other_data.sp, this.desc);
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+        },
     };
 
     //get names of IDs in array
