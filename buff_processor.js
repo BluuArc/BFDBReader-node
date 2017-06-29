@@ -1004,11 +1004,11 @@ var BuffProcessor = function (unit_names, item_names, options) {
         '26': {
             desc: "Hit Count Increase",
             type: ['buff'],
-            notes: ['100% damage means that the extra hits have no damage penalty', 'Over 100% damage means that the extra hits have a damage buff', `Under 100% damage means that the extra hits have a damage penalty`, `+# means that the unit has # additional more hits, so +2 means that each hit has 2 more hits following it, effectively tripling the original hit count`],
+            notes: ['Add the damage noted in this buff to 100% to get the actual damage of normal attacks',`+# means that the unit has # additional more hits, so +2 means that each hit has 2 more hits following it, effectively tripling the original hit count`],
             func: function (effect, other_data) {
                 let msg = "";
                 if (effect['hit increase/hit'] || effect['extra hits dmg%'])
-                    msg += `${get_polarized_number(effect['hit increase/hit'] || 0)} ${(effect['hit increase/hit'] === 1) ? "hit" : "hits"} to normal attacks (at ${(100 + (effect['extra hits dmg%'] || 0))}% damage)`;
+                    msg += `${get_polarized_number(effect['hit increase/hit'] || 0)} ${(effect['hit increase/hit'] === 1) ? "hit" : "hits"} to normal attacks (at ${(get_polarized_number(effect['extra hits dmg%'] || 0))}% damage)`;
 
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data, {
@@ -2108,7 +2108,28 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_turns(effect['dmg resist turns'], msg, other_data.sp, this.desc);
                 return msg;
             }
-        }
+        },
+        '94': {
+            desc: "AOE Normal Attack",
+            type: ['buff'],
+            notes: ['Add the damage noted in this buff to 100% to get the actual damage of normal attacks','The data doesn\'t seems to have a turn parameter as of June 29, 2017'],
+            func: function (effect, other_data) {
+                let msg = "";
+                if (effect['chance to aoe'] || effect['aoe atk inc%']){
+                    if (effect['chance to aoe'] === 100){
+                        msg += "Normal attacks ";
+                    }else{
+                        msg += `${effect['chance to aoe']}% chance for normal attacks to `;
+                    }
+                    msg += `hit all foes (at ${(get_polarized_number(effect['aoe atk inc%'] || 0))}% damage)`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["buff turns"] || "???", msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
     };//end proc_buffs
 
     //general handler for all unknown procs
