@@ -2469,6 +2469,10 @@ var BuffProcessor = function (unit_names, item_names, options) {
                             msg += `${es_lock_chance}% chance to nullify`;
                         }
                         msg += " ES effects";
+
+                        if (data.slice(2).length > 0) {
+                            msg += ` (unknown proc effects '${data.slice(2).join(",")}')`;
+                        }
                     }
                 }
 
@@ -2497,6 +2501,10 @@ var BuffProcessor = function (unit_names, item_names, options) {
                             msg += `${es_lock_chance}% chance to nullify`;
                         }
                         msg += " sphere effects";
+                    }
+
+                    if (data.slice(2).length > 0) {
+                        msg += ` (unknown proc effects '${data.slice(2).join(",")}')`;
                     }
                 }
 
