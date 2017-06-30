@@ -2662,7 +2662,52 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 return msg;
             }
-        }
+        },
+        '130': {
+            desc: "ATK/DEF/REC Down Reflect",
+            type: ["debuff"],
+            notes: ['This can be found on BB 61137'],
+            func: function (effect, other_data) {
+                var msg = "";
+                let amount,chance,translated_effect = {};
+                if(effect['unknown proc param']){
+                    let data = effect['unknown proc param'].split(",").map((v) => {return +v});
+                    translated_effect = {
+                        'atk% debuff': data[0] || undefined,'def% debuff': data[1] || undefined,'rec% debuff': data[2] || undefined,
+                        'atk% chance': data[3] || undefined,'def% chance': data[4] || undefined,'rec% chance': data[5] || undefined,
+                        'debuff turns': data[6] || undefined,
+                        'reflect turns': data[7] || undefined,
+                        'unknown params': data.slice(8)
+                    }
+
+                    let [atk, def, rec] = [get_polarized_number(translated_effect['atk% debuff'] || 0),get_polarized_number(translated_effect['def% debuff'] || 0),get_polarized_number(translated_effect['rec% debuff'] || 0)]
+
+                    //used to check values for SP
+                    amount = (translated_effect['atk% debuff'] || 0) + (translated_effect['def% debuff'] || 0) + (translated_effect['rec% debuff'] || 0);
+                    chance = (translated_effect['atk% chance'] || 0) + (translated_effect['def% chance'] || 0) + ( translated_effect['rec% chance'] || 0);
+                    if (amount !== 0 || chance !== 0){
+                        msg += hp_adr_buff_handler(undefined, translated_effect['atk% chance'], translated_effect['def% chance'], translated_effect['rec% chance'],
+                        {
+                            numberFn: (v) => {return `${v}% chance to inflict ${translated_effect['debuff turns'] || 0} turn `;},
+                            // suffix: " reduction"
+                        });
+
+                        msg = msg.replace("ATK",`${atk}% ATK Down`).replace("DEF",`${def}% DEF Down`).replace("REC",`${rec}% REC Down`);
+
+                        if(translated_effect['unknown params'].length > 0){
+                            msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                        }
+                    }
+                }  
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!chance && !amount && other_data.sp) msg = "";
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "when hit to ",
+                });
+                if(translated_effect) msg += get_turns(translated_effect["reflect turns"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
     };
 
     //get names of IDs in array
