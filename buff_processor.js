@@ -2634,6 +2634,35 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
         },
+        '127': {
+            desc: "Lock On to Unit (?)",
+            type: ['debuff', 'unknown'],
+            notes: ['This can be found on BB 5001089 and 5001088', 'The definition here is only a guess as to what it does'],
+            func: function(effect,other_data){
+                var msg = "";
+                if (effect['unknown proc param']) {
+                    let data = effect['unknown proc param'].split(",");
+                    let translated_effect = {
+                        'lock on turns': +data[0],
+                        'unknown params': data.slice(1),
+                        'target area': effect['target area'],
+                        'target type': effect['target type']
+                    };
+
+                    msg += `Mark a unit to be targeted`;
+                    if(translated_effect['lock on turns']) msg += get_turns(translated_effect['lock on turns'], msg, other_data.sp, this.desc);
+                    if (translated_effect['unknown params'].length > 0) {
+                        msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                    }
+                    if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                    if (!other_data.sp) msg += get_target(translated_effect, other_data,{
+                        prefix: "on the side of "
+                    });
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+        }
     };
 
     //get names of IDs in array
