@@ -3048,6 +3048,42 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (!other_data.sp) msg += get_target(effect, other_data);
                 return msg;
             }
+        },
+        '10007': {
+            desc: 'Chance Evasion',
+            type: ['buff'],
+            notes: ['Can be found on BB 820397'],
+            func: function(effect,other_data){
+                let msg = "";
+                let translated_effect;
+                if (effect['unknown proc param']) {
+                    // unknown,turns,unknown,chance
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    translated_effect = {
+                        'evasion chance': data[3],
+                        'evasion turns': data[1],
+                        'unknown params': [data[0],data[2]].concat(data.slice(4))
+                    };
+                    
+                    if (translated_effect['evasion chance']) {
+                        if (translated_effect['evasion chance'] == 100) {
+                            msg += "Evades ";
+                        } else {
+                            msg += `${translated_effect['evasion chance']}% chance to evade `;
+                        }
+
+                        msg += `attacks`;
+                    }
+
+                    if (msg.length > 0 && translated_effect['unknown params'].length > 0) {
+                        msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                if (translated_effect) msg += get_turns(translated_effect["evasion turns"], msg, other_data.sp, this.desc);
+                return msg;
+            }
         }
     };
 
