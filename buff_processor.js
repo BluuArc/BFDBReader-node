@@ -2235,7 +2235,47 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_turns(effect["shield turns (10002)"], msg, other_data.sp, this.desc);
                 return msg;
             }
-        }
+        },
+        '11000': {
+            desc: "HP Scaling Attack (GL)",
+            type: ["attack"],
+            func: function (effect, other_data) {
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var max_total = (+effect["bb base atk%"] || 0) + (+effect["bb added atk% based on hp"] || 0);
+                var msg = "";
+                if (!other_data.sp) {
+                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
+                }
+                if (effect["bb base atk%"] || effect["bb added atk% based on hp"]) {
+                    if (effect["bb base atk%"] !== max_total)
+                        msg += ` ${get_formatted_minmax(effect["bb base atk%"] || 0, max_total)}%`;
+                    else
+                        msg += ` ${max_total}-${max_total}%`;
+                }
+
+                if (!other_data.sp) msg += " ";
+                else msg += " to BB ATK%";
+
+                if (!other_data.sp) {
+                    msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                }
+                let extra = [];
+                if (effect["bb flat atk"]) extra.push("+" + effect["bb flat atk"] + " flat ATK");
+                if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100)
+                    extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
+                if (effect['bb added atk% proportional to hp']) extra.push(`proportional to ${effect['bb added atk% proportional to hp']} HP`);
+                if (extra.length > 0) msg += ` (${extra.join(", ")})`;
+
+                msg += regular_atk_helper(effect);
+
+                if (!other_data.sp) {
+                    if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
+                }
+                return msg;
+            }
+        },
     };//end proc_buffs
 
     //general handler for all unknown procs
