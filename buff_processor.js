@@ -2151,7 +2151,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
         '10000': {
             desc: "Taunt",
             type: ['buff'],
-            notes: ['Data doesn\'t seem right for BB 8410022'],
+            notes: ['Data doesn\'t seem right for BB 8410022', 'Values here should be additive with other similar buffs like proc 5'],
             func: function(effect,other_data){
                 let msg = "";
                 let taunt_values;
@@ -2177,6 +2177,39 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data);
                 msg += get_turns(effect["taunt turns (10000)"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '10001': {
+            desc: "Stealth",
+            type: ['buff'],
+            notes: ['Values here should be additive with other similar buffs like proc 5'],
+            func: function (effect, other_data) {
+                let msg = "";
+                let stealth_values;
+                if (effect['atk% buff'] || effect['def% buff'] || effect['rec% buff'] || effect['crit% buff']) {
+                    let options = {
+                        all: [
+                            { name: "ATK", value: effect['atk% buff'] },
+                            { name: "DEF", value: effect['def% buff'] },
+                            { name: "REC", value: effect['rec% buff'] },
+                            { name: "Crit Rate", value: effect['crit% buff'] }
+                        ],
+                        numberFn: (v) => { return `${get_polarized_number(v)}% ` }
+                    };
+
+                    stealth_values = multi_param_buff_handler(options);
+
+                }
+                msg += `Casts Stealth`;
+                if (stealth_values)
+                    msg += ` (${stealth_values})`;
+                else
+                    msg += ` (no extra buffs)`;
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["stealth turns (10001)"], msg, other_data.sp, this.desc);
                 return msg;
             }
         }
