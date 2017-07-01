@@ -2824,6 +2824,18 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 // if (translated_effect) msg += get_turns(translated_effect["reflect turns"], msg, other_data.sp, this.desc);
                 return msg;       
             }
+        },
+        '905': {
+            desc: "Teleports Player to Camp (Raid)",
+            type: ['effect'],
+            notes: ['Found on item 70200'],
+            func: function(effect,other_data){
+                let msg = `Moves${get_target(effect, other_data, {
+                    prefix: "",
+                    suffix: " to Camp"
+                })} (unknown proc effects '${effect['unknown proc param']}')`;
+                return msg;
+            }
         }
     };
 
