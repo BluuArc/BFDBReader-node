@@ -2836,6 +2836,14 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 })} (unknown proc effects '${effect['unknown proc param']}')`;
                 return msg;
             }
+        },
+        '906': {
+            desc: "Escape Current Battle (Raid)",
+            type: ['effect'],
+            notes: ['Found on item 70100', "There are no parameters with this proc, according to item 70100"],
+            func: function(effect,other_data){
+                return "Allows user to escape from battle (params?)";
+            }
         }
     };
 
