@@ -2147,6 +2147,38 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += ` for ${effect['buff timer (seconds)']} seconds`;
                 return msg;
             }
+        },
+        '10000': {
+            desc: "Taunt",
+            type: ['buff'],
+            notes: ['Data doesn\'t seem right for BB 8410022'],
+            func: function(effect,other_data){
+                let msg = "";
+                let taunt_values;
+                if (effect['def% buff'] || effect['atk% buff'] || effect['crit% buff']){
+                    let options = {
+                        all: [
+                            { name: "ATK", value: effect['atk% buff']},
+                            { name: "DEF", value: effect['def% buff']},
+                            { name: "Crit Rate", value: effect['crit% buff']}
+                        ],
+                        numberFn: (v) => { return `${get_polarized_number(v)}% `}
+                    };
+
+                    taunt_values = multi_param_buff_handler(options);
+
+                }
+                msg += `Casts Taunt`;
+                if(taunt_values)
+                    msg += ` (${taunt_values})`;
+                else
+                    msg += ` (no extra buffs)`;
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["taunt turns (10000)"], msg, other_data.sp, this.desc);
+                return msg;
+            }
         }
     };//end proc_buffs
 
