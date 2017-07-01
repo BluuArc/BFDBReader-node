@@ -2711,6 +2711,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
         '132': {
             desc: "Chance to Decrease Critical Damage/EWD Resistance",
             type: ['debuff'],
+            notes: ['This can be found on BB 151147'],
             func: function(effect,other_data){
                 var msg = "";
                 let amount, chance, translated_effect = {};
@@ -2754,6 +2755,26 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (!chance && !amount && other_data.sp) msg = "";
                 if (!other_data.sp) msg += get_target(effect, other_data);
                 if (translated_effect) msg += get_turns(translated_effect["reflect turns"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '901': {
+            desc: "Raid Heal (On Map)",
+            type: ['effect'],
+            notes: ['Found on item 70300', 'Not sure if the values here are raw HP, %HP, or something else'],
+            func: function(effect,other_data){
+                let msg = "";
+                if(effect['unknown proc param']){
+                    msg += `Heals`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "",
+                    suffix: " in the surrounding area"
+                });
+                if(msg.length > 0){
+                    msg += ` (unknown proc effects '${effect['unknown proc param']}')`;
+                }
                 return msg;
             }
         }
