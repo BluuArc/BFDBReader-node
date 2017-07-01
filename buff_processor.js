@@ -2212,6 +2212,29 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_turns(effect["stealth turns (10001)"], msg, other_data.sp, this.desc);
                 return msg;
             }
+        },
+        '10002': {
+            desc: "Elemental Shield (GL)",
+            type: ['buff'],
+            func: function(effect,other_data){
+                var msg = "";
+                let extra_effects = [];
+                if (effect["shield hp"])
+                    msg += `${effect["shield hp"]} HP`;
+                if (effect["shield def"] !== undefined)
+                    extra_effects.push(`${effect["shield def"]} DEF`);
+                if (extra_effects.length > 0)
+                    msg += ` (${extra_effects.join("/")})`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                msg += ` ${to_proper_case(effect["shield element"] || "none")} shield`;
+                if (!other_data.sp) msg = msg.replace("All", "non-elemental"); //based on description of item 800404
+                else msg = msg.replace("All ", "");
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "on "
+                });
+                msg += get_turns(effect["shield turns (10002)"], msg, other_data.sp, this.desc);
+                return msg;
+            }
         }
     };//end proc_buffs
 
