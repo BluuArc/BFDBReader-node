@@ -2135,7 +2135,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
         },
         '902': {
             desc: "Timed ATK (Raid)",
-            type: ['buff'],
+            type: ['buff','timed'],
             notes: ['Found on item 70400'],
             func: function (effect, other_data) {
                 let msg = "";
@@ -2793,7 +2793,38 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
         },
-        
+        '903': {
+            desc: "Show Boss Location (Raid)",
+            type: ['timed'],
+            notes: ['Found on item 70000'],
+            func: function (effect, other_data) {
+                var msg = "";
+                let amount, chance, translated_effect = {};
+                if (effect['unknown proc param']) {
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    translated_effect = {
+                        'buff timer (seconds)': data[1],
+                        'unknown params': [data[0]].concat(data.slice(2))
+                    };
+
+                    if(translated_effect['buff timer (seconds)']){
+                        msg += `Shows the location of bosses on the map`;
+                    }
+
+                    if (translated_effect['unknown params']) {
+                        msg += ` (unknown proc effects '${translated_effect['unknown params']}')`;
+                    }
+
+                    if(translated_effect['buff timer (seconds)']){
+                        msg += ` for ${translated_effect['buff timer (seconds)']} seconds`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                // if (!other_data.sp) msg += get_target(effect, other_data);
+                // if (translated_effect) msg += get_turns(translated_effect["reflect turns"], msg, other_data.sp, this.desc);
+                return msg;       
+            }
+        }
     };
 
     //get names of IDs in array
