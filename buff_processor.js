@@ -2708,6 +2708,55 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
         },
+        '132': {
+            desc: "Chance to Decrease Critical Damage/EWD Resistance",
+            type: ['debuff'],
+            func: function(effect,other_data){
+                var msg = "";
+                let amount, chance, translated_effect = {};
+                if (effect['unknown proc param']) {
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    translated_effect = {
+                        'crit resist decrease': data[0],
+                        'ewd resist decrease': data[1],
+                        'crit decrease chance': data[2],
+                        'ewd decrease chance': data[3],
+                        'buff turns': data[4],
+                        'unknown params': data.slice(5),
+                        // 'target area': effect['target area'],
+                        // 'target type': effect['target type']
+                    };
+
+                    let [crit,ewd] = [translated_effect['crit resist decrease'] || 0,translated_effect['ewd resist decrease'] || 0];
+                    amount = crit + ewd;
+                    chance = (translated_effect['crit decrease chance'] || 0) + (translated_effect['ewd decrease chance'] || 0);
+
+                    if(amount !== 0 || chance !== 0){
+                        let options = {
+                            all: [
+                                {name: `${crit}% Crit DMG Vulnerability`, value: translated_effect['crit decrease chance']},
+                                {name: `${ewd}% EWD Vulnerability`, value: translated_effect['ewd decrease chance']}
+                            ],
+                            special_case: {
+                                isSpecialCase: (value,names) => { return value == 0},
+                                func: (value,names_array) => {return "";}
+                            },
+                            numberFn: (v) => { return `${v}% chance to inflict `;}
+                        };
+                        msg += multi_param_buff_handler(options);
+
+                        if (translated_effect['unknown params'].length > 0) {
+                            msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                        }
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!chance && !amount && other_data.sp) msg = "";
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                if (translated_effect) msg += get_turns(translated_effect["reflect turns"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        }
     };
 
     //get names of IDs in array
