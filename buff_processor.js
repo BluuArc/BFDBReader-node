@@ -2966,6 +2966,55 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
         },
+        '10004': {
+            desc: "Damage Immunity to BB/SBB/UBB/Normals",
+            type: ['buff'],
+            notes: ["Can be found on BB 8470117"],
+            func: function(effect,other_data){
+                let msg = "";
+                if (effect['unknown proc param']) {
+                    // chance,turns,unknown,bb,sbb,ubb,normal,unknown
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    translated_effect = {
+                        'immune chance': data[0],
+                        'immune turns': data[1],
+                        'immune to bb': data[3] == 1 || undefined,
+                        'immune to sbb': data[4] == 1 || undefined,
+                        'immune to ubb': data[5] == 1 || undefined,
+                        'immune to normals': data[6] == 1 || undefined,
+                        'unknown params': [data[2]].concat(data.slice(7))
+                    };
+                    console.log(translated_effect);
+                    let options = {
+                        all: [
+                            { name: "BB", value: translated_effect['immune to bb'] },
+                            { name: "SBB", value: translated_effect['immune to sbb'] },
+                            { name: "UBB", value: translated_effect['immune to ubb'] },
+                            { name: "Normal", value: translated_effect['immune to normals'] },
+                        ],
+                        numberFn: (v) => { return ""},
+                        special_case: {
+                            isSpecialCase: (value,names) => { return value === false; },
+                            func: (value,names) => { return ""; }
+                        },
+                        suffix: " attacks"
+                    };
+                    if(translated_effect['immune chance'] === 100){
+                        options.prefix = "Give full damage immunity from ";
+                    }else{
+                        options.prefix = `${translated_effect['immune chance']}% chance to ignore damage from `;
+                    }
+                    msg += multi_param_buff_handler(options);
+                    if (msg.length > 0 && translated_effect['unknown params'].length > 0) {
+                        msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                if (translated_effect) msg += get_turns(translated_effect["immune turns"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        }
     };
 
     //get names of IDs in array
