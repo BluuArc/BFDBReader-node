@@ -345,7 +345,7 @@ ep.init().then(function(){
     return (
         // sandbox_function()
         // getBuffDataForAll()
-        doItemTest({ item_name_id: "(70300)", verbose: true})
+        doItemTest({ item_name_id: "(70400)", verbose: true})
         // doUnitTest({ unit_name_id: "(20997)",strict: "false", verbose:true,burstType: "sbb", type: "sp"})
         // doBurstTest("261147")
         // doESTest("760237")

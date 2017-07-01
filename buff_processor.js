@@ -2133,6 +2133,21 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
         },
+        '902': {
+            desc: "Timed ATK (Raid)",
+            type: ['buff'],
+            notes: ['Found on item 70400'],
+            func: function (effect, other_data) {
+                let msg = "";
+                if (effect['atk% buff (100)']){
+                    msg += `${get_polarized_number(effect['atk% buff (100)'])}% ATK`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += ` for ${effect['buff timer (seconds)']} seconds`;
+                return msg;
+            }
+        }
     };//end proc_buffs
 
     //general handler for all unknown procs
@@ -2777,7 +2792,8 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 }
                 return msg;
             }
-        }
+        },
+        
     };
 
     //get names of IDs in array
