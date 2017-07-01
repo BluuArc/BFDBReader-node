@@ -2863,7 +2863,21 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if(translated_effect) msg += ` for ${translated_effect['buff timer (seconds)']} seconds`;
                 return msg;
             }
-        }
+        },
+        '908': {
+            desc: "Increase Item Drop Rate (Raid)",
+            type: ['buff'],
+            func: function (effect, other_data) {
+                let msg = "";
+                let data = effect['unknown proc param'].split(",");
+                if (data.length > 0) {
+                    let boost = (100 + (+data[0])) / 100;
+                    msg += `Multiplies Raid Item drop rate by ${boost} for the current Raid quest when activated from the map`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+        },
     };
 
     //get names of IDs in array
