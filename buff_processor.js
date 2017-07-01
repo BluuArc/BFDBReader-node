@@ -2972,6 +2972,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
             notes: ["Can be found on BB 8470117"],
             func: function(effect,other_data){
                 let msg = "";
+                let translated_effect;
                 if (effect['unknown proc param']) {
                     // chance,turns,unknown,bb,sbb,ubb,normal,unknown
                     let data = effect['unknown proc param'].split(",").map((v) => { return +v });
@@ -2984,7 +2985,6 @@ var BuffProcessor = function (unit_names, item_names, options) {
                         'immune to normals': data[6] == 1 || undefined,
                         'unknown params': [data[2]].concat(data.slice(7))
                     };
-                    console.log(translated_effect);
                     let options = {
                         all: [
                             { name: "BB", value: translated_effect['immune to bb'] },
@@ -3012,6 +3012,40 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data);
                 if (translated_effect) msg += get_turns(translated_effect["immune turns"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '10005': {
+            desc: "Turn Skip",
+            type: ['debuff'],
+            notes: ['Can be found on BB 8400911'],
+            func: function(effect,other_data){
+                let msg = "";
+                let translated_effect;
+                if (effect['unknown proc param']) {
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    translated_effect = {
+                        'turnskip chance': data[0],
+                        'number of turns skipped': data[1],
+                        'unknown params': data.slice(2)
+                    };
+
+                    if(translated_effect['turnskip chance'] || translated_effect['number of turns skipped']){
+                        if (translated_effect['turnskip chance'] == 100){
+                            msg += "Inflicts ";
+                        }else{
+                            msg += `${translated_effects['turnskip chance'] || 0}% chance to inflict`;
+                        }
+
+                        msg += `${translated_effect['number of turns skipped']} turn Turn Skip`;
+                    }
+                    
+                    if (msg.length > 0 && translated_effect['unknown params'].length > 0) {
+                        msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
                 return msg;
             }
         }
