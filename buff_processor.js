@@ -2820,8 +2820,6 @@ var BuffProcessor = function (unit_names, item_names, options) {
                     }
                 }
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
-                // if (!other_data.sp) msg += get_target(effect, other_data);
-                // if (translated_effect) msg += get_turns(translated_effect["reflect turns"], msg, other_data.sp, this.desc);
                 return msg;       
             }
         },
@@ -2843,6 +2841,27 @@ var BuffProcessor = function (unit_names, item_names, options) {
             notes: ['Found on item 70100', "There are no parameters with this proc, according to item 70100"],
             func: function(effect,other_data){
                 return "Allows user to escape from battle (params?)";
+            }
+        },
+        '907': {
+            desc: "Timed DEF (Raid)",
+            type: ['buff', 'timed'],
+            notes: ['Found on item 70500'],
+            func: function (effect, other_data) {
+                let msg = "";
+                if (effect['unknown proc param']) {
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    translated_effect = {
+                        'reduction% buff': data[0],
+                        'buff timer (seconds)': data[1],
+                        'unknown params': [data[0]].concat(data.slice(2))
+                    };
+                    msg += `${get_polarized_number(translated_effect['reduction% buff'])}% damage reduction`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                if(translated_effect) msg += ` for ${translated_effect['buff timer (seconds)']} seconds`;
+                return msg;
             }
         }
     };
