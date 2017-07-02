@@ -3156,6 +3156,63 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 // if (translated_effect) msg += get_turns(translated_effect["evasion turns"], msg, other_data.sp, this.desc);
                 return msg;
             }
+        },
+        '70002': {
+            desc: "Chance to Cast Double BB/SBB/UBB",
+            type: ['buff'],
+            notes: ['Can be found on BB 1750165', 'Any unit in the evolution line of listed units should work'],
+            func: function(effect,other_data){
+                //get the highest version of a given unit category
+                function get_unit_name(category){
+                    let name;
+                    let prefix = category - (category % 10); //remove last digit
+                    for(let i = 7; i >= 2; --i){
+                        if(unit_names[`${category+i}`]){
+                            name = unit_names[`${category + i}`];
+                            break;
+                        }
+                    }
+                    return name || category;
+                }
+                let msg = "";
+                let translated_effect;
+                if (effect['unknown proc param']) {
+                    // unknown,turns,unknown,chance
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    translated_effect = {
+                        'base chance': data[0]*100,
+                        'buff turns': data[1],
+                        'chance added per special unit': data[2]*100,
+                        'special units': data.slice(3).filter((v) => { return v !== 0; })
+                    };
+
+                    if(translated_effect['base chance']){
+                        msg += `${translated_effect['base chance']}% chance`;
+                    }
+
+                    if (translated_effect['chance added per special unit'] || translated_effect['special units'].length > 0) {
+                        let names = translated_effect['special units'].map(get_unit_name);
+                        msg += ` (${get_polarized_number(translated_effect['chance added per special unit'])}%`;
+                        if(names.length > 0){
+                            if(names.length == 1){
+                                msg += ` if ${names[0]} is `;
+                            }else{
+                                msg += ` per unit in {${names.join(", ")}} `;
+                            }
+                            msg += "found in squad";
+                        }
+                        msg += ")";
+                    }
+
+                    if (msg.length > 0){
+                        msg += " to cast double BB/SBB/UBB";
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                if (translated_effect) msg += get_turns(translated_effect["buff turns"], msg, other_data.sp, this.desc);
+                return msg;
+            }
         }
     };
 
