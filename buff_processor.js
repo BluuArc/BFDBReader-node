@@ -3124,6 +3124,38 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (translated_effect) msg += get_turns(translated_effect["evasion turns"], msg, other_data.sp, this.desc);
                 return msg;
             }
+        },
+        '70001': {
+            desc: "Mana Bubble Shield (EU)",
+            type: ['buff'],
+            notes: ['This can be found on BB 720153'],
+            func: function(effect,other_data){
+                let msg = "";
+                let translated_effect;
+                if (effect['unknown proc param']) {
+                    // unknown,turns,unknown,chance
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    if(data.length === 2){
+                        data.unshift(3); //add missing value, 3 is based on other bursts that have this proc
+                    }
+                    translated_effect = {
+                        'rec convert': data[1],
+                        'unknown params': [data[0]].concat(data.slice(2))
+                    };
+
+                    if(translated_effect['rec convert']){
+                        msg += `Cast a Mana Bubble Shield (based on ${translated_effect['rec convert']}% REC)`;
+                    }
+
+                    if (msg.length > 0 && translated_effect['unknown params'].length > 0) {
+                        msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                // if (translated_effect) msg += get_turns(translated_effect["evasion turns"], msg, other_data.sp, this.desc);
+                return msg;
+            }
         }
     };
 
