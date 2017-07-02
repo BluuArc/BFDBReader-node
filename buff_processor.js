@@ -3192,7 +3192,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
 
                     if (translated_effect['chance added per special unit'] || translated_effect['special units'].length > 0) {
                         let names = translated_effect['special units'].map(get_unit_name);
-                        msg += ` (${get_polarized_number(translated_effect['chance added per special unit'])}%`;
+                        msg += ` (${get_polarized_number(translated_effect['chance added per special unit'])}% chance`;
                         if(names.length > 0){
                             if(names.length == 1){
                                 msg += ` if ${names[0]} is `;
