@@ -3361,6 +3361,21 @@ var BuffProcessor = function (unit_names, item_names, options) {
         }
     }
 
+    function getBuffsOfType(buff_type) {
+        let filtered_buffs = {};
+        for (let type in buff_list) {
+            filtered_buffs[type] = [];
+            let keys = Object.keys(buff_list[type]);
+            for (let id of keys) {
+                if (buff_list[type][id].type.indexOf(buff_type) > -1) {
+                    filtered_buffs[type].push(id);
+                }
+            }
+        }
+        return filtered_buffs;
+    }
+    this.getBuffsOfType = getBuffsOfType;
+
     //given an effects object, print get its effects
     function print_buff(effect, other_data) {
         var msg = "";
@@ -3384,6 +3399,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
 
     this.print_buff = print_buff;
     this.buff_list = buff_list;
+    this.buff_types = buff_types;
 };
 
 module.exports = BuffProcessor;
