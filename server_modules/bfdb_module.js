@@ -31,6 +31,7 @@ let DBModule = function(options){
     */
     options = options || {};
     let db;
+    let stats;
     let name = options.name || "Module";
 
     //attempt to rename a given file, if it exists
@@ -273,6 +274,22 @@ let DBModule = function(options){
         return do_n_at_a_time(to_be_translated, options.translate.max_translations || 5,translate);
     }
     this.translate = translate_db;
+
+    function update_statistics(){
+        if(typeof options.update_statistics !== "function"){
+            throw new Error("Must specify options.update_statistics function");
+        }else{
+            if(stats){
+                let keys = Object.keys(stats);
+                for(let k of keys){
+                    delete stats[k];
+                }
+                stats = {};
+            }
+            stats = options.update_statistics(db);
+        }
+    }
+    this.update_statistics = update_statistics;
 
 };
 

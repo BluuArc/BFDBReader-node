@@ -339,7 +339,7 @@ function sandbox_function(){
     // let attacking_bursts = {};
     return unitDB.init()
     .then(() => {
-        // return unitDB.translate();
+        return unitDB.update_statistics();
         return;
     }).then(() => {
         console.log("Finished loading first time");    

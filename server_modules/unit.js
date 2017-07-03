@@ -1,5 +1,6 @@
 let bdfb_module = require('./bfdb_module.js');
-var translate = require('google-translate-api');
+let translate = require('google-translate-api');
+let fs = require('fs');
 
 let UnitDB = function(options){
     options = options || {};
@@ -341,6 +342,98 @@ let UnitDB = function(options){
         },
         max_translations: 5
     };
+
+    function update_statistics(db){
+        //return everything that's in db_new and not in db_old
+        function get_db_diffs(db_old, db_new) {
+            var diffs = [];
+            for (var elem in db_new) {
+                if (db_old.indexOf(db_new[elem]) == -1) {
+                    diffs.push(db_new[elem]);
+                }
+            }
+            return diffs;
+        }
+        function get_ids_from_server(server, db) {
+            var result = [];
+            for (let i in db) {
+                if (db[i].server.indexOf(server) > -1) {
+                    result.push(i); //i is ID of current object
+                }
+            }
+            return result;
+        }
+        function update_statistics_per_server(server) {
+            //holds local file load/save functions
+            var updater = {
+                load: function (file, alternative_files) {
+                    try {
+                        return JSON.parse(fs.readFileSync("./json/" + file, 'utf8'));
+                    } catch (err) {//error, try alternative files
+                        if (alternative_files !== undefined && alternative_files.length > 0) {
+                            var new_file = alternative_files.pop();
+                            return updater.load(new_file, alternative_files);
+                        } else {//return an error if none of the files work
+                            return JSON.parse(fs.readFileSync("./json/" + file, 'utf8'));
+                        }
+                    }
+                },
+                save: function (file, data) {
+                    fs.writeFile("./json/" + file, data, function (err) {
+                        if (err) {
+                            console.log(err);
+                        }
+                        console.log("Saved " + file);
+                        return;
+                    });
+                }
+            };
+
+            console.log("Updating " + server.toUpperCase() + " statistics...");
+            //gather basic statistics
+            var unit_id = get_ids_from_server(server, db);
+            // var item_id = get_ids_from_server(server, master_list.item);
+            // var es_id = get_ids_from_server(server, master_list.es);
+            console.log(server, "current unit count", unit_id.length);
+            stats[server].total_entries = unit_id.length;
+
+            //load previous data, if it exists
+            var unit_data;
+            try {
+                unit_data = updater.load('stats-unit-' + server + ".json");
+
+                //save differences, if any
+                if (unit_data.last_loaded.length !== stats[server].total_entries || unit_data.last_loaded[0] !== unit_id[0]) {
+                    if (unit_data.last_loaded.length !== stats[server].total_entries) console.log(server, "unit last length", unit_data.last_loaded.length, "/ unit current length", stats[server].total_entries);
+                    else if (unit_data.last_loaded[0] !== unit_id[0]) console.log(server, "unit last loaded[0]", unit_data.last_loaded[0], "/ unit current loaded[0]", unit_id[0]);
+                    unit_data.newest = get_db_diffs(unit_data.last_loaded, unit_id);
+                    unit_data.last_loaded = unit_id;
+                    updater.save('stats-unit-' + server + '.json', JSON.stringify(unit_data));
+                }
+            } catch (err) { //file doesn't exist
+                console.log("Creating new unit stats file for", server);
+                unit_data = {
+                    newest: unit_id,
+                    last_loaded: unit_id
+                };
+                updater.save('stats-unit-' + server + '.json', JSON.stringify(unit_data));
+            }
+
+            //keep track of newest on server
+            stats[server] = unit_data.newest;
+        }
+
+        let stats = {
+            last_update: new Date().toUTCString()
+        };
+        for(let s of servers){
+            stats[s] = {};
+            update_statistics_per_server(s);
+        }
+
+        console.log("Finished updating statistics");
+    }
+    options.update_statistics = update_statistics;
 
 
     return new bdfb_module(options);
