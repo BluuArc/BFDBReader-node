@@ -1,6 +1,8 @@
 var client = require('./data_tier_client.js');
 var fs = require('fs');
 let EffectPrinter = require('./effect_printer.js');
+let unitDB = require('./server_modules/unit.js');
+let itemDB = require('./server_modules/item.js');
 
 client.setAddress("http://127.0.0.1:8081");
 
@@ -334,22 +336,37 @@ function doESTest(id){
 }
 
 function sandbox_function(){
-    let db = JSON.parse(fs.readFileSync(`./sandbox_data/feskills-gl.json`, 'utf8'));
-    let unit = db['40897'];
-    let skill = unit.skills[8];
-    let msg = ep.printSingleSP(skill);
-    console.log(msg);
+    // let attacking_bursts = {};
+    return unitDB.init().then(() => {
+        console.log("Finished loading first time");    
+        // itemDB.reload();
+        let results = unitDB.search({ unit_name_id: "maxwell", strict: "false", verbose: true});
+        if(results.length === 1){
+            console.log(unitDB.getByID(results[0]));
+        }else{
+            for(let r of results){
+                console.log(unitDB.getByID(r)['name']);
+            }
+        }
+        
+    }).then(() => { 
+        console.log("Finished loading second time");
+        // console.log(Object.keys(unitDB.getDB())); 
+    });
 }
 
 ep.init().then(function(){ 
     return (
-        // sandbox_function()
+        sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "(800312)", verbose: true})
         // doUnitTest({ unit_name_id: "(710217)",strict: "false", verbose:true,burstType: "bb", type: "sp"})
-        doBurstTest("1750165")
+        // doBurstTest("1750165")
         // doESTest("750216")
     );
 }).then(function(){
     console.log(" ")  
 }).catch(console.log);
+
+
+// unitDB.init();

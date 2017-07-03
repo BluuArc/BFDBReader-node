@@ -9,6 +9,8 @@ let DBModule = function(options){
             ...
         ],
         setupFn: function(results) //input JSON object keyed by the names in files array, output is a promise that has db object keyed by ID
+        search: function(query,db)
+        getByID: funtion(id,db)
     }
     */
     options = options || {};
@@ -115,12 +117,12 @@ let DBModule = function(options){
     //delete db data then re-initialize db; does NOT download anything
     function reload(){
         //delete first level of DB
-        console.log(`Deleting old db for ${name}`);
+        console.log(`Deleting old db for ${name}...`);
         let keys = Object.keys(db);
         for(let k of keys){
             delete db[k];
         }
-        console.log("DB before reload", db);
+        console.log("Begin reloading files for",name);
         return init();
     }
     this.reload = reload;
@@ -155,6 +157,8 @@ let DBModule = function(options){
                     delete wip_db[k];
                 }
 
+                console.log(Object.keys(db))
+
                 fulfill();
             }).catch(reject);
         });
@@ -162,6 +166,24 @@ let DBModule = function(options){
     this.init = init;
 
     this.getDB = () => { return db; };
+
+    function search(query){
+        if(typeof options.search !== "function"){
+            throw new Error("No search function defined");
+        }else{
+            return options.search(query,db);
+        }
+    }
+    this.search = search;
+
+    function getByID(id){
+        if(typeof options.getByID !== "function"){
+            return db[id];
+        }else{
+            return options.getByID(id,db);
+        }
+    }
+    this.getByID = getByID;
 
 };
 
