@@ -337,10 +337,13 @@ function doESTest(id){
 
 function sandbox_function(){
     // let attacking_bursts = {};
-    return unitDB.init().then(() => {
+    return unitDB.init()
+    .then(() => {
+        // return unitDB.translate();
+        return;
+    }).then(() => {
         console.log("Finished loading first time");    
-        // itemDB.reload();
-        let results = unitDB.search({ unit_name_id: "maxwell", strict: "false", verbose: true});
+        let results = unitDB.search({ unit_name_id: "",rarity:8,element:"light", strict: "false", verbose: true});
         if(results.length === 1){
             console.log(unitDB.getByID(results[0]));
         }else{
@@ -348,10 +351,12 @@ function sandbox_function(){
                 console.log(unitDB.getByID(r)['name']);
             }
         }
+        // unitDB.reload();
         
     }).then(() => { 
-        console.log("Finished loading second time");
+        // console.log("Finished loading second time");
         // console.log(Object.keys(unitDB.getDB())); 
+        console.log("done");
     });
 }
 

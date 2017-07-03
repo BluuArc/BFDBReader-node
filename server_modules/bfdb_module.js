@@ -3,14 +3,30 @@ var fs = require('fs');
 //general constructor for any db used in the main server
 let DBModule = function(options){
     /* options = {
-        files: [ //files to load
-            {name: dbname1, main: mainfile.json, alternatives: [alt1.json, alt2.json,...]},
-            {name: dbname2, main: mainfile.json, alternatives: [alt1.json, alt2.json,...]},
-            ...
-        ],
-        setupFn: function(results) //input JSON object keyed by the names in files array, output is a promise that has db object keyed by ID
+        name: name of module
+        files: [
+            {
+                name: name of current object
+                files: [
+                    {name: dbname1, main: mainfile.json, alternatives: [alt1.json, alt2.json,...]},
+                    {name: dbname2, main: mainfile.json, alternatives: [alt1.json, alt2.json,...]},
+                    ...
+                    ],
+                setupFn: (db, loaded_files, name) => {
+                    loaded_files is JSON object keyed by names in files array and contains file contents
+                    code to combine the files with the db object goes here
+                    not expected to return anything
+                }
+            },
+        ]
+        
         search: function(query,db)
         getByID: funtion(id,db)
+        translate: {
+            needsTranslation(entry) //input is a single entry in the db, output is true/false
+            translate(entry) //translate the entry; returns a promise; not expected to return anything in promise as it's expected to modify the object directly
+            max_translations: max number of translations at a time
+        }
     }
     */
     options = options || {};
@@ -82,7 +98,7 @@ let DBModule = function(options){
     }
 
     //run an array against a function that returns a promise n times
-    //each function is expected to receive the object at an array index
+    //promise function is expected to receive the object at an array index
     function do_n_at_a_time(arr, n, promiseFn) {
         function n_recursive(arr, n, acc, callbackFn) {
             if (arr.length === 0) {
@@ -127,7 +143,56 @@ let DBModule = function(options){
     }
     this.reload = reload;
 
+    /*
+        files: [
+            { 
+                name: name of current object
+                files: [
+                    {name: dbname1, main: mainfile.json, alternatives: [alt1.json, alt2.json,...]},
+                    {name: dbname2, main: mainfile.json, alternatives: [alt1.json, alt2.json,...]},
+                    ...
+                    ], 
+                setupFn: (db, loaded_files, name) => { 
+                    code to combine the files with the db object;
+                    doesn't return anything
+                }
+            },
+        ]
+    */
+    //load each set of files and merge into db one by one
     function init(){
+        function single_load(file_obj){
+            let file_db = {};
+            let file_promises = [];
+            return new Promise(function(fulfill,reject){
+                for(let f of file_obj.files){
+                    let curPromise = load_json_promisified(f.main,f.alternatives)
+                        .then(function(result){
+                            file_db[f.name] = result;
+                            return;
+                        }); 
+                    file_promises.push(curPromise);
+                }
+
+                Promise.all(file_promises).then(function(){
+                    return Promise.resolve(file_obj.setupFn(db,file_db,file_obj.name));
+                }).then(fulfill).catch(reject);
+            });
+        }
+        if (!options.files) throw new Error("No files specified");
+        let files = options.files.slice();
+        for(let f of files){
+            if(typeof f.setupFn !== "function"){
+                throw new Error(`No proper setupFn specified for ${f.name}`);
+            }
+        }
+        db = {};
+
+        return do_n_at_a_time(files,1,single_load);
+    }
+    this.init = init;
+
+    function old_init(){
         //load required files
         let files = options.files;
         if(!files) throw new Error("No files specified");
@@ -184,6 +249,30 @@ let DBModule = function(options){
         }
     }
     this.getByID = getByID;
+
+    function translate_db(){
+        if(typeof options.translate !== "object" || typeof options.translate.needsTranslation !== "function" || typeof options.translate.translate !== "function"){
+            console.log(options, typeof options.translate , typeof options.translate.needsTranslation , typeof options.translate.translate);
+            throw new Error("Must specify options.needsTranslation and options.translate to use this function");
+        }
+        let to_be_translated = [];
+        let count_finished = 0;
+        for(let entry in db){
+            if(options.translate.needsTranslation(db[entry])){
+                to_be_translated.push(db[entry]);
+            }
+        }
+
+        console.log(`Translating ${to_be_translated.length} entries in ${name}`);
+
+        let translate = (entry) => {
+            return options.translate.translate(entry)
+                .then( () => {console.log(`Translated ${++count_finished}/${to_be_translated.length} entries in ${name}`);});
+        }
+
+        return do_n_at_a_time(to_be_translated, options.translate.max_translations || 5,translate);
+    }
+    this.translate = translate_db;
 
 };
 

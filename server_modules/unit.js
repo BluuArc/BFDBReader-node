@@ -1,5 +1,5 @@
 let bdfb_module = require('./bfdb_module.js');
-
+var translate = require('google-translate-api');
 
 let UnitDB = function(options){
     options = options || {};
@@ -8,17 +8,7 @@ let UnitDB = function(options){
 
     let servers = ['gl','eu','jp'];
     let files = ['info','evo_list', 'feskills'];
-    for(let s of servers){
-        for(let f of files){
-            options.files.push({
-                name: `${f}_${s}`,
-                main: `${f}-${s}.json`,
-                alternatives: [`${f}-${s}-old.json`]
-            });
-        }
-    }
-
-    options.setupFn = (loaded_files) => {
+    let setupFn = function(db,loaded_files,name){
         function get_unit_home_server(id) {
             if (id >= 10000 && id < 70000) {
                 return 'jp';
@@ -87,49 +77,62 @@ let UnitDB = function(options){
         }
 
 
-        console.log("Loaded files for units. Begin processing...");
-        let db = {};
+        console.log(`Loaded files for units in ${name}. Begin processing...`);
 
         //fix any ID overlap in gl objects
-        for(let f of files){
-            let curDB = loaded_files[`${f}_gl`];
-            let keys = Object.keys(curDB);
-            for(let id of keys){
-                let newID = get_server_id(id,'gl');
-                if(newID !== id){
-                    curDB[newID] = curDB[id];
-                    delete curDB[id];
+        if(name === 'gl'){
+            for (let f of files) {
+                let curDB = loaded_files[`${f}`];
+                let keys = Object.keys(curDB);
+                for (let id of keys) {
+                    let newID = get_server_id(id, 'gl');
+                    if (newID !== id) {
+                        curDB[newID] = curDB[id];
+                        delete curDB[id];
+                    }
                 }
             }
         }
 
-        //merge info, feskills, evo_list together
-        for(let s of servers){
-            //merge evo_list
-            add_field_to_db(loaded_files[`info_${s}`], loaded_files[`evo_list_${s}`],function(unit1,unit2,db_main,db_sub){
-                unit1.evo_mats = unit2.evo_mats;
-                unit1.next = get_server_id(unit2.evo.id,s);
-                db_main[unit1.next].prev = get_server_id(unit1.id,s);
-            });
-            delete loaded_files[`evo_list_${s}`];
+        //merge evo_list
+        add_field_to_db(loaded_files[`info`], loaded_files[`evo_list`], function (unit1, unit2, db_main, db_sub) {
+            unit1.evo_mats = unit2.evo_mats;
+            unit1.next = get_server_id(unit2.evo.id, s);
+            db_main[unit1.next].prev = get_server_id(unit1.id, s);
+        });
+        delete loaded_files[`evo_list`];
 
-            //merge feskills list
-            add_field_to_db(loaded_files[`info_${s}`], loaded_files[`feskills_${s}`], function (unit1, unit2) {
-                unit1.skills = unit2.skills;
-            });
-            delete loaded_files[`feskills_${s}`];
-        }
+        //merge feskills list
+        add_field_to_db(loaded_files[`info`], loaded_files[`feskills`], function (unit1, unit2) {
+            unit1.skills = unit2.skills;
+        });
+        delete loaded_files[`feskills`];
 
-        //merge databases together
-        for(let s of servers){
-            merge_databases(db,loaded_files[`info_${s}`],s);
-        }
+        merge_databases(db, loaded_files[`info`], name);
 
-        console.log("Finished processing for unit DB.");
+        console.log(`Finished processing for units in ${name}.`);
 
+        // console.log(Object.keys(db));
         // console.log("Sample of unit", JSON.stringify(db['8750166'],null,2));
-        return db;
     };
+
+    //initialize files in options
+    for(let s of servers){
+        let curObj = {
+            name: s,
+            files: [],
+            setupFn: setupFn
+        }
+        for(let f of files){
+            curObj.files.push({
+                name: `${f}`,
+                main: `${f}-${s}.json`,
+                alternatives: [`${f}-${s}-old.json`]
+            });
+
+        }
+        options.files.push(curObj);
+    }
 
     options.getByID = (id,db) => {
         let result = db[id];
@@ -301,6 +304,44 @@ let UnitDB = function(options){
         }
         return results;
     }
+
+
+    options.translate = {
+        needsTranslation: (unit) => { 
+            function isJapaneseText(name) {
+                return name.search(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/) > -1;
+            }
+            return isJapaneseText(unit.name);
+        },
+        translate: (unit) => {
+            function translate_to_english(msg, fields, endField) {
+                return translate(msg, { from: 'ja', to: 'en' })
+                    .then(function (result) {
+                        var result_text = "";
+                        //clean up result, if necessary
+                        if (result.text.indexOf("null") == result.text.length - 4) {
+                            result_text = result.text.replace("null", "");
+                        } else {
+                            result_text = result.text;
+                        }
+                        return {
+                            translation: result_text + "*",
+                            fields: fields.concat(endField)
+                        };
+                    }).catch(err => {
+                        console.error(err);
+                    });
+            }
+
+            return translate_to_english(unit.name,[], "translated_name")
+                .then(function(translation_result){
+                    unit.name = translation_result.translation;
+                    return;
+                })
+        },
+        max_translations: 5
+    };
+
 
     return new bdfb_module(options);
 };
