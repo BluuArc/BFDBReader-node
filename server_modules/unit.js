@@ -1,6 +1,5 @@
 let bdfb_module = require('./bfdb_module.js');
 let bfdb_common = require('./bfdb_common.js');
-let fs = require('fs');
 
 let UnitDB = function(options){
     options = options || {};
@@ -9,7 +8,7 @@ let UnitDB = function(options){
 
     let servers = ['gl','eu','jp'];
     let files = ['info','evo_list', 'feskills'];
-    let setupFn = function(db,loaded_files,name){
+    let setupFn = function(db,loaded_files,server){
         function get_unit_home_server(id) {
             if (id >= 10000 && id < 70000) {
                 return 'jp';
@@ -77,10 +76,10 @@ let UnitDB = function(options){
             }
         }
 
-        console.log(`Loaded files for units in ${name}. Begin processing...`);
+        console.log(`Loaded files for units in ${server}. Begin processing...`);
 
         //fix any ID overlap in gl objects
-        if(name === 'gl'){
+        if(server === 'gl'){
             for (let f of files) {
                 let curDB = loaded_files[`${f}`];
                 let keys = Object.keys(curDB);
@@ -104,8 +103,8 @@ let UnitDB = function(options){
                 console.log("Unit 2 is missing");
             }
             unit1.evo_mats = unit2.mats;
-            unit1.next = get_server_id(unit2.evo.id, name);
-            db_main[unit1.next].prev = get_server_id(unit1.id, name);
+            unit1.next = get_server_id(unit2.evo.id, server);
+            db_main[unit1.next].prev = get_server_id(unit1.id, server);
         });
         // console.log(loaded_files.evo_list['8750166']);
         delete loaded_files.evo_list;
@@ -123,31 +122,15 @@ let UnitDB = function(options){
         });
         delete loaded_files.feskills;
 
-        merge_databases(db, loaded_files.info, name);
+        merge_databases(db, loaded_files.info, server);
 
-        console.log(`Finished processing for units in ${name}.`);
+        console.log(`Finished processing for units in ${server}.`);
 
         // console.log(Object.keys(db));
         // console.log("Sample of unit", JSON.stringify(db['8750166'],null,2));
     };
 
     //initialize files in options
-    // for(let s of servers){
-    //     let curObj = {
-    //         name: s,
-    //         files: [],
-    //         setupFn: setupFn
-    //     }
-    //     for(let f of files){
-    //         curObj.files.push({
-    //             name: `${f}`,
-    //             main: `${f}-${s}.json`,
-    //             alternatives: [`${f}-${s}-old.json`]
-    //         });
-
-    //     }
-    //     options.files.push(curObj);
-    // }
     options.files = bfdb_common.generateSetupFiles(files, setupFn);
 
     options.getByID = bfdb_common.getByID;
@@ -235,15 +218,15 @@ let UnitDB = function(options){
             for (var q in query) {
                 var curQuery = query[q].toString().toLowerCase();
                 //wildcard queries
-                if (curQuery.length === 0 || (q == 'element' && curQuery == 'any') ||
-                    (q == 'gender' && curQuery == 'any') ||
-                    (q == 'server' && curQuery == 'any') || ignored_fields.indexOf(q) > -1) {
+                if (curQuery.length === 0 || (q === 'element' && curQuery === 'any') ||
+                    (q === 'gender' && curQuery === 'any') ||
+                    (q === 'server' && curQuery === 'any') || ignored_fields.indexOf(q) > -1) {
                     continue;
                 }
 
                 try {
                     var unitValue = get_unit_query_value(q, unit).toString();
-                    if (unitValue.indexOf(curQuery) == -1) {
+                    if (unitValue.indexOf(curQuery) === -1) {
                         // if(query.verbose == true || query.verbose == 'true') console.log("Failed on",unit.id,q,curQuery);
                         return false; //stop if any part of query is not in unit
                     }

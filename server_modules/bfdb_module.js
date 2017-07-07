@@ -182,6 +182,7 @@ let DBModule = function(options){
         }
         if (!options.files) throw new Error("No files specified");
         let files = options.files.slice();
+        //ensure setupFn is valid for all files
         for(let f of files){
             if(typeof f.setupFn !== "function"){
                 throw new Error(`No proper setupFn specified for ${f.name}`);
@@ -193,45 +194,8 @@ let DBModule = function(options){
     }
     this.init = init;
 
-    function old_init(){
-        //load required files
-        let files = options.files;
-        if(!files) throw new Error("No files specified");
-        if(!options.setupFn) throw new Error("No setup function specified");
-        let wip_db = {};
-        let file_promises = [];
-        return new Promise(function(fulfill,reject){
-            //load files and create temp object keyed by given name
-            for(let f of files){
-                let curPromise = load_json_promisified(f.main,f.alternatives)
-                    .then(function(result){
-                        wip_db[f.name] = result;
-                    });
-                file_promises.push(curPromise);
-            }
-
-            //set up data for use in db object
-            Promise.all(file_promises).then(function(){
-                return Promise.resolve(options.setupFn(wip_db));
-            }).then(function(new_db){
-                //save database
-                db = new_db;
-                
-                //remove data in wip_db
-                let keys = Object.keys(wip_db);
-                for(let k of keys){
-                    delete wip_db[k];
-                }
-
-                console.log(Object.keys(db))
-
-                fulfill();
-            }).catch(reject);
-        });
-    }
-    this.init = init;
-
     this.getDB = () => { return db; };
+    this.getStats = () => { return stats; };
 
     function search(query){
         if(typeof options.search !== "function"){
@@ -254,7 +218,7 @@ let DBModule = function(options){
     function translate_db(){
         if(typeof options.translate !== "object" || typeof options.translate.needsTranslation !== "function" || typeof options.translate.translate !== "function"){
             console.log(options, typeof options.translate , typeof options.translate.needsTranslation , typeof options.translate.translate);
-            throw new Error("Must specify options.needsTranslation and options.translate to use this function");
+            throw new Error("Must specify options.translate.needsTranslation and options.translate.translate to use this function");
         }
         let to_be_translated = [];
         let count_finished = 0;

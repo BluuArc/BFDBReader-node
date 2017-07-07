@@ -372,19 +372,21 @@ function sandbox_function(){
     return unitDB.init()
     .then(() => {
         // return unitDB.update_statistics();
-        return;
+        // return unitDB.translate();
     }).then(() => {
         console.log("Finished loading first time");    
-        let results = unitDB.search({ unit_name_id: "arthur",server:'gl', strict: "false", verbose: true});
+        let results = unitDB.search({ unit_name_id: "",rarity:"8",element:"light", strict: "false", verbose: true});
         if(results.length === 1){
-            let unit = unitDB.getByID(results[0]);
+            let item = unitDB.getByID(results[0]);
             // console.log(analyzeObjectForValuesOf(unitDB.getByID(results[0]),'passive id'));
-            console.log(unit.skills);
+            console.log(item);
         }else{
             for(let r of results){
                 console.log(unitDB.getByID(r)['name']);
             }
         }
+        // console.log(JSON.stringify(itemDB.getByID('88700004'),null,2));
+        // console.log(JSON.stringify(itemDB.getByID('88700006'),null,2));
         // unitDB.reload();
         
     }).then(() => { 
