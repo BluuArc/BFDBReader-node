@@ -335,17 +335,51 @@ function doESTest(id){
     }
 }
 
+function analyzeObjectForValuesOf(target, field_name) {
+    let values = [];
+    if (typeof target !== "object") return values;
+    let fields = [target];
+    while (fields.length > 0) {
+        let curField = fields.shift();
+        //skip non-objects
+        if (typeof curField !== "object") {
+            continue;
+        }
+
+        for (let f in curField) {
+            if (typeof curField[f] === "object") {
+                fields.push(curField[f]);
+            }
+            if (f == field_name) {
+                let value;
+                if (typeof curField[f] !== "object")
+                    value = (curField[f]);
+                else
+                    value = (JSON.stringify(curField[f]));
+                
+                if(values.indexOf(value) === -1){
+                    values.push(value);
+                }
+            }
+        }
+    }
+
+    return values;
+}
+
 function sandbox_function(){
     // let attacking_bursts = {};
     return unitDB.init()
     .then(() => {
-        return unitDB.update_statistics();
+        // return unitDB.update_statistics();
         return;
     }).then(() => {
         console.log("Finished loading first time");    
-        let results = unitDB.search({ unit_name_id: "",rarity:8,element:"light", strict: "false", verbose: true});
+        let results = unitDB.search({ unit_name_id: "arthur",server:'gl', strict: "false", verbose: true});
         if(results.length === 1){
-            console.log(unitDB.getByID(results[0]));
+            let unit = unitDB.getByID(results[0]);
+            // console.log(analyzeObjectForValuesOf(unitDB.getByID(results[0]),'passive id'));
+            console.log(unit.skills);
         }else{
             for(let r of results){
                 console.log(unitDB.getByID(r)['name']);
@@ -365,7 +399,7 @@ ep.init().then(function(){
         sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ item_name_id: "(800312)", verbose: true})
-        // doUnitTest({ unit_name_id: "(710217)",strict: "false", verbose:true,burstType: "bb", type: "sp"})
+        // doUnitTest({ unit_name_id: "holia",strict: "false", verbose:true,burstType: "ubb", type: "burst"})
         // doBurstTest("1750165")
         // doESTest("750216")
     );

@@ -1,10 +1,10 @@
 let bdfb_module = require('./bfdb_module.js');
-let translate = require('google-translate-api');
+let bfdb_common = require('./bfdb_common.js');
 let fs = require('fs');
 
 let UnitDB = function(options){
     options = options || {};
-    options.files =  [];
+    // options.files =  [];
     options.name = "Unit";
 
     let servers = ['gl','eu','jp'];
@@ -77,7 +77,6 @@ let UnitDB = function(options){
             }
         }
 
-
         console.log(`Loaded files for units in ${name}. Begin processing...`);
 
         //fix any ID overlap in gl objects
@@ -96,20 +95,35 @@ let UnitDB = function(options){
         }
 
         //merge evo_list
-        add_field_to_db(loaded_files[`info`], loaded_files[`evo_list`], function (unit1, unit2, db_main, db_sub) {
-            unit1.evo_mats = unit2.evo_mats;
-            unit1.next = get_server_id(unit2.evo.id, s);
-            db_main[unit1.next].prev = get_server_id(unit1.id, s);
+        bfdb_common.addFieldToDB(loaded_files.info, loaded_files.evo_list, function (unit1, unit2, db_main, db_sub) {
+            if(!unit1 && !unit2){
+                console.log("Both units are missing");
+            }else if(!unit1){
+                console.log("Unit 1 is missing");
+            }else if(!unit2){
+                console.log("Unit 2 is missing");
+            }
+            unit1.evo_mats = unit2.mats;
+            unit1.next = get_server_id(unit2.evo.id, name);
+            db_main[unit1.next].prev = get_server_id(unit1.id, name);
         });
-        delete loaded_files[`evo_list`];
+        // console.log(loaded_files.evo_list['8750166']);
+        delete loaded_files.evo_list;
 
         //merge feskills list
-        add_field_to_db(loaded_files[`info`], loaded_files[`feskills`], function (unit1, unit2) {
+        bfdb_common.addFieldToDB(loaded_files.info, loaded_files.feskills, function (unit1, unit2) {
+            if (!unit1 && !unit2) {
+                console.log("Both units are missing");
+            } else if (!unit1) {
+                console.log("Unit 1 is missing");
+            } else if (!unit2) {
+                console.log("Unit 2 is missing");
+            }
             unit1.skills = unit2.skills;
         });
-        delete loaded_files[`feskills`];
+        delete loaded_files.feskills;
 
-        merge_databases(db, loaded_files[`info`], name);
+        merge_databases(db, loaded_files.info, name);
 
         console.log(`Finished processing for units in ${name}.`);
 
@@ -118,76 +132,72 @@ let UnitDB = function(options){
     };
 
     //initialize files in options
-    for(let s of servers){
-        let curObj = {
-            name: s,
-            files: [],
-            setupFn: setupFn
-        }
-        for(let f of files){
-            curObj.files.push({
-                name: `${f}`,
-                main: `${f}-${s}.json`,
-                alternatives: [`${f}-${s}-old.json`]
-            });
+    // for(let s of servers){
+    //     let curObj = {
+    //         name: s,
+    //         files: [],
+    //         setupFn: setupFn
+    //     }
+    //     for(let f of files){
+    //         curObj.files.push({
+    //             name: `${f}`,
+    //             main: `${f}-${s}.json`,
+    //             alternatives: [`${f}-${s}-old.json`]
+    //         });
 
-        }
-        options.files.push(curObj);
-    }
+    //     }
+    //     options.files.push(curObj);
+    // }
+    options.files = bfdb_common.generateSetupFiles(files, setupFn);
 
-    options.getByID = (id,db) => {
-        let result = db[id];
-        if(result === undefined){
-            return {error: `${id} is not found`};
-        }else{
-            return result;
-        }
-    };
+    options.getByID = bfdb_common.getByID;
 
     options.search = (query,db) => {
         //get the corresponding unit value of a given query
         function get_unit_query_value(queryField, unit) {
             try {
+                let result,msg;
+                let acc = [];
                 switch (queryField) {
                     case 'unit_name_id':
-                        return unit["guide_id"] + ": " + unit["name"].toLowerCase() + (unit.translated_name ? (" " + unit.translated_name.toLowerCase()) : "") + " (" + unit["id"] + ")";
-                    case 'rarity': return unit["rarity"].toString();
-                    case 'element': return unit["element"].toLowerCase();
-                    case 'gender': return unit["gender"].toLowerCase();
-                    case 'move_speed': return unit["movement"]["skill"]["move speed type"].toLowerCase();
-                    case 'ls_name': return (unit["leader skill"]["name"] + " - " + unit["leader skill"]["desc"]).toLowerCase();
-                    case 'ls_effect': return JSON.stringify(unit["leader skill"]["effects"]);
-                    case 'bb_name': return (unit["bb"]["name"] + " - " + unit["bb"]["desc"]).toLowerCase();
-                    case 'bb_effect': return JSON.stringify(unit["bb"]["levels"][9]["effects"]);
-                    case 'sbb_name': return (unit["sbb"]["name"] + " - " + unit["sbb"]["desc"]).toLowerCase();
-                    case 'sbb_effect': return JSON.stringify(unit["sbb"]["levels"][9]["effects"]);
-                    case 'ubb_name': return (unit["ubb"]["name"] + " - " + unit["ubb"]["desc"]).toLowerCase();
-                    case 'ubb_effect': return JSON.stringify(unit["ubb"]["levels"][0]["effects"]);
-                    case 'es_name': return (unit["extra skill"]["name"] + " - " + unit["extra skill"]["desc"]).toLowerCase();
-                    case 'es_effect': return JSON.stringify(unit["extra skill"]["effects"]);
+                        return `${unit.guide_id}: ${unit.name.toLowerCase()}${(unit.translated_name ? (" " + unit.translated_name.toLowerCase()) : "")} (${unit.id})`;
+                    case 'rarity': return unit.rarity.toString();
+                    case 'element': return unit.element.toLowerCase();
+                    case 'gender': return unit.gender.toLowerCase();
+                    case 'move_speed': return unit.movement.skill["move speed type"].toLowerCase();
+                    case 'ls_name': return `${unit["leader skill"].name} - ${unit["leader skill"].desc.toLowerCase()}`;
+                    case 'ls_effect': return JSON.stringify(unit["leader skill"].effects);
+                    case 'bb_name': return (unit.bb.name + " - " + unit.bb.desc).toLowerCase();
+                    case 'bb_effect': return JSON.stringify(unit.bb.levels[9].effects);
+                    case 'sbb_name': return (unit.sbb.name + " - " + unit.sbb.desc).toLowerCase();
+                    case 'sbb_effect': return JSON.stringify(unit.sbb.levels[9].effects);
+                    case 'ubb_name': return (unit.ubb.name + " - " + unit.ubb.desc).toLowerCase();
+                    case 'ubb_effect': return JSON.stringify(unit.ubb.levels[0].effects);
+                    case 'es_name': return (unit["extra skill"].name + " - " + unit["extra skill"].desc).toLowerCase();
+                    case 'es_effect': return JSON.stringify(unit["extra skill"].effects);
                     case 'sp_name':
-                        var result = "";
-                        for (sp in unit["skills"]) {
-                            result += unit["skills"][sp]["skill"]["desc"] + "\n";
+                        result = "";
+                        for (sp in unit.skills) {
+                            result += unit.skills[sp].skill.desc + "\n";
                         }
                         return result;
                     case 'sp_effect':
-                        var result = "";
-                        for (sp in unit["skills"]) {
-                            result += JSON.stringify(unit["skills"][sp]["skill"]["effects"]) + "\n";
+                        result = "";
+                        for (sp in unit.skills) {
+                            result += JSON.stringify(unit.skills[sp].skill.effects) + "\n";
                         }
                         return result;
-                    case 'evo_mats': return JSON.stringify(unit["evo_mats"]);
-                    case 'server': return unit["server"];
-                    case 'all_desc': var msg = safe_json_get(unit, ["leader skill", "name"]) + " " + safe_json_get(unit, ["leader skill", "desc"]) + " ";
+                    case 'evo_mats': return JSON.stringify(unit.evo_mats);
+                    case 'server': return unit.server;
+                    case 'all_desc': msg = safe_json_get(unit, ["leader skill", "name"]) + " " + safe_json_get(unit, ["leader skill", "desc"]) + " ";
                         msg += safe_json_get(unit, ["extra skill", "name"]) + " " + safe_json_get(unit, ["extra skill", "desc"]) + " ";
                         msg += safe_json_get(unit, ["bb", "name"]) + " " + safe_json_get(unit, ["bb", "desc"]) + " ";
                         msg += safe_json_get(unit, ["sbb", "name"]) + " " + safe_json_get(unit, ["sbb", "desc"]) + " ";
                         msg += safe_json_get(unit, ["ubb", "name"]) + " " + safe_json_get(unit, ["ubb", "desc"]) + " ";
-                        if (unit["skills"] !== undefined) {
-                            for (sp in unit["skills"]) {
+                        if (unit.skills !== undefined) {
+                            for (sp in unit.skills) {
                                 try {
-                                    msg += unit["skills"][sp]["skill"]["desc"] + " ";
+                                    msg += unit.skills[sp].skill.desc + " ";
                                 } catch (err) {
                                     continue;
                                 }
@@ -195,13 +205,13 @@ let UnitDB = function(options){
                         }
                         // console.log(msg);
                         return msg;
-                    case 'all_effect': var msg = safe_json_get(unit, ["leader skill", "effects"]) + " ";
+                    case 'all_effect': msg = safe_json_get(unit, ["leader skill", "effects"]) + " ";
                         msg += safe_json_get(unit, ["extra skill", "effects"]) + " ";
                         msg += safe_json_get(unit, ["bb", "levels", 9, "effects"]) + " " + safe_json_get(unit, ["sbb", "levels", 9, "effects"]) + " " + safe_json_get(unit, ["ubb", "levels", 0, "effects"]);
-                        if (unit["skills"] !== undefined) {
-                            for (sp in unit["skills"]) {
+                        if (unit.skills !== undefined) {
+                            for (sp in unit.skills) {
                                 try {
-                                    msg += JSON.stringify(unit["skills"][sp]["skill"]["effects"]) + "\n";
+                                    msg += JSON.stringify(unit.skills[sp].skill.effects) + "\n";
                                 } catch (err) {
                                     continue;
                                 }
@@ -209,6 +219,10 @@ let UnitDB = function(options){
                         }
                         // console.log(msg);
                         return msg;
+                    case 'proc_id' || 'unknown_proc_id': 
+                        if(unit.es){
+                            
+                        }
                     default: return "";
                 }
             } catch (err) {
@@ -304,136 +318,15 @@ let UnitDB = function(options){
             console.log("Search results", results);
         }
         return results;
-    }
-
+    };
 
     options.translate = {
-        needsTranslation: (unit) => { 
-            function isJapaneseText(name) {
-                return name.search(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/) > -1;
-            }
-            return isJapaneseText(unit.name);
-        },
-        translate: (unit) => {
-            function translate_to_english(msg, fields, endField) {
-                return translate(msg, { from: 'ja', to: 'en' })
-                    .then(function (result) {
-                        var result_text = "";
-                        //clean up result, if necessary
-                        if (result.text.indexOf("null") == result.text.length - 4) {
-                            result_text = result.text.replace("null", "");
-                        } else {
-                            result_text = result.text;
-                        }
-                        return {
-                            translation: result_text + "*",
-                            fields: fields.concat(endField)
-                        };
-                    }).catch(err => {
-                        console.error(err);
-                    });
-            }
-
-            return translate_to_english(unit.name,[], "translated_name")
-                .then(function(translation_result){
-                    unit.name = translation_result.translation;
-                    return;
-                })
-        },
+        needsTranslation: bfdb_common.needsTranslation,
+        translate: bfdb_common.defaultTranslate,
         max_translations: 5
     };
 
-    function update_statistics(db){
-        //return everything that's in db_new and not in db_old
-        function get_db_diffs(db_old, db_new) {
-            var diffs = [];
-            for (var elem in db_new) {
-                if (db_old.indexOf(db_new[elem]) == -1) {
-                    diffs.push(db_new[elem]);
-                }
-            }
-            return diffs;
-        }
-        function get_ids_from_server(server, db) {
-            var result = [];
-            for (let i in db) {
-                if (db[i].server.indexOf(server) > -1) {
-                    result.push(i); //i is ID of current object
-                }
-            }
-            return result;
-        }
-        function update_statistics_per_server(server) {
-            //holds local file load/save functions
-            var updater = {
-                load: function (file, alternative_files) {
-                    try {
-                        return JSON.parse(fs.readFileSync("./json/" + file, 'utf8'));
-                    } catch (err) {//error, try alternative files
-                        if (alternative_files !== undefined && alternative_files.length > 0) {
-                            var new_file = alternative_files.pop();
-                            return updater.load(new_file, alternative_files);
-                        } else {//return an error if none of the files work
-                            return JSON.parse(fs.readFileSync("./json/" + file, 'utf8'));
-                        }
-                    }
-                },
-                save: function (file, data) {
-                    fs.writeFile("./json/" + file, data, function (err) {
-                        if (err) {
-                            console.log(err);
-                        }
-                        console.log("Saved " + file);
-                        return;
-                    });
-                }
-            };
-
-            console.log("Updating " + server.toUpperCase() + " statistics...");
-            //gather basic statistics
-            var unit_id = get_ids_from_server(server, db);
-            // var item_id = get_ids_from_server(server, master_list.item);
-            // var es_id = get_ids_from_server(server, master_list.es);
-            console.log(server, "current unit count", unit_id.length);
-            stats[server].total_entries = unit_id.length;
-
-            //load previous data, if it exists
-            var unit_data;
-            try {
-                unit_data = updater.load('stats-unit-' + server + ".json");
-
-                //save differences, if any
-                if (unit_data.last_loaded.length !== stats[server].total_entries || unit_data.last_loaded[0] !== unit_id[0]) {
-                    if (unit_data.last_loaded.length !== stats[server].total_entries) console.log(server, "unit last length", unit_data.last_loaded.length, "/ unit current length", stats[server].total_entries);
-                    else if (unit_data.last_loaded[0] !== unit_id[0]) console.log(server, "unit last loaded[0]", unit_data.last_loaded[0], "/ unit current loaded[0]", unit_id[0]);
-                    unit_data.newest = get_db_diffs(unit_data.last_loaded, unit_id);
-                    unit_data.last_loaded = unit_id;
-                    updater.save('stats-unit-' + server + '.json', JSON.stringify(unit_data));
-                }
-            } catch (err) { //file doesn't exist
-                console.log("Creating new unit stats file for", server);
-                unit_data = {
-                    newest: unit_id,
-                    last_loaded: unit_id
-                };
-                updater.save('stats-unit-' + server + '.json', JSON.stringify(unit_data));
-            }
-
-            //keep track of newest on server
-            stats[server] = unit_data.newest;
-        }
-
-        let stats = {
-            last_update: new Date().toUTCString()
-        };
-        for(let s of servers){
-            stats[s] = {};
-            update_statistics_per_server(s);
-        }
-
-        console.log("Finished updating statistics");
-    }
-    options.update_statistics = update_statistics;
+    options.update_statistics = (db) => { return bfdb_common.updateStatistics(db,"unit"); }
 
 
     return new bdfb_module(options);
