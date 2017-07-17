@@ -1,8 +1,8 @@
 let bdfb_module = require('./bfdb_module.js');
 let bfdb_common = require('./bfdb_common.js');
 
-let ItemDB = function(options){
-    options = options || {};
+let ItemDB = function(){
+    let options = {};
     // options.files = [];
     options.name = "Item";
 

@@ -1,8 +1,8 @@
 let bdfb_module = require('./bfdb_module.js');
 let bfdb_common = require('./bfdb_common.js');
 
-let UnitDB = function(options){
-    options = options || {};
+let UnitDB = function(){
+    let options = {};
     // options.files =  [];
     options.name = "Unit";
 
@@ -353,7 +353,6 @@ let UnitDB = function(options){
             return bfdb_common.listFilter(query,list, compareFn);
         }
     };
-
 
     return new bdfb_module(options);
 };

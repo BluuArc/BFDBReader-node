@@ -3,6 +3,7 @@ var fs = require('fs');
 let EffectPrinter = require('./effect_printer.js');
 let unitDB = require('./server_modules/unit.js');
 let itemDB = require('./server_modules/item.js');
+let esDB = require('./server_modules/es.js');
 
 client.setAddress("http://127.0.0.1:8081");
 
@@ -369,15 +370,15 @@ function analyzeObjectForValuesOf(target, field_name) {
 
 function sandbox_function(){
     // let attacking_bursts = {};
-    let testDB = itemDB;
+    let testDB = esDB;
     return testDB.init()
     .then(() => {
         // return testDB.update_statistics();
         // return testDB.translate();
     }).then(() => {
         console.log("Finished loading first time");    
-        // let results = testDB.search({ unit_name_id: "",strict: "false", verbose: true});
-        let results = testDB.list({start: 60000, end: 70000, verbose: true});
+        // let results = testDB.search({ es_name_id: "aeterno",strict: "false", verbose: true});
+        let results = testDB.list({start: 1014100, end: 1015000, verbose: true});
         if(results.length === 1){
             let item = testDB.getByID(results[0]);
             // console.log(analyzeObjectForValuesOf(testDB.getByID(results[0]),'passive id'));

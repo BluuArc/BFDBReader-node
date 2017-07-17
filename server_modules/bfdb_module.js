@@ -280,6 +280,10 @@ let DBModule = function(options){
             list.push(getEntry(target));
         }
 
+        if (query.verbose) {
+            console.log(list);
+        }
+
         let filterFn = listTarget.filter || common.listFilter;
 
         return filterFn(query,list);
