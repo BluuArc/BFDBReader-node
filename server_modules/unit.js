@@ -321,6 +321,7 @@ let UnitDB = function(options){
 
     options.update_statistics = (db) => { return bfdb_common.updateStatistics(db,"unit"); };
 
+    //custom list options due to ability to list by guide_id
     options.list = {
         getEntry: (target) => {
             let name = target.translated_name || target.name || target.desc;

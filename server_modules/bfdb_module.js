@@ -257,15 +257,16 @@ let DBModule = function(options){
     this.update_statistics = update_statistics;
 
     function list(query){
-        if(!options.list && (typeof options.list.getEntry !== "function" || typeof options.list.filter !== "function")){
+        if(options.list && (typeof options.list.getEntry !== "function" || typeof options.list.filter !== "function")){
             throw new Error("Must specify options.list object fully");
         }
+        let listTarget = options.list || {};
 
         if(query.verbose){
             console.log(query);
         }
 
-        let getEntry = options.list.getEntry || ((target) => {
+        let getEntry = listTarget.getEntry || ((target) => {
             let name = target.translated_name || target.name || target.desc;
             return {
                 id: parseInt(target.id),
@@ -279,7 +280,7 @@ let DBModule = function(options){
             list.push(getEntry(target));
         }
 
-        let filterFn = options.list.filter || common.listFilter;
+        let filterFn = listTarget.filter || common.listFilter;
 
         return filterFn(query,list);
     }

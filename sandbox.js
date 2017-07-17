@@ -369,31 +369,32 @@ function analyzeObjectForValuesOf(target, field_name) {
 
 function sandbox_function(){
     // let attacking_bursts = {};
-    return unitDB.init()
+    let testDB = itemDB;
+    return testDB.init()
     .then(() => {
-        // return unitDB.update_statistics();
-        // return unitDB.translate();
+        // return testDB.update_statistics();
+        // return testDB.translate();
     }).then(() => {
         console.log("Finished loading first time");    
-        // let results = unitDB.search({ unit_name_id: "",strict: "false", verbose: true});
-        let results = unitDB.list({start: 7000, end: 8000, type:"guide_id"});
+        // let results = testDB.search({ unit_name_id: "",strict: "false", verbose: true});
+        let results = testDB.list({start: 60000, end: 70000, verbose: true});
         if(results.length === 1){
-            let item = unitDB.getByID(results[0]);
-            // console.log(analyzeObjectForValuesOf(unitDB.getByID(results[0]),'passive id'));
+            let item = testDB.getByID(results[0]);
+            // console.log(analyzeObjectForValuesOf(testDB.getByID(results[0]),'passive id'));
             console.log(item);
         }else{
             for(let r of results){
-                // console.log(unitDB.getByID(r)['name']);
+                // console.log(testDB.getByID(r)['name']);
                 console.log(r);
             }
         }
         // console.log(JSON.stringify(itemDB.getByID('88700004'),null,2));
         // console.log(JSON.stringify(itemDB.getByID('88700006'),null,2));
-        // unitDB.reload();
+        // testDB.reload();
         
     }).then(() => { 
         // console.log("Finished loading second time");
-        // console.log(Object.keys(unitDB.getDB())); 
+        // console.log(Object.keys(testDB.getDB())); 
         console.log("done");
     });
 }
