@@ -264,8 +264,18 @@ let UnitDB = function(options){
             for (var u = 1; u < result_arr.length; ++u) {
                 var cur_evo = get_evo_line(result_arr[u]);
                 var cur_guide_id = db[cur_evo[0].toString()].guide_id;
+                let isEqualEvo = ((a,b) => {
+                    console.log("isEqualEvo",a,b);
+                    let curA, curB;
+                    let isEqual = a.length === b.length;
+                    while(isEqual && a.length > 0 && b.length > 0){
+                        curA = a.shift(), curB = b.shift();
+                        isEqual = curA === curB;
+                    }
+                    return isEqual;
+                })(last_evo,cur_evo);
                 if (verbose) console.log("cur_evo", u, cur_evo, "cur_guide", cur_guide_id);
-                if (cur_evo.length !== last_evo.length || cur_evo[0] !== last_evo[0] || cur_guide_id !== last_guide_id) {
+                if ((cur_evo.length !== last_evo.length) || (cur_evo[0] !== last_evo[0]) || (cur_guide_id !== last_guide_id) || !isEqualEvo) {
                     if (verbose) console.log("found first mismatch");
                     return result_arr;
                 }
@@ -309,7 +319,39 @@ let UnitDB = function(options){
         max_translations: 5
     };
 
-    options.update_statistics = (db) => { return bfdb_common.updateStatistics(db,"unit"); }
+    options.update_statistics = (db) => { return bfdb_common.updateStatistics(db,"unit"); };
+
+    options.list = {
+        getEntry: (target) => {
+            let name = target.translated_name || target.name || target.desc;
+            return {
+                id: parseInt(target.id),
+                guide_id: parseInt(target.guide_id),
+                name: `${target.guide_id}: ${name} (${target.id})`,
+            };
+        },
+        filter: (query,list) => {
+            let compareFn;
+            if(query.type === "guide_id"){
+                list.sort(function (a, b) {
+                    return a.guide_id - b.guide_id;
+                });
+                compareFn = (d,start,end) => {
+                    let id = parseInt(d.guide_id);
+                    if (start !== -1 && end !== -1) {
+                        return id >= start && id <= end;
+                    } else if (start === -1) {
+                        return id <= end;
+                    } else if (end === -1) {
+                        return id >= start;
+                    } else {
+                        return true; //get everything, since both are -1
+                    }
+                };
+            }
+            return bfdb_common.listFilter(query,list, compareFn);
+        }
+    };
 
 
     return new bdfb_module(options);

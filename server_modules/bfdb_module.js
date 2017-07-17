@@ -1,4 +1,5 @@
-var fs = require('fs');
+let fs = require('fs');
+let common = require('./bfdb_common.js');
 
 //general constructor for any db used in the main server
 let DBModule = function(options){
@@ -255,6 +256,34 @@ let DBModule = function(options){
     }
     this.update_statistics = update_statistics;
 
+    function list(query){
+        if(!options.list && (typeof options.list.getEntry !== "function" || typeof options.list.filter !== "function")){
+            throw new Error("Must specify options.list object fully");
+        }
+
+        if(query.verbose){
+            console.log(query);
+        }
+
+        let getEntry = options.list.getEntry || ((target) => {
+            let name = target.translated_name || target.name || target.desc;
+            return {
+                id: parseInt(target.id),
+                name: `${name} (${target.id})`
+            };
+        });
+
+        let list = [];
+        for(let t in db){
+            let target = db[t];
+            list.push(getEntry(target));
+        }
+
+        let filterFn = options.list.filter || common.listFilter;
+
+        return filterFn(query,list);
+    }
+    this.list = list;
 };
 
 module.exports = DBModule;

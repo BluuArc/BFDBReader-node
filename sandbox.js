@@ -375,14 +375,16 @@ function sandbox_function(){
         // return unitDB.translate();
     }).then(() => {
         console.log("Finished loading first time");    
-        let results = unitDB.search({ unit_name_id: "",rarity:"8",element:"light", strict: "false", verbose: true});
+        // let results = unitDB.search({ unit_name_id: "",strict: "false", verbose: true});
+        let results = unitDB.list({start: 7000, end: 8000, type:"guide_id"});
         if(results.length === 1){
             let item = unitDB.getByID(results[0]);
             // console.log(analyzeObjectForValuesOf(unitDB.getByID(results[0]),'passive id'));
             console.log(item);
         }else{
             for(let r of results){
-                console.log(unitDB.getByID(r)['name']);
+                // console.log(unitDB.getByID(r)['name']);
+                console.log(r);
             }
         }
         // console.log(JSON.stringify(itemDB.getByID('88700004'),null,2));

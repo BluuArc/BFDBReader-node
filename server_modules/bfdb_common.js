@@ -1,6 +1,7 @@
 let translate = require('google-translate-api');
 let fs = require('fs');
 
+//contains common functions used by modules
 let bfdb_common = function(){
     //helper function to generate files field for server modules
     function generateSetupFiles(files, setupFn){
@@ -98,7 +99,7 @@ let bfdb_common = function(){
 
         return translate_to_english(target.name, [], "translated_name")
             .then(function (translation_result) {
-                target.name = translation_result.translation;
+                target.translated_name = translation_result.translation;
                 return;
             });
     }
@@ -215,6 +216,30 @@ let bfdb_common = function(){
         }
     }
     this.addFieldToDB = addFieldToDB;
+
+    function defaultListCompare(d,start,end) {
+        let id = parseInt(d.id);
+        if (start !== -1 && end !== -1) {
+            return id >= start && id <= end;
+        } else if (end !== -1) {
+            return id <= end;
+        } else if (start !== -1) {
+            return id >= start;
+        } else {
+            return true; //get everything, since both are -1
+        }
+    }
+    this.defaultListCompare = defaultListCompare;
+
+    function listFilter(query,list,compareFn){
+        let start = (query.start !== undefined) ? +query.start : -1;
+        let end = (query.end !== undefined) ?+query.end : -1;
+
+        let comparator = compareFn || defaultListCompare;
+
+        return list.filter((d) => { return comparator(d,start,end); }).map((d) => { return d.name; });
+    }
+    this.listFilter = listFilter;
 }
 
 module.exports = new bfdb_common();
