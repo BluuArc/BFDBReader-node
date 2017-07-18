@@ -288,6 +288,81 @@ function bfdb_client(){
         });
     };
 
+    //BB
+    function getBraveBurst(id) {
+        return new Promise(function (fulfill, reject) {
+            //check if all parameters are properly set
+            if (address === undefined || address.length === 0) {
+                reject("Error: No URL specified. Use .setAddress(url) to fix.");
+            } else if (id === undefined || id.length === 0) {
+                reject("Error: No ID specified.");
+            } else {
+
+                var options = {
+                    method: 'GET',
+                    uri: address + "/bb/" + id
+                };
+
+                request(options)
+                    .then(function (response) {
+                        fulfill(JSON.parse(response));
+                    }).catch(reject);
+            }
+        });
+    }
+    this.getBraveBurst = getBraveBurst;
+
+    //get multiple extra skills by ID
+    this.getBraveBursts = function (id_arr) {
+        return do_n_at_a_time(id_arr, 5, getBraveBurst);
+    };
+
+    //search for an item given a set of parameters
+    this.searchBraveBurst = function (query) {
+        function queryIsValid(query) {
+            var isValid = false;
+            var validKeys = Object.keys({
+                name_id: "",
+                desc: "",
+                effects: "",
+                server: "",
+                translate: "",
+            });
+            var queryKeys = Object.keys(query);
+            for (var i = 0; i < queryKeys.length; ++i) {
+                if (validKeys.indexOf(queryKeys[i]) > -1) {
+                    isValid = true;
+                }
+            }
+            return isValid;
+        }
+        return new Promise(function (fulfill, reject) {
+            //check if all parameters are properly set
+            if (address === undefined || address.length === 0) {
+                reject("Error: No URL specified. Use .setAddress(url) to fix.");
+            } else if (query === undefined) {
+                reject("Error: No query specified.");
+            } else if (!queryIsValid(query)) {
+                reject("Error: Query isn't valid.");
+            } else {
+                var options = {
+                    method: 'GET',
+                    uri: encodeURI(address + "/search/bb/options?" + get_request_options(query))
+                };
+
+                if (query.verbose) {
+                    console.log("Given", query);
+                    console.log("Searching with", options.uri);
+                }
+
+                request(options)
+                    .then(function (response) {
+                        fulfill(JSON.parse(response));
+                    }).catch(reject);
+            }
+        });
+    };
+
     this.getStatus = function(){
         return new Promise(function (fulfill, reject) {
             //check if all parameters are properly set

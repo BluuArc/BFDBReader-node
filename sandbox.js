@@ -405,10 +405,10 @@ function sandbox_function(){
 
 ep.init().then(function(){ 
     return (
-        sandbox_function()
+        // sandbox_function()
         // getBuffDataForAll()
-        // doItemTest({ item_name_id: "(800312)", verbose: true})
-        // doUnitTest({ unit_name_id: "holia",strict: "false", verbose:true,burstType: "ubb", type: "burst"})
+        // doItemTest({ name_id: "(800312)", verbose: true})
+        doUnitTest({ name_id: "holia",strict: "false", verbose:true,burstType: "ubb", type: "burst"})
         // doBurstTest("1750165")
         // doESTest("750216")
     );
