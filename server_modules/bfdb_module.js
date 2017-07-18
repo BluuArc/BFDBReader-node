@@ -1,5 +1,6 @@
 let fs = require('fs');
 let common = require('./bfdb_common.js');
+let request = require('request');
 
 //general constructor for any db used in the main server
 let DBModule = function(options){
@@ -99,6 +100,22 @@ let DBModule = function(options){
         });
     }
 
+    //donwnload a single file
+    function json_download_promisified(url, local_name) {
+        return new Promise(function (fulfill, reject) {
+            console.log("DL: " + url + " > " + local_name);
+            try {
+                fs.mkdirSync('./json/');
+            } catch (err) {/*do nothing as directory already exists*/ }
+
+            var destination = fs.createWriteStream(`./json/${local_name}`);
+            console.log(destination.path);
+            request(url).pipe(destination).on('finish', function () {
+                fulfill(local_name);
+            });
+        });
+    }
+
     //run an array against a function that returns a promise n times
     //promise function is expected to receive the object at an array index
     function do_n_at_a_time(arr, n, promiseFn) {
@@ -135,15 +152,67 @@ let DBModule = function(options){
     //delete db data then re-initialize db; does NOT download anything
     function reload(){
         //delete first level of DB
-        console.log(`Deleting old db for ${name}...`);
-        let keys = Object.keys(db);
-        for(let k of keys){
-            delete db[k];
+        if(db){
+            console.log(`Deleting old db for ${name}...`);
+            let keys = Object.keys(db);
+            for(let k of keys){
+                delete db[k];
+            }
         }
         console.log("Begin reloading files for",name);
         return init();
     }
     this.reload = reload;
+
+    function download(){
+        if(!options.files){
+            throw new Error("No files specified");
+        }
+        let downloadLimit = options.downloadLimit || 1;
+        let files = [];
+        let toRename = [];
+        for(let file_obj of options.files){
+            for(let file of file_obj.files){
+                files.push({
+                    filename: file.main,
+                    url: file.main_url,
+                });
+                let fileParts = file.main.split('.');
+                let extension = fileParts.pop();
+                toRename.push({
+                    old_name: file.main,
+                    new_name: `${fileParts.join('.')}-old.${extension}`
+                });
+            }
+        }
+
+        // console.log("Download limit for",name,"is",downloadLimit);
+
+        // console.log(files,toRename);
+        // let renamedPromises = [];
+        // for(let f of toRename){
+        //     renamedPromises.push(rename_file_promisified(f.old_name,f.new_name));
+        //     console.log(`Renaming ${f.old_name} to ${f.new_name}`);
+        // }
+
+        console.log("Renaming files");
+        let renamedPromise = do_n_at_a_time(toRename,1,(f) => {
+            return rename_file_promisified(f.old_name,f.new_name);
+        });
+        return renamedPromise.then(() => {
+            //download files from remote servers
+            let completed = 0;
+            return do_n_at_a_time(files, downloadLimit, function (dl_request) {
+                let url = dl_request.url;
+                let filename = dl_request.filename;
+
+                return json_download_promisified(url,filename).then((filename) => {
+                    console.log(`Downloaded ${filename} (${++completed}/${files.length})`);
+                });
+            });
+        });
+    }
+    this.download = download;
 
     /*
         files: [
@@ -280,9 +349,9 @@ let DBModule = function(options){
             list.push(getEntry(target));
         }
 
-        if (query.verbose) {
-            console.log(list);
-        }
+        // if (query.verbose) {
+        //     console.log(list);
+        // }
 
         let filterFn = listTarget.filter || common.listFilter;
 

@@ -141,6 +141,8 @@ let ItemDB = function(){
         max_translations: 5
     };
 
+    options.downloadLimit = 3;
+
     options.update_statistics = (db) => { return bfdb_common.updateStatistics(db, "item"); }
 
     return new bdfb_module(options);

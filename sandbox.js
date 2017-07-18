@@ -370,23 +370,25 @@ function analyzeObjectForValuesOf(target, field_name) {
 
 function sandbox_function(){
     // let attacking_bursts = {};
-    let testDB = esDB;
+    let testDB = itemDB;
     return testDB.init()
     .then(() => {
         // return testDB.update_statistics();
         // return testDB.translate();
+        return testDB.download();
     }).then(() => {
         console.log("Finished loading first time");    
+        console.log(testDB.getByID("-1"));
         // let results = testDB.search({ es_name_id: "aeterno",strict: "false", verbose: true});
-        let results = testDB.list({start: 1014100, end: 1015000, verbose: true});
+        // let results = testDB.list({start: 1000, end: 7000, type:"guide_id", verbose: false});
         if(results.length === 1){
-            let item = testDB.getByID(results[0]);
+            // let item = testDB.getByID(results[0]);
             // console.log(analyzeObjectForValuesOf(testDB.getByID(results[0]),'passive id'));
             console.log(item);
         }else{
             for(let r of results){
                 // console.log(testDB.getByID(r)['name']);
-                console.log(r);
+                // console.log(r);
             }
         }
         // console.log(JSON.stringify(itemDB.getByID('88700004'),null,2));

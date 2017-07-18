@@ -7,6 +7,7 @@ let bfdb_common = function(){
     function generateSetupFiles(files, setupFn){
         let setupArr = [];
         let servers = ['gl', 'eu', 'jp'];
+        let main_url = "https://raw.githubusercontent.com/Deathmax/bravefrontier_data/master/";
         for (let s of servers) {
             let curObj = {
                 name: s,
@@ -17,12 +18,14 @@ let bfdb_common = function(){
                 curObj.files.push({
                     name: `${f}`,
                     main: `${f}-${s}.json`,
-                    alternatives: [`${f}-${s}-old.json`]
+                    alternatives: [`${f}-${s}-old.json`],
+                    main_url: `${main_url}${(s === 'gl') ? `${f}.json` : `${s}/${f}.json`}`
                 });
 
             }
             setupArr.push(curObj);
         }
+
         return setupArr;
     }
     this.generateSetupFiles = generateSetupFiles;
@@ -185,7 +188,7 @@ let bfdb_common = function(){
             }
 
             //keep track of newest on server
-            stats[server] = statistics_data.newest;
+            stats[server].newest = statistics_data.newest;
         }
 
         let servers = ['gl', 'eu', 'jp'];
@@ -235,11 +238,49 @@ let bfdb_common = function(){
         let start = (query.start !== undefined) ? +query.start : -1;
         let end = (query.end !== undefined) ?+query.end : -1;
 
+        if(query.verbose){
+            console.log(start,"to",end);
+        }
+
         let comparator = compareFn || defaultListCompare;
 
         return list.filter((d) => { return comparator(d,start,end); }).map((d) => { return d.name; });
     }
     this.listFilter = listFilter;
+
+    //run an array against a function that returns a promise n times
+    //promise function is expected to receive the object at an array index
+    function do_n_at_a_time(arr, n, promiseFn) {
+        function n_recursive(arr, n, acc, callbackFn) {
+            if (arr.length === 0) {
+                callbackFn(acc);
+            } else {
+                var max = (arr.length < n) ? arr.length : n;
+                var promises = [];
+                for (var i = 0; i < max; ++i) {
+                    var curObject = arr.shift();
+                    promises.push(promiseFn(curObject));
+                }
+                Promise.all(promises)
+                    .then(function (results) {
+                        for (var i = 0; i < results.length; ++i) {
+                            acc.push(results[i]);
+                        }
+                        n_recursive(arr, n, acc, callbackFn);
+                    });
+            }
+        }
+
+        var new_arr = arr.slice();
+        return new Promise(function (fulfill, reject) {
+            try {
+                n_recursive(new_arr, n, [], fulfill);
+            } catch (err) {
+                reject(err);
+            }
+        });
+    }
+    this.do_n_at_a_time = do_n_at_a_time;
 }
 
 module.exports = new bfdb_common();
