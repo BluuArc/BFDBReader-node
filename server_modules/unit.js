@@ -257,12 +257,21 @@ let UnitDB = function(){
                 curUnit = db[curUnit.next];
             }
 
-            return evo;
+            if(evo.length !== 1)
+                return evo;
+            else
+                return [+unit_id]; //needed for cases where internal ID may be different from DB ID
         }
         //shorten results to a single unit IFF only one type of unit exists in the list
         //assumption: result_arr has at least one element in it
         function shorten_results(result_arr, verbose) {
+            if(verbose){
+                console.log("result_arr", result_arr);
+            }
             let first_unit_evo = get_evo_line(result_arr.shift());
+            if(verbose){
+                console.log("first_unit_evo",first_unit_evo);
+            }
             for(let u of result_arr){
                 let cur_unit_evo = get_evo_line(u);
                 let isEqualEvo = ((a,b) => {
@@ -287,35 +296,6 @@ let UnitDB = function(){
             //if this point is reached, then only one type of unit exists in the list
             //return last unit in list as it's the highest rarity one
             return [first_unit_evo.pop()];
-
-
-            // var last_evo = get_evo_line(result_arr[0]);
-            // var last_guide_id = db[last_evo[0].toString()].guide_id;
-            // if (verbose) console.log("last_evo", last_evo, "last_guide", last_guide_id);
-            // //check for uniqueness, return original array if not unique
-            // for (var u = 1; u < result_arr.length; ++u) {
-            //     var cur_evo = get_evo_line(result_arr[u]);
-            //     var cur_guide_id = db[cur_evo[0].toString()].guide_id;
-            //     let isEqualEvo = ((a,b) => {
-            //         console.log("isEqualEvo",a,b);
-            //         let curA, curB;
-            //         let isEqual = a.length === b.length;
-            //         while(isEqual && a.length > 0 && b.length > 0){
-            //             curA = a.shift(), curB = b.shift();
-            //             isEqual = curA === curB;
-            //         }
-            //         return isEqual;
-            //     })(last_evo,cur_evo);
-            //     if (verbose) console.log("cur_evo", u, cur_evo, "cur_guide", cur_guide_id);
-            //     if ((cur_evo.length !== last_evo.length) || (cur_evo[0] !== last_evo[0]) || (cur_guide_id !== last_guide_id) || !isEqualEvo) {
-            //         if (verbose) console.log("found first mismatch");
-            //         return result_arr;
-            //     }
-            // }
-
-            //if this point is reached, then only one type of unit exists in the list
-            //return last unit in list as it's the highest rarity one
-            // return [last_evo.pop()];
         }
 
         if(query.verbose === true || query.verbose == 'true'){
