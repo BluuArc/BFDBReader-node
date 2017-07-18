@@ -36,12 +36,12 @@ let ExtraSkillDB = function(){
     options.getByID = bfdb_common.getByID;
 
     options.search = (query,db) => {
-        function get_es_query_value(queryField, es) {
+        function get_query_value(queryField, es) {
             try {
                 switch (queryField) {
-                    case 'es_name_id':
+                    case 'name_id':
                         return es.name.toLowerCase() + (es.translated_name ? (" " + es.translated_name.toLowerCase()) : "") + `(${es.id})`;
-                    case 'es_desc': return es.desc.toLowerCase();
+                    case 'desc': return es.desc.toLowerCase();
                     case 'effects': return JSON.stringify(es.effects);
                     case 'server': return JSON.stringify(es.server);
                     default: return "";
@@ -62,7 +62,7 @@ let ExtraSkillDB = function(){
                 }
 
                 try {
-                    var esValue = get_es_query_value(q, es).toString();
+                    var esValue = get_query_value(q, es).toString();
                     if (esValue.indexOf(curQuery) == -1) {
                         return false; //stop if any part of query is not in es
                     }

@@ -142,12 +142,12 @@ let UnitDB = function(){
 
     options.search = (query,db) => {
         //get the corresponding unit value of a given query
-        function get_unit_query_value(queryField, unit) {
+        function get_query_value(queryField, unit) {
             try {
                 let result,msg;
                 let acc = [];
                 switch (queryField) {
-                    case 'unit_name_id':
+                    case 'name_id':
                         return `${unit.guide_id}: ${unit.name.toLowerCase()}${(unit.translated_name ? (" " + unit.translated_name.toLowerCase()) : "")} (${unit.id})`;
                     case 'rarity': return unit.rarity.toString();
                     case 'element': return unit.element.toLowerCase();
@@ -230,7 +230,7 @@ let UnitDB = function(){
                 }
 
                 try {
-                    var unitValue = get_unit_query_value(q, unit).toString();
+                    var unitValue = get_query_value(q, unit).toString();
                     if (unitValue.indexOf(curQuery) === -1) {
                         // if(query.verbose == true || query.verbose == 'true') console.log("Failed on",unit.id,q,curQuery);
                         return false; //stop if any part of query is not in unit

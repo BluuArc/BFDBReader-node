@@ -116,39 +116,6 @@ let DBModule = function(options){
         });
     }
 
-    //run an array against a function that returns a promise n times
-    //promise function is expected to receive the object at an array index
-    function do_n_at_a_time(arr, n, promiseFn) {
-        function n_recursive(arr, n, acc, callbackFn) {
-            if (arr.length === 0) {
-                callbackFn(acc);
-            } else {
-                var max = (arr.length < n) ? arr.length : n;
-                var promises = [];
-                for (var i = 0; i < max; ++i) {
-                    var curObject = arr.shift();
-                    promises.push(promiseFn(curObject));
-                }
-                Promise.all(promises)
-                    .then(function (results) {
-                        for (var i = 0; i < results.length; ++i) {
-                            acc.push(results[i]);
-                        }
-                        n_recursive(arr, n, acc, callbackFn);
-                    });
-            }
-        }
-
-        var new_arr = arr.slice();
-        return new Promise(function (fulfill, reject) {
-            try {
-                n_recursive(new_arr, n, [], fulfill);
-            } catch (err) {
-                reject(err);
-            }
-        });
-    }
-
     //delete db data then re-initialize db; does NOT download anything
     function reload(){
         //delete first level of DB
@@ -186,30 +153,22 @@ let DBModule = function(options){
             }
         }
 
-        // console.log("Download limit for",name,"is",downloadLimit);
-
-        // console.log(files,toRename);
-        // let renamedPromises = [];
-        // for(let f of toRename){
-        //     renamedPromises.push(rename_file_promisified(f.old_name,f.new_name));
-        //     console.log(`Renaming ${f.old_name} to ${f.new_name}`);
-        // }
-
         console.log("Renaming files");
-        let renamedPromise = do_n_at_a_time(toRename,1,(f) => {
+        let renamedPromise = common.do_n_at_a_time(toRename,1,(f) => {
             return rename_file_promisified(f.old_name,f.new_name);
-        });
+        },true);
         return renamedPromise.then(() => {
             //download files from remote servers
             let completed = 0;
-            return do_n_at_a_time(files, downloadLimit, function (dl_request) {
+            let length = files.length;
+            return common.do_n_at_a_time(files, downloadLimit, function (dl_request) {
                 let url = dl_request.url;
                 let filename = dl_request.filename;
 
                 return json_download_promisified(url,filename).then((filename) => {
-                    console.log(`Downloaded ${filename} (${++completed}/${files.length})`);
+                    console.log(`Downloaded ${filename} (${++completed}/${length})`);
                 });
-            });
+            },true);
         });
     }
     this.download = download;
@@ -260,7 +219,7 @@ let DBModule = function(options){
         }
         db = {};
 
-        return do_n_at_a_time(files,1,single_load);
+        return common.do_n_at_a_time(files,1,single_load,true);
     }
     this.init = init;
 
@@ -294,18 +253,20 @@ let DBModule = function(options){
         let count_finished = 0;
         for(let entry in db){
             if(options.translate.needsTranslation(db[entry])){
-                to_be_translated.push(db[entry]);
+                to_be_translated.push(entry);
             }
         }
 
-        console.log(`Translating ${to_be_translated.length} entries in ${name}`);
+        let length = to_be_translated.length;
+
+        console.log(`Translating ${length} entries in ${name}`);
 
         let translate = (entry) => {
-            return options.translate.translate(entry)
-                .then( () => {console.log(`Translated ${++count_finished}/${to_be_translated.length} entries in ${name}`);});
+            return options.translate.translate(db[entry])
+                .then( () => {console.log(`Translated ${++count_finished}/${length} entries in ${name}`);});
         }
 
-        return do_n_at_a_time(to_be_translated, options.translate.max_translations || 5,translate);
+        return common.do_n_at_a_time(to_be_translated, options.translate.max_translations || 5,translate,true);
     }
     this.translate = translate_db;
 

@@ -111,13 +111,6 @@ let bfdb_common = function(){
     function updateStatistics(db,name){
         //return everything that's in db_new and not in db_old
         function get_db_diffs(db_old_ids, db_new_ids) {
-            // let diffs = [];
-            // for (let elem in db_new) {
-            //     if (db_old.indexOf(db_new[elem]) === -1) {
-            //         diffs.push(db_new[elem]);
-            //     }
-            // }
-            // return diffs;
             return db_new_ids.filter((t) => { return db_old_ids.indexOf(t) === -1; });
         }
         function get_ids_from_server(server, db) {
@@ -250,35 +243,43 @@ let bfdb_common = function(){
 
     //run an array against a function that returns a promise n times
     //promise function is expected to receive the object at an array index
-    function do_n_at_a_time(arr, n, promiseFn) {
-        function n_recursive(arr, n, acc, callbackFn) {
-            if (arr.length === 0) {
-                callbackFn(acc);
-            } else {
-                var max = (arr.length < n) ? arr.length : n;
-                var promises = [];
-                for (var i = 0; i < max; ++i) {
-                    var curObject = arr.shift();
-                    promises.push(promiseFn(curObject));
+    function do_n_at_a_time(arr, n, promiseFn, dontSaveArray) {
+
+        let new_arr;
+        if(!dontSaveArray) //copy array by default
+            new_arr = arr.slice();
+        else
+            new_arr = arr;
+
+        let acc = [];
+        function n_recursive(){
+            if(new_arr.length === 0){
+                return Promise.resolve(acc);
+            }else{
+                let max = (new_arr.length < n) ? new_arr.length : n;
+                let promises = [];
+                for (let i = 0; i < max; ++i) {
+                    let curObject = new_arr.shift();
+                    promises.push(Promise.resolve(promiseFn(curObject)));
                 }
-                Promise.all(promises)
+
+                return Promise.all(promises)
                     .then(function (results) {
-                        for (var i = 0; i < results.length; ++i) {
+                        for (let i = 0; i < results.length; ++i) {
                             acc.push(results[i]);
                         }
-                        n_recursive(arr, n, acc, callbackFn);
+
+                        while (promises.length > 0) {
+                            promises.shift();
+                        }
+                        while (results.length > 0) {
+                            results.shift();
+                        }
+                        return n_recursive();
                     });
             }
         }
-
-        var new_arr = arr.slice();
-        return new Promise(function (fulfill, reject) {
-            try {
-                n_recursive(new_arr, n, [], fulfill);
-            } catch (err) {
-                reject(err);
-            }
-        });
+        return n_recursive();
     }
     this.do_n_at_a_time = do_n_at_a_time;
 }

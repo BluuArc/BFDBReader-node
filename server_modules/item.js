@@ -77,12 +77,12 @@ let ItemDB = function(){
     options.getByID = bfdb_common.getByID;
 
     options.search = (query,db) => {
-        function get_item_query_value(queryField, item) {
+        function get_query_value(queryField, item) {
             try {
                 switch (queryField) {
-                    case 'item_name_id':
+                    case 'name_id':
                         return `${item.name.toLowerCase()}${(item.translated_name ? (" " + item.translated_name.toLowerCase()) : "")} (${item.id})`;
-                    case 'item_desc': return item.desc.toLowerCase();
+                    case 'desc': return item.desc.toLowerCase();
                     case 'rarity': return item.rarity.toString();
                     case 'type': return item.type.toLowerCase();
                     case 'effect': return JSON.stringify(item.effect);
@@ -108,7 +108,7 @@ let ItemDB = function(){
                 }
 
                 try {
-                    var itemValue = get_item_query_value(q, item).toString();
+                    var itemValue = get_query_value(q, item).toString();
                     if (itemValue.indexOf(curQuery) == -1) {
                         return false; //stop if any part of query is not in item
                     }

@@ -1,10 +1,13 @@
-//for File management
+//for file management
 var fs = require('fs');
 var request = require('request');
 var rp = require('request-promise');
 
 var _ = require('lodash'); //for search functions
 // var translate = require('google-translate-api');
+
+//for memory management
+var heapdump = require('heapdump');
 
 //for server setup 
 var compression = require('compression');
@@ -105,32 +108,65 @@ function init_db(isReload){
         }
     }
 
-    let loadPromises = [];
-    for(let d in db){
-        if(!isReload){
-            loadPromises.push(db[d].init());
-        }else{
-            loadPromises.push(db[d].reload());
+    function trim_bbs_db(unit_db,bb_db){
+        let presentIDs = [];
+        for(let u in unit_db){
+            let curUnit = unit_db[u];
+            if(curUnit.bb){
+                presentIDs.push(parseInt(curUnit.bb.id));
+            }
+            if(curUnit.sbb){
+                presentIDs.push(parseInt(curUnit.sbb.id));
+            }
+            if(curUnit.ubb){
+                presentIDs.push(parseInt(curUnit.ubb.id));
+            }
+        }
+
+        //sort in ascending order
+        presentIDs.sort(function(a,b){
+            return a - b;
+        });
+
+        for(let b in bb_db){
+            if(_.sortedIndexOf(presentIDs,parseInt(b)) > -1){
+                delete bb_db[b];
+            }
         }
     }
 
-    return Promise.all(loadPromises)
-        .then(() => {
+    let loadRequests = Object.keys(db);
+
+    return common.do_n_at_a_time(loadRequests,1,(r) => {
+        if(!isReload){
+            return db[r].init();
+        }else{
+            return db[r].reload();
+        }
+    }).then(() => {
             //post processing
             console.log("Doing some post processing of DBs...");
             translate_evo_mats(db.units.getDB(),db.items.getDB());
             trim_es_db(db.units.getDB(),db.es.getDB());
+            trim_bbs_db(db.units.getDB(),db.bbs.getDB());
             return;
         }).then(() => {
             let translations = [];
             for(let d in db){
                 db[d].update_statistics();
-                if(!argv.notranslate){
-                    translations.push(db[d].translate());
-                }
             }
 
-            return Promise.all(translations);
+            if(!argv.notranslate){
+                return common.do_n_at_a_time(loadRequests,1,(r) => {
+                    if(r !== "bbs"){
+                        return db[r].translate();
+                    }else{
+                        return; //don't translate BBs
+                    }
+                },true);
+            }else{
+                return;
+            }
         }).then(() => {
             isReloading = false;  
         });
@@ -142,8 +178,11 @@ function reload_db(){
 
     return common.do_n_at_a_time(reloadRequests,1,(db_name) => {
         return db[db_name].download();
-    }).then(() => {
+    },true).then(() => {
         return init_db(true).then(send_updates);
+    }).then(() => {
+        init_memory_fix();
+        return;  
     });
 }
 
@@ -341,8 +380,21 @@ function send_updates() {
     return Promise.all(promises);
 }
 
+//this somehow cleans up the extra memory after the first init
+function init_memory_fix(){
+    console.log("Starting heapdump");
+    heapdump.writeSnapshot(function (err, filename) {
+        console.log('dump written to', filename);
+        fs.unlinkSync(`./${filename}`);
+        console.log("deleted",filename);
+    });
+}
+
 app.get('/', function (request, response) {
     response.end("<h1>Hello World</h1>");
+
+    //manual trigger
+    init_memory_fix();
 });
 
 //show the statistics of the server
@@ -403,6 +455,7 @@ loadPromise.then(() => {
     // console.log("Done loading");
     return new Promise(function(fulfill,reject){
         createListeners();
+        init_memory_fix();
 
         var server = app.listen(argv.port, argv.ip, function () {
             let host = server.address().address;
@@ -410,7 +463,7 @@ loadPromise.then(() => {
 
             console.log("Finished loading database");
             console.log("Ready! Server listening at http://%s:%s", host, port);
-
+            
             fulfill(); //necessary to only enter test function after this message
         });
     });
@@ -426,9 +479,8 @@ loadPromise.then(() => {
 function test_function() {
     console.log("Entered test function");
 
-    // send_updates().then(function(results){
-    //     console.log("Sent update hooks");
-    // });
-    // console.log(master_list.es);
+    heapdump.writeSnapshot(function (err, filename) {
+        console.log('dump written to', filename);
+    });
     console.log("Done");
 }
