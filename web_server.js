@@ -14,10 +14,12 @@ var express = require('express'),
 
 let common = require('./server_modules/bfdb_common.js');
 
+//to add a module, simply add the name and associated require here
 let db = {
     units: require('./server_modules/unit.js'),
     items: require('./server_modules/item.js'),
-    es: require('./server_modules/es.js')
+    es: require('./server_modules/es.js'),
+    bbs: require('./server_modules/bb.js'),
 };
 
 let isReloading = true;

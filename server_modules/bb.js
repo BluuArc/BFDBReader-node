@@ -1,49 +1,49 @@
 let bdfb_module = require('./bfdb_module.js');
 let bfdb_common = require('./bfdb_common.js');
 
-let ExtraSkillDB = function(){
+let BraveBurstDB = function(){
     let options = {};
-    options.name = "ES";
+    options.name = "Brave Bursts";
 
-    let servers = ['gl', 'eu', 'jp'];
-    let files = ['es'];
+    let servers = ['gl','eu','jp'];
+    let files = ['bbs'];
     let setupFn = function (db, loaded_files, server) {
         //add in anything in db_sub and not in db_main to db_main
         function merge_databases(db_main, db_sub, server) {
             let keys = Object.keys(db_sub);
-            for (var es of keys) { //iterate through everything in object
-                var id = es;
-                if (db_main[es] !== undefined) { //exists, so just add date add time
-                    if (db_main[es].server.indexOf(server) == -1) {
-                        db_main[es].server.push(server);
+            for (var bb of keys) { //iterate through everything in object
+                var id = bb;
+                if (db_main[bb] !== undefined) { //exists, so just add date add time
+                    if (db_main[bb].server.indexOf(server) == -1) {
+                        db_main[bb].server.push(server);
                     }
                 } else { //doesn't exist, so add it
-                    db_main[id] = db_sub[es];
+                    db_main[id] = db_sub[bb];
                     db_main[id].server = [server];
                 }
-                delete db_sub[es];
+                delete db_sub[bb];
             }
         }
-        console.log(`Loaded file for ES in ${server}. Begin processing...`);
+        console.log(`Loaded file for BBs in ${server}. Begin processing...`);
 
-        merge_databases(db, loaded_files.es, server);
+        merge_databases(db, loaded_files.bbs, server);
 
-        console.log(`Finished processing for ES in ${server}`);
+        console.log(`Finished processing for BBs in ${server}`);
     };
 
     options.files = bfdb_common.generateSetupFiles(files, setupFn);
 
     options.getByID = bfdb_common.getByID;
 
-    options.search = (query,db) => {
-        function get_es_query_value(queryField, es) {
+    options.search = (query, db) => {
+        function get_query_value(queryField, bb) {
             try {
                 switch (queryField) {
-                    case 'es_name_id':
-                        return es.name.toLowerCase() + (es.translated_name ? (" " + es.translated_name.toLowerCase()) : "") + `(${es.id})`;
-                    case 'es_desc': return es.desc.toLowerCase();
-                    case 'effects': return JSON.stringify(es.effects);
-                    case 'server': return JSON.stringify(es.server);
+                    case 'name_id':
+                        return bb.name.toLowerCase() + (bb.translated_name ? (" " + bb.translated_name.toLowerCase()) : "") + `(${bb.id})`;
+                    case 'desc': return bb.desc.toLowerCase();
+                    case 'effects': return JSON.stringify(bb.effects);
+                    case 'server': return JSON.stringify(bb.server);
                     default: return "";
                 }
             } catch (err) {
@@ -52,7 +52,7 @@ let ExtraSkillDB = function(){
             }
         }
 
-        function contains_query(query,es){
+        function contains_query(query, bb) {
             var ignored_fields = ['strict', 'translate', 'verbose'];
             for (var q in query) {
                 var curQuery = query[q].toString().toLowerCase();
@@ -62,8 +62,8 @@ let ExtraSkillDB = function(){
                 }
 
                 try {
-                    var esValue = get_es_query_value(q, es).toString();
-                    if (esValue.indexOf(curQuery) == -1) {
+                    var bbValue = get_query_value(q, bb).toString();
+                    if (bbValue.indexOf(curQuery) == -1) {
                         return false; //stop if any part of query is not in es
                     }
                 } catch (err) { //only occurs if requested field is empty in es
@@ -91,11 +91,9 @@ let ExtraSkillDB = function(){
         max_translations: 5
     };
 
-    options.downloadLimit = 3;
-
-    options.update_statistics = (db) => { return bfdb_common.updateStatistics(db, "es"); };
+    options.update_statistics = (db) => { return bfdb_common.updateStatistics(db, "bbs"); };
 
     return new bdfb_module(options);
 };
 
-module.exports = new ExtraSkillDB();
+module.exports = new BraveBurstDB();
