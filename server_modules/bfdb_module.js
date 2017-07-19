@@ -192,9 +192,9 @@ let DBModule = function(options){
     //load each set of files and merge into db one by one
     function init(){
         function single_load(file_obj){
-            let file_db = {};
-            let file_promises = [];
             return new Promise(function(fulfill,reject){
+                let file_db = {};
+                let file_promises = [];
                 for(let f of file_obj.files){
                     let curPromise = load_json_promisified(f.main,f.alternatives)
                         .then(function(result){
@@ -227,6 +227,9 @@ let DBModule = function(options){
     this.getStats = () => { return stats; };
 
     function search(query){
+        if (query.verbose === true || query.verbose == 'true'){
+            console.log("Search Query:",query);
+        }
         if(typeof options.search !== "function"){
             throw new Error("No search function defined");
         }else{

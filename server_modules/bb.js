@@ -28,6 +28,8 @@ let BraveBurstDB = function(){
 
         merge_databases(db, loaded_files.bbs, server);
 
+        delete loaded_files.bbs;
+
         console.log(`Finished processing for BBs in ${server}`);
     };
 
@@ -36,13 +38,16 @@ let BraveBurstDB = function(){
     options.getByID = bfdb_common.getByID;
 
     options.search = (query, db) => {
+        let verbose = query.verbose === true || query.verbose == 'true';
         function get_query_value(queryField, bb) {
             try {
                 switch (queryField) {
                     case 'name_id':
                         return bb.name.toLowerCase() + (bb.translated_name ? (" " + bb.translated_name.toLowerCase()) : "") + `(${bb.id})`;
-                    case 'desc': return bb.desc.toLowerCase();
-                    case 'effects': return JSON.stringify(bb.effects);
+                    case 'desc': return (bb.desc || "").toLowerCase();
+                    case 'effects': 
+                        let endLevel = bb.levels[bb.levels.length - 1];
+                        return JSON.stringify(endLevel.effects);
                     case 'server': return JSON.stringify(bb.server);
                     default: return "";
                 }
@@ -63,10 +68,15 @@ let BraveBurstDB = function(){
 
                 try {
                     var bbValue = get_query_value(q, bb).toString();
+                    // console.log(q,bbValue);
                     if (bbValue.indexOf(curQuery) == -1) {
-                        return false; //stop if any part of query is not in es
+                        if(verbose)
+                            console.log(q,"No match in",bbValue);
+                        return false; //stop if any part of query is not in bb
                     }
-                } catch (err) { //only occurs if requested field is empty in es
+                } catch (err) { //only occurs if requested field is empty in bb
+                    if(verbose)
+                        console.log(q,"Error",err);
                     return false;
                 }
             }
@@ -74,12 +84,13 @@ let BraveBurstDB = function(){
         }
         let results = [];
         for (let u in db) {
+            if(verbose) console.log("Checking BB",u);
             if (contains_query(query, db[u])) {
                 results.push(u);
             }
         }
 
-        if (query.verbose === true || query.verbose == 'true') {
+        if (verbose) {
             console.log("Search results", results);
         }
         return results;

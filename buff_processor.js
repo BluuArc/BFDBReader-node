@@ -20,8 +20,8 @@ var BuffProcessor = function (unit_names, item_names, options) {
     function initializeNames(){
         function setNameArrays() {
             console.log("Getting new names.json");
-            let units = client.searchUnit({ unit_name_id: "" });
-            let items = client.searchItem({ item_name_id: "" });
+            let units = client.searchUnit({ name_id: "" });
+            let items = client.searchItem({ name_id: "" });
             return Promise.all([units, items])
                 .then(function (results) {
                     let unitIDs = results[0];
