@@ -83,10 +83,10 @@ function bfdb_client(){
 
     //search for a unit given a set of parameters
     this.searchUnit = function(query){
-        function unitQueryIsValid(query){
+        function queryIsValid(query){
             var isValid = false;
             var validKeys = Object.keys({
-                unit_name_id: "",
+                name_id: "",
                 rarity: "",
                 element: "",
                 gender: "",
@@ -124,7 +124,7 @@ function bfdb_client(){
                 reject("Error: No URL specified. Use .setAddress(url) to fix.");
             }else if(query === undefined){
                 reject("Error: No query specified.");
-            }else if(!unitQueryIsValid(query)){
+            }else if(!queryIsValid(query)){
                 reject("Error: Query isn't valid.")
             }else{
                 var options = {
@@ -172,10 +172,10 @@ function bfdb_client(){
 
     //search for an item given a set of parameters
     this.searchItem = function (query) {
-        function itemQueryIsValid(query) {
+        function queryIsValid(query) {
             var isValid = false;
             var validKeys = Object.keys({
-                item_name_id: "",
+                name_id: "",
                 item_desc: "",
                 rarity: "",
                 type: "",
@@ -198,7 +198,7 @@ function bfdb_client(){
                 reject("Error: No URL specified. Use .setAddress(url) to fix.");
             } else if (query === undefined) {
                 reject("Error: No query specified.");
-            } else if (!itemQueryIsValid(query)) {
+            } else if (!queryIsValid(query)) {
                 reject("Error: Query isn't valid.");
             } else {
                 var options = {
@@ -244,11 +244,11 @@ function bfdb_client(){
 
     //search for an item given a set of parameters
     this.searchExtraSkill = function (query) {
-        function extraSkillQueryValid(query) {
+        function queryIsValid(query) {
             var isValid = false;
             var validKeys = Object.keys({
-                es_name_id: "",
-                es_desc: "",
+                name_id: "",
+                desc: "",
                 effects: "",
                 server: "",
                 translate: "",
@@ -267,7 +267,7 @@ function bfdb_client(){
                 reject("Error: No URL specified. Use .setAddress(url) to fix.");
             } else if (query === undefined) {
                 reject("Error: No query specified.");
-            } else if (!extraSkillQueryValid(query)) {
+            } else if (!queryIsValid(query)) {
                 reject("Error: Query isn't valid.");
             } else {
                 var options = {

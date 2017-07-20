@@ -1004,7 +1004,6 @@ function get_es_query_value(queryField, es) {
     }
 }
 
-
 //returns true if all non-empty query values are in the given ES
 function contains_es_query(query, es) {
     var ignored_fields = ['strict', 'translate', 'verbose'];

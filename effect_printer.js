@@ -3,6 +3,7 @@ let BuffProcessor = require('./buff_processor.js');
 function EffectPrinter(target, options) {
     options = options || {};
     const buff_processor = new BuffProcessor(options.unit_names, options.item_names,options);
+    this.buff_processor = buff_processor;
 
     function debug_log(){
         if(options.verbose){

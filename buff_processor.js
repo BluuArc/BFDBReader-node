@@ -304,78 +304,6 @@ var BuffProcessor = function (unit_names, item_names, options) {
         return multi_param_buff_handler(options);
     }
 
-    function ewd_buff_handler(effects) {
-        var elements = ['Fire', 'Water', 'Earth', 'Thunder', 'Light', 'Dark'];
-        var suffix = " units do extra elemental weakness dmg";
-        var found = [];
-        var i;
-        var msg = get_polarized_number(effects["elemental weakness multiplier%"]) + "% ";
-        for (i = 0; i < elements.length; ++i) {
-            var curBuff = effects[elements[i].toLowerCase() + suffix];
-            if (curBuff) { //add first letter to message
-                found.push(elements[i]);
-            }
-        }
-
-        if (found.length === 0) {
-            throw "No EWD buffs found";
-        } else if (found.length <= 2) { //only 1 or 2 EWD buffs, so full names are fine
-            msg += found[0];
-            for (i = 1; i < found.length; ++i) {
-                msg += "/" + found[i];
-            }
-        } else if (found.length === elements.length) { //buff for all elements
-            msg += "all elements";
-        } else {
-            for (i = 0; i < found.length; ++i) { //multiple EWD buffs, so use first letter only
-                msg += found[i][0];
-            }
-        }
-        msg += " EWD";
-
-        //format: #% FWETLD EWD
-        return msg;
-    }
-
-    function ailment_reflect_handler(effects) {
-        var ailments = ["injury%", "poison%", "sick%", "weaken%", "curse%", "paralysis%"];
-        var ailments_full_name = ["counter inflict injury% (81)", "counter inflict poison% (78)", "counter inflict sick% (80)", "counter inflict weaken% (79)", "counter inflict curse% (82)", "counter inflict paralysis% (83)"];
-        var values = {};
-        var msg = "";
-        //sort values by proc chance
-        for (var i = 0; i < ailments.length; ++i) {
-            var curAilment = effects[ailments_full_name[i]];
-            debug_log(ailments_full_name[i], curAilment);
-            if (curAilment) {
-                // debug_log(ailments[i], curAilment);
-                if (!values[curAilment.toString()]) {
-                    values[curAilment.toString()] = [];
-                }
-                values[curAilment.toString()].push(ailments[i].replace('%', ""));
-            }
-        }
-
-        // debug_log(values);
-
-        for (var a in values) {
-            if (msg.length > 0) msg += ", ";
-
-            msg += a + "% chance to inflict ";
-            if (values[a].length === ailments.length) {
-                msg += "any ailment"
-            } else {
-                for (var ailment = 0; ailment < values[a].length; ++ailment) {
-                    msg += values[a][ailment];
-                    if (ailment !== values[a].length - 1) {
-                        msg += "/";
-                    }
-                }
-            }
-        }
-        msg += " when hit";
-        return msg;
-    }
-
     //give an options object with at least an array of values for each ailment
     function ailment_handler(options) {
         if (!options || !options.values) throw "ailment_handler: No options or values defined";
@@ -498,6 +426,26 @@ var BuffProcessor = function (unit_names, item_names, options) {
         return msg;
     }
 
+    function base_buffed_resistance_handler(base,buffed,buff_name){
+        if(base === 100 && buffed === 100){
+            return buff_name;
+        }else{
+            let options = {
+                all: [
+                    { value: base, name: "base" },
+                    { value: buffed, name: "buffed" }
+                ],
+                numberFn: (d) => { return `${get_polarized_number(d)}% `; }
+            }
+
+            let resist = multi_param_buff_handler(options);
+            if (resist.length > 0) {
+                resist += ` ${buff_name}`;
+            }
+            return resist;
+        }
+    }
+
     var buff_types = {
         attack: `unit attacks enemy`,
         buff: `unit gains some sort of enhancement to their stats or attacks, can last more than one turn`,
@@ -519,19 +467,18 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 var numHits = damage_frames.hits || "NaN";
                 var msg = "";
                 if (!other_data.sp) {
-                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
+                    msg += numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
                 }
                 let damage = [];
                 if (effect["bb atk%"]) damage.push(`${effect["bb atk%"]}%`);
                 if (effect["bb dmg%"]) damage.push(`${effect["bb dmg%"]}%`); //case when using a burst from bbs.json
                 switch (damage.length) {
-                    case 1: msg += ` ${damage[0]}`; break;
-                    case 2: msg += ` ${damage[0]} (${damage[1]} power)`; break;
+                    case 1: msg += `${damage[0]} `; break;
+                    case 2: msg += `${damage[0]} (${damage[1]} power) `; break;
                     default: break;
                 }
 
-                if (!other_data.sp) msg += " ";
-                else msg += " to BB ATK%";
+                if (other_data.sp) msg += "to BB ATK%";
 
                 if (!other_data.sp) {
                     msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
@@ -930,14 +877,21 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 options.special_case = {
                     isSpecialCase: function (value, names) {
                         // debug_log("Received:", value, names.length, value == 100, names.length === 6);
-                        return value == 100 && names.length === 6;
+                        return value == 0 || names.length === 6;
                     },
                     func: function (value, names) {
-                        return "Negates all status ailments";
+                        if(value == 0) return "";
+                        if(value == 100)
+                            return "Negates all status ailments";
+                        else
+                            return `${value}% resistance to all status ailments`;
                     }
                 };
 
-                let msg = ailment_handler(options);
+                let msg = "";
+                if (effect["resist injury% (33)"] || effect["resist poison% (30)"] || effect["resist sick% (32)"] || 
+                    effect["resist weaken% (31)"] || effect["resist curse% (34)"] || effect["resist paralysis% (35)"])
+                    msg += ailment_handler(options);
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
 
                 if (!other_data.sp) msg += get_target(effect, other_data, {
@@ -964,7 +918,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
             type: ["buff"],
             func: function (effect, other_data) {
                 var msg = "";
-                if (effect['increase bb gauge gradual']) msg += effect["increase bb gauge gradual"] + " BC/turn";
+                if (effect['increase bb gauge gradual']) msg += get_polarized_number(effect["increase bb gauge gradual"]) + " BC/turn";
 
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data);
@@ -1010,7 +964,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
             type: ["buff"],
             func: function (effect, other_data) {
                 var msg = "";
-                if (effect["spark dmg% buff (40)"]) msg += get_polarized_number(effect["spark dmg% buff (40)"]) + "% spark DMG boost";
+                if (effect["spark dmg% buff (40)"]) msg += get_polarized_number(effect["spark dmg% buff (40)"]) + "% spark DMG";
 
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data, {
@@ -1049,11 +1003,11 @@ var BuffProcessor = function (unit_names, item_names, options) {
         '26': {
             desc: "Hit Count Increase",
             type: ['buff'],
-            notes: ['100% damage means that the extra hits have no damage penalty', 'Over 100% damage means that the extra hits have a damage buff', `Under 100% damage means that the extra hits have a damage penalty`, `+# means that the unit has # additional more hits, so +2 means that each hit has 2 more hits following it, effectively tripling the original hit count`],
+            notes: ['Add the damage noted in this buff to 100% to get the actual damage of normal attacks',`+# means that the unit has # additional more hits, so +2 means that each hit has 2 more hits following it, effectively tripling the original hit count`],
             func: function (effect, other_data) {
                 let msg = "";
                 if (effect['hit increase/hit'] || effect['extra hits dmg%'])
-                    msg += `${get_polarized_number(effect['hit increase/hit'] || 0)} ${(effect['hit increase/hit'] === 1) ? "hit" : "hits"} to normal attacks (at ${(100 + (effect['extra hits dmg%'] || 0))}% damage)`;
+                    msg += `${get_polarized_number(effect['hit increase/hit'] || 0)} ${(effect['hit increase/hit'] === 1) ? "hit" : "hits"} to normal attacks (at ${(get_polarized_number(effect['extra hits dmg%'] || 0))}% damage)`;
 
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data, {
@@ -1202,7 +1156,6 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (effect["increase bb gauge"] !== undefined) msg += `${get_polarized_number(effect["increase bb gauge"])} BC fill`;
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data);
-                // msg += get_duration_and_target(undefined, effect['target area'], effect['target type']);
                 return msg;
             }
         },
@@ -1271,7 +1224,11 @@ var BuffProcessor = function (unit_names, item_names, options) {
             func: function (effect, other_data) {
                 let msg = "";
                 if (effect['invalidate LS chance%'] !== undefined) {
-                    msg += `${effect['invalidate LS chance%']}% chance to nullify LS effects`;
+                    if (effect['invalidate LS chance%'] == 100){
+                        msg += "Nullifies LS effects";
+                    }else{
+                        msg += `${effect['invalidate LS chance%']}% chance to nullify LS effects`;
+                    }
                 }
 
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
@@ -1622,7 +1579,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
                         { value: effect['base bc drop% resist buff'], name: "base" },
                         { value: effect['buffed bc drop% resist buff'], name: "buffed" }
                     ],
-                    numberFn: (d) => { return `${d}% `; }
+                    numberFn: (d) => { return `${get_polarized_number(d)}% `; }
                 }
 
                 let resistances = multi_param_buff_handler(options);
@@ -1717,127 +1674,608 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 });
                 return msg;
             }
-        },/*
+        },
         '64': {
             desc: "Consective Use Boosting Attack",
             type: ["attack"],
             notes: ["This refers to attacks whose power increases on consecutive use"],
-            func: function (effects, other_data) {
-                var numHits = damage_frames.hits;
-                var max_total = parseInt(effects["bb base atk%"]) + parseInt(effects["bb atk% inc per use"]) * parseInt(effects["bb atk% max number of inc"]);
-                var msg = numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
-                // msg += effects["bb atk%"] + "% ";
-                msg += `${get_formatted_minmax(effects["bb base atk%"], max_total)}% `;
-                msg += (effects["target area"].toUpperCase() === "SINGLE") ? "ST" : effects["target area"].toUpperCase();
-                if (effects["bb flat atk"]) msg += ` (+${effects["bb atk% inc per use"]}%/use, max ${effects["bb atk% max number of inc"]} uses, +` + effects["bb flat atk"] + " flat ATK)";
-                else msg += ` (+${effects["bb atk% inc per use"]}%/use, max ${effects["bb atk% max number of inc"]} uses)`;
-                if (effects["bb bc%"]) msg += ", innate +" + effects["bb bc%"] + "% BC drop rate";
+            func: function (effect, other_data) {
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var max_total = (+effect["bb base atk%"] || 0) + (+effect["bb atk% inc per use"] || 0) * (+effect["bb atk% max number of inc"] || 0);
+                var msg = "";
+                if (!other_data.sp) {
+                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
+                }
+                if (effect["bb base atk%"] || effect["bb atk% inc per use"] || effect['bb atk% max number of inc']) {
+                    if (effect["bb base atk%"] !== max_total)
+                        msg += ` ${get_formatted_minmax(effect["bb base atk%"] || 0, max_total)}%`;
+                    else
+                        msg += ` ${max_total}-${max_total}%`;
+                }
+
+                if (!other_data.sp) msg += " ";
+                else msg += " to BB ATK%";
+
+                if (!other_data.sp) {
+                    msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                }
+                let extra = [];
+                if (effect["bb flat atk"]) extra.push("+" + effect["bb flat atk"] + " flat ATK");
+                if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100)
+                    extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
+                // if (effect['bb added atk% proportional to hp']) extra.push(`proportional to ${effect['bb added atk% proportional to hp']} HP`);
+                if(effect["bb atk% inc per use"] || effect['bb atk% max number of inc']){
+                    extra.push(`${get_polarized_number(effect["bb atk% inc per use"])}%/use, max ${effect["bb atk% max number of inc"]} uses`);
+                }
+                if (extra.length > 0) msg += ` (${extra.join(", ")})`;
+
+                msg += regular_atk_helper(effect);
+
+                if (!other_data.sp) {
+                    if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
+                }
                 return msg;
             }
-        },/*
+        },
         '65': {
             desc: "Damage Boost to Status Afflicted Foes",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = `${get_polarized_number(effects["atk% buff when enemy has ailment"])}% ATK to status afflicted foes`;
-                msg += get_duration_and_target(effects["atk% buff turns (110)"], effects);
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect["atk% buff when enemy has ailment"])
+                    msg += `${get_polarized_number(effect["atk% buff when enemy has ailment"])}% ATK to status afflicted foes to attacks`;
+                
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data,{
+                    prefix: "of "
+                });
+                msg += get_turns(effect['atk% buff turns (110)'], msg, other_data.sp, this.desc);
                 return msg;
             }
-        },/*
+        },
         '66': {
             desc: "Chance Revive",
             type: ["effect"],
-            func: function (effects, other_data) {
-                var msg = `${effects["revive unit chance%"]}% chance to revive allies with ${effects["revive unit hp%"]}% HP`;
-                msg += ` (${effects["target area"]},${effects["target type"]})`
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect['revive unit chance%'] || effect['revive unit hp%'])
+                    msg +=`${effect["revive unit chance%"] || 0}% chance to revive`
+                
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: ""
+                });
+                if (effect['revive unit chance%'] || effect['revive unit hp%'])
+                    msg += ` with ${effect["revive unit hp%"] || 0 }% HP`;
                 return msg;
             }
-        },/*
+        },
         '67': {
             desc: "BC Fill on Spark",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = `${effects["bc fill on spark%"]}% chance to fill ${get_formatted_minmax(effects["bc fill on spark low"], effects["bc fill on spark high"])} BC on spark`;
-                msg += get_duration_and_target(effects["bc fill on spark buff turns (111)"], effects["target area"], effects["target type"]);
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect["bc fill on spark%"] || effect["bc fill on spark high"] || effect["bc fill on spark low"]){
+                    if (effect["bc fill on spark%"] && effect["bc fill on spark%"] === 100)
+                        msg += "Fills ";
+                    else
+                        msg += `${effect["bc fill on spark%"] || 0}% chance to fill `;
+                    msg += `${get_formatted_minmax(effect["bc fill on spark low"] || 0, effect["bc fill on spark high"] || 0) } BC on spark`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "for "
+                });
+                msg += get_turns(effect['bc fill on spark buff turns (111)'], msg, other_data.sp, this.desc);
                 return msg;
             }
-        },/*
+        },
+        '68': {
+            desc: "Guard Mitigation",
+            type: ['buff'],
+            func: function(effect,other_data){
+                let msg = "";
+                if (effect['guard increase mitigation%']){
+                    msg += `${get_polarized_number(effect['guard increase mitigation%'])}% guard mitigation`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect['guard increase mitigation buff turns (113)'], msg, other_data.sp, this.desc);
+                return msg;
+            }
+
+        },
+        '69': {
+            desc: "BC Fill on Guard",
+            type: ["effect"],
+            notes: ['The BC fill mentioned here is an instant increase, not gradual'],
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect['bb bc fill% on guard']) msg += `${get_polarized_number(effect["bb bc fill% on guard"])}% BB gauge`;
+                if (effect["bb bc fill on guard"] !== undefined) msg += `${msg.length > 0 ? " and " : ""}${get_polarized_number(effect["bb bc fill on guard"])} BC fill`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (effect["bb bc fill on guard"] !== undefined) msg += ` when guarding`;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect['bb bc fill on guard buff turns (114)'], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '71': {
+            desc: "BB Gauge Fill Rate Debuff/Ares Debuff",
+            type: ['debuff'],
+            notes: ['As of June 27, 2017, this is only found on enemy skills'],
+            func: function(effect,other_data){
+                let msg = "";
+                if (effect['bb fill inc%']) {
+                    msg += `${get_polarized_number(effect['bb fill inc%'])}% BB gauge fill rate`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "of "
+                });
+                msg += get_turns(effect['bb fill inc buff turns (112)'], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '73': {
+            desc: "Stat Down/Reduction Negation/Resistance",
+            type: ["buff"],
+            func: function (effect, other_data) {
+                let options = {};
+                options.values = [
+                    effect["atk down resist% (120)"],
+                    effect["def down resist% (121)"],
+                    effect["rec down resist% (122)"],
+                ];
+
+                options.suffix = function (names) {
+                    if (names.length === 6) {
+                        return " all stat reductions";
+                    } else {
+                        return ` ${names.join("/")}`;
+                    }
+                };
+
+                options.numberFn = function (value) {
+                    if (value === 100)
+                        return "full resistance to";
+                    else
+                        return `${value}% resistance to`;
+                };
+
+                options.special_case = {
+                    isSpecialCase: function (value, names) {
+                        // debug_log("Received:", value, names.length, value == 100, names.length === 6);
+                        return value == 0 || names.length === 3;
+                    },
+                    func: function (value, names) {
+                        if(value == 0) return "";
+                        if(value == 100)
+                            return "Negates all stat reductions";
+                        else   
+                            return `${value}% resistance to all stat reductions`;
+                    }
+                };
+
+                let msg = "";
+                if (effect["atk down resist% (120)"] || effect["def down resist% (121)"] || effect["rec down resist% (122)"])
+                    msg += ailment_handler(options);
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: 'for '
+                });
+                msg += get_turns(effect['stat down immunity buff turns'], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '75': {
+            desc: 'Element Scaling Attack',
+            type: ['attack'],
+            notes: ['The original description on BB 20892 states that BB Atk would be boosted relative to number of water types in party','However, data shows ATK, DEF, and REC values that may be boosted at time of attack', "I'm not sure if the value given is a base or a max, so this value may be incorrect"],
+            func: function (effect, other_data) {
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var max_total = (+effect["atk% buff (1)"] || 0);
+                var msg = "";
+                if (!other_data.sp) {
+                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
+                }
+                if (effect["atk% buff (1)"]) {
+                    msg += ` 0-${max_total}%`;
+                }
+
+                if (!other_data.sp) msg += " ";
+                else msg += " to BB ATK%";
+
+                if (!other_data.sp) {
+                    msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                }
+                let extra = [];
+                if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100)
+                    extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
+                if (effect['counted element for buff multiplier']) extra.push(`proportional to number of ${to_proper_case(effect['counted element for buff multiplier'])} types in party`);
+                if (effect['def% buff (3)'] || effect['rec% buff (5)']){
+                    let stat_msg = hp_adr_buff_handler(undefined, undefined, effect['def% buff (3)'],effect['rec% buff (5)'],{
+                        message_separator: " and "
+                    });
+                    extra.push(stat_msg + " to self for duration of attack");
+                }
+                if (extra.length > 0) msg += ` (${extra.join(", ")})`;
+
+                msg += regular_atk_helper(effect);
+
+                if (!other_data.sp) {
+                    if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
+                }
+                return msg;
+            }
+        },
+        '76': {
+            desc: "Chance for Extra Actions",
+            type: ['buff'],
+            func: function(effect,other_data){
+                let msg = "";
+
+                if (effect['chance% for extra action'] || effect['max number of extra actions']){
+                    msg += `Adds ${effect['chance% for extra action'] || 0}% chance to do at most ${effect['max number of extra actions'] || 0} extra ${effect['max number of extra actions'] === 1 ? "action" : "actions"}`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect['extra action buff turns (123)'], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
         '78': {
             desc: "Self ATK/DEF/REC/Crit Rate",
             notes: ["Stacks with the regular party ATK/DEF/REC/Crit Rate buff", "Example of a unit having both party and self is Silvie (840128)"],
             type: ["buff"],
-            func: function (effects, other_data) {
+            func: function (effect, other_data) {
                 var msg = "";
-                if (effects["self atk% buff"] || effects["self def% buff"] || effects["self rec% buff"]) { //regular tri-stat
-                    msg += adr_buff_handler(effects["self atk% buff"], effects["self def% buff"], effects["self rec% buff"]);
+                let own_msg = ((effect['target area']) === 'single' && (effect['target type']) === 'self') ? "own " : "";
+                if (effect["self atk% buff"] || effect["self def% buff"] || effect["self rec% buff"]) { //regular tri-stat
+                    msg += hp_adr_buff_handler(undefined, effect["self atk% buff"], effect["self def% buff"], effect["self rec% buff"], {
+                        numberFn: (v) => {return `${v}% ${own_msg}`;}
+                    });
                 }
-                if (effects["self crit% buff"]) {//crit rate buff
+                if (effect["self crit% buff"]) {//crit rate buff
                     if (msg.length > 0) msg += ", ";
-                    msg += "+" + effects["self crit% buff"] + "% crit rate";
+                    msg += get_polarized_number(effect["self crit% buff"]) + `% ${own_msg}crit rate`;
                 }
 
-                if (msg.length === 0) {
-                    throw no_buff_data_msg;
-                }
-                //insert own into message
-                if (effects["target area"] === 'single' && effects["target type"] === "self") {
-                    while (msg.indexOf("% ") > -1) {
-                        msg = msg.replace("% ", "# own ");
-                    }
-                    while (msg.indexOf("# ") > -1) {
-                        msg = msg.replace("# ", "% ");
-                    }
-                    msg += ` for ${effects["self stat buff turns"]} turns`;
-                } else {
-                    msg += get_duration_and_target(effects["self stat buff turns"], effects["target area"], effects["target type"]);
-                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp && own_msg.length === 0) msg += get_target(effect, other_data);
+                msg += get_turns(effect["self stat buff turns"], msg, other_data.sp, this.desc);
                 return msg;
             }
-        },/*
+        },
         '83': {
             desc: "Spark Critical",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = `${effects["spark dmg inc chance%"]}% chance for a ${get_polarized_number(effects["spark dmg inc% buff"])}% spark critical`;
-                msg += get_duration_and_target(effects["spark dmg inc buff turns (131)"], effects);
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect["spark dmg inc chance%"] || effect["spark dmg inc% buff"])
+                    msg += `${effect["spark dmg inc chance%"] || 0}% chance for ${get_polarized_number(effect["spark dmg inc% buff"] || 0)}% spark critical`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["spark dmg inc buff turns (131)"], msg, other_data.sp, this.desc);
                 return msg;
             }
-        },/*
+        },
         '84': {
             desc: "OD Fill Rate",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = `${get_polarized_number(effects["od fill rate% buff"])}% OD gauge fill rate`;
-                msg += get_duration_and_target(effects["od fill rate buff turns (132)"], effects);
+            func: function (effect, other_data) {
+                var msg = "";
+                if (effect["od fill rate% buff"])
+                    msg += `${get_polarized_number(effect["od fill rate% buff"])}% OD gauge fill rate`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["od fill rate buff turns (132)"], msg, other_data.sp, this.desc);
                 return msg;
             }
-        },/*
+        },
         '85': {
             desc: "Heal on Hit",
             type: ["buff"],
-            func: function (effects, other_data) {
-                var msg = effects["hp recover from dmg chance"] + "% chance to heal ";
-                msg += get_formatted_minmax(effects["hp recover from dmg% low"], effects["hp recover from dmg% high"]) + "% DMG when hit";
+            func: function (effect, other_data) {
+                let msg = "";
+                
+                if (effect["hp recover from dmg chance"] || effect["hp recover from dmg% low"] || effect["hp recover from dmg% high"]){
+                    msg += `${effect["hp recover from dmg chance"] || 0}% chance to heal `;
+                    msg += `${get_formatted_minmax(effect["hp recover from dmg% low"] || 0, effect["hp recover from dmg% high"] || 0)}% DMG when hit`;
+                }
 
-                msg += get_duration_and_target(effects["hp recover from dmg buff turns (133)"], effects["target area"], effects["target type"]);
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["hp recover from dmg buff turns (133)"], msg, other_data.sp, this.desc);
                 return msg;
             }
-        },/*
+        },
+        '86': {
+            desc: "Chance HP Drain/Absorption When Attacking",
+            type: ['buff'],
+            func: function(effect,other_data){
+                let msg = "";
+
+                if (effect["hp drain chance%"] || effect["hp drain% low"] || effect["hp drain% high"]) {
+                    msg += `${effect["hp drain chance%"] || 0}% chance of `;
+                    msg += `${get_formatted_minmax(effect["hp drain% low"] || 0, effect["hp drain% high"] || 0)}% HP absorption`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data,{
+                    prefix: 'for '
+                });
+                msg += get_turns(effect["hp drain buff turns (134)"], msg, other_data.sp, this.desc);
+                return msg;
+            }    
+        },
+        '87': {
+            desc: "Chance to Heal on Spark",
+            type: ['buff'],
+            func: function (effect, other_data) {
+                let msg = "";
+
+                if (effect["spark recover hp chance%"] || effect["spark recover hp low"] || effect["spark recover hp high"]) {
+                    if (effect["spark recover hp chance%"] == 100)
+                        msg += "Heals ";
+                    else
+                        msg += `${effect["spark recover hp chance%"] || 0}% chance of healing `;
+                    msg += `${get_formatted_minmax(effect["spark recover hp low"] || 0, effect["spark recover hp high"] || 0)} HP on spark`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data,{
+                    prefix: 'for '
+                });
+                msg += get_turns(effect["spark recover hp buff turns (135)"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
         '88': {
             desc: "Spark Damage (Self)",
             type: ["buff"],
             notes: ["Should stack with other spark buffs (such as 23)"],
-            func: function (effects, other_data) {
-                var msg = get_polarized_number(effects["spark dmg inc%"]);
+            func: function (effect, other_data) {
+                let msg = "";
+                if (effect["spark dmg inc%"]) msg += get_polarized_number(effect["spark dmg inc%"]);
+                if(msg.length > 0){
+                    if (effect["target area"] === "single" && effect["target type"] === "self") {
+                        msg += "% own spark DMG";
+                    }else{
+                        msg += "% spark DMG";
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp && (effect['target area'] !== 'single' || effect['target type'] !== 'self')) msg += get_target(effect, other_data, {
+                    prefix: "to attacks of "
+                });
+                msg += get_turns(effect["spark dmg inc% turns (136)"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '93': {
+            desc: "Critical, Spark, and EWD Damage Resistance",
+            type: ['buff'],
+            notes: ['Negation means that the buff has 100% resistance'],
+            func: function (effect, other_data) {
+                let msg = "";
+                let resistances = [];
+                let negations = [];
 
-                if (effects["target area"] === "single" && effects["target type"] === "self") {
-                    msg += `% own spark DMG for ${effects["spark dmg inc% turns (136)"]} turns`;
-                } else {
-                    msg += `% spark DMG${get_duration_and_target(effects["spark dmg inc% turns (136)"], effects)}`;
+                //check for available resistances/negations
+                let critResist = base_buffed_resistance_handler(effect['crit dmg base damage resist% (143)'], effect['crit dmg buffed damage resist% (143)'],"Critical");
+                if(critResist.length > 0){
+                    if (critResist.indexOf("%") === -1){ //100% resistance -> negation
+                        negations.push(critResist);
+                    }else{
+                        resistances.push(critResist);
+                    }
+                }
+
+                let ewdResist = base_buffed_resistance_handler(effect['strong base element damage resist% (144)'], effect['strong buffed element damage resist% (144)'],"Elemental");
+                if(ewdResist.length > 0){
+                    if(ewdResist.indexOf("%") === -1){ //100% resistance -> negation
+                        negations.push(ewdResist);
+                    }else{
+                        resistances.push(ewdResist);
+                    }
+                }
+
+                let sparkResist = base_buffed_resistance_handler(effect['spark dmg base resist% (145)'], effect['spark dmg buffed resist% (145)'],"Spark");
+                if(sparkResist.length > 0){
+                    if(sparkResist.indexOf("%") === -1){ //100% resistance -> negation
+                        negations.push(sparkResist);
+                    }else{
+                        resistances.push(sparkResist);
+                    }
+                }
+
+                //join them together in the message
+                if(negations.length > 0){
+                    msg += `${negations.join("/")} damage negation`;
+                }
+                if (resistances.length > 0){
+                    if(msg.length > 0) msg += " and ";
+                    msg += `${resistances.join(", ")} damage resistance`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect['dmg resist turns'], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '94': {
+            desc: "AOE Normal Attack",
+            type: ['buff'],
+            notes: ['Add the damage noted in this buff to 100% to get the actual damage of normal attacks','The data doesn\'t seems to have a turn parameter as of June 29, 2017'],
+            func: function (effect, other_data) {
+                let msg = "";
+                if (effect['chance to aoe'] || effect['aoe atk inc%']){
+                    if (effect['chance to aoe'] === 100){
+                        msg += "Normal attacks ";
+                    }else{
+                        msg += `${effect['chance to aoe']}% chance for normal attacks to `;
+                    }
+                    msg += `hit all foes (at ${(get_polarized_number(effect['aoe atk inc%'] || 0))}% damage)`;
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["buff turns"] || "???", msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '902': {
+            desc: "Timed ATK (Raid)",
+            type: ['buff','timed'],
+            notes: ['Found on item 70400'],
+            func: function (effect, other_data) {
+                let msg = "";
+                if (effect['atk% buff (100)']){
+                    msg += `${get_polarized_number(effect['atk% buff (100)'])}% ATK`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += ` for ${effect['buff timer (seconds)']} seconds`;
+                return msg;
+            }
+        },
+        '10000': {
+            desc: "Taunt",
+            type: ['buff'],
+            notes: ['Data doesn\'t seem right for BB 8410022', 'Values here should be additive with other similar buffs like proc 5'],
+            func: function(effect,other_data){
+                let msg = "";
+                let taunt_values;
+                if (effect['def% buff'] || effect['atk% buff'] || effect['crit% buff']){
+                    let options = {
+                        all: [
+                            { name: "ATK", value: effect['atk% buff']},
+                            { name: "DEF", value: effect['def% buff']},
+                            { name: "Crit Rate", value: effect['crit% buff']}
+                        ],
+                        numberFn: (v) => { return `${get_polarized_number(v)}% `}
+                    };
+
+                    taunt_values = multi_param_buff_handler(options);
+
+                }
+                msg += `Casts Taunt`;
+                if(taunt_values)
+                    msg += ` (${taunt_values})`;
+                else
+                    msg += ` (no extra buffs)`;
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["taunt turns (10000)"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '10001': {
+            desc: "Stealth",
+            type: ['buff'],
+            notes: ['Values here should be additive with other similar buffs like proc 5'],
+            func: function (effect, other_data) {
+                let msg = "";
+                let stealth_values;
+                if (effect['atk% buff'] || effect['def% buff'] || effect['rec% buff'] || effect['crit% buff']) {
+                    let options = {
+                        all: [
+                            { name: "ATK", value: effect['atk% buff'] },
+                            { name: "DEF", value: effect['def% buff'] },
+                            { name: "REC", value: effect['rec% buff'] },
+                            { name: "Crit Rate", value: effect['crit% buff'] }
+                        ],
+                        numberFn: (v) => { return `${get_polarized_number(v)}% ` }
+                    };
+
+                    stealth_values = multi_param_buff_handler(options);
+
+                }
+                msg += `Casts Stealth`;
+                if (stealth_values)
+                    msg += ` (${stealth_values})`;
+                else
+                    msg += ` (no extra buffs)`;
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                msg += get_turns(effect["stealth turns (10001)"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '10002': {
+            desc: "Elemental Shield (GL)",
+            type: ['buff'],
+            func: function(effect,other_data){
+                var msg = "";
+                let extra_effects = [];
+                if (effect["shield hp"])
+                    msg += `${effect["shield hp"]} HP`;
+                if (effect["shield def"] !== undefined)
+                    extra_effects.push(`${effect["shield def"]} DEF`);
+                if (extra_effects.length > 0)
+                    msg += ` (${extra_effects.join("/")})`;
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                msg += ` ${to_proper_case(effect["shield element"] || "none")} shield`;
+                if (!other_data.sp) msg = msg.replace("All", "non-elemental"); //based on description of item 800404
+                else msg = msg.replace("All ", "");
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "on "
+                });
+                msg += get_turns(effect["shield turns (10002)"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '11000': {
+            desc: "HP Scaling Attack (GL)",
+            type: ["attack"],
+            func: function (effect, other_data) {
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var max_total = (+effect["bb base atk%"] || 0) + (+effect["bb added atk% based on hp"] || 0);
+                var msg = "";
+                if (!other_data.sp) {
+                    msg += numHits.toString() + ((numHits === 1) ? " hit" : " hits");
+                }
+                if (effect["bb base atk%"] || effect["bb added atk% based on hp"]) {
+                    if (effect["bb base atk%"] !== max_total)
+                        msg += ` ${get_formatted_minmax(effect["bb base atk%"] || 0, max_total)}%`;
+                    else
+                        msg += ` ${max_total}-${max_total}%`;
+                }
+
+                if (!other_data.sp) msg += " ";
+                else msg += " to BB ATK%";
+
+                if (!other_data.sp) {
+                    msg += (effect["target area"].toUpperCase() === "SINGLE") ? "ST" : effect["target area"].toUpperCase();
+                }
+                let extra = [];
+                if (effect["bb flat atk"]) extra.push("+" + effect["bb flat atk"] + " flat ATK");
+                if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100)
+                    extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
+                if (effect['bb added atk% proportional to hp']) extra.push(`proportional to ${effect['bb added atk% proportional to hp']} HP`);
+                if (extra.length > 0) msg += ` (${extra.join(", ")})`;
+
+                msg += regular_atk_helper(effect);
+
+                if (!other_data.sp) {
+                    if (effect["target type"] !== "enemy") msg += ` to ${effect["target type"]}`;
                 }
                 return msg;
             }
-        },*/
+        },
     };//end proc_buffs
 
     //general handler for all unknown procs
@@ -2057,6 +2495,724 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 });
                 return msg;
             }
+        },
+        '70': {
+            desc: "Unknown values",
+            type: ['unknown'],
+            notes: ['This is first found on BB 9103900'],
+            func: function(effect,other_data){
+                return unknown_proc_handler(effect,other_data);
+            }
+        },
+        '79': {
+            desc: "Increase XP Received",
+            type: ['buff'],
+            notes: ['This seems to apply to regular XP, not anything in Summoner Arc'],
+            func: function(effect,other_data){
+                let msg = "";
+                let data = effect['unknown proc param'].split(",");
+                if(data.length > 0){
+                    let xp_boost = (100 + (+data[0]))/100;
+                    let timer = data[1];
+                    msg += `gain x${xp_boost} XP`;
+                    if(timer){
+                        msg += ` for ${timer} minutes`;
+                    }else{
+                        msg += ` from the next quest`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+        },
+        '82': {
+            desc: "Unknown values",
+            type: ['unknown'],
+            notes: ['This is first found on BB 2004356'],
+            func: function(effect,other_data){
+                return unknown_proc_handler(effect,other_data);
+            }
+        },
+        '85 ': {
+            desc: "Heal on Hit (typo)",
+            type: ["buff"],
+            notes: ['This is the same as the regular proc 85 (Heal on Hit)', 'There may have been a typo putting this into the data, causing it to look like an unknown proc','This is first found on BB 760247'],
+            func: function(effect,other_data){
+                let msg = "";
+                let proc_85_effect;
+                if(effect['unknown proc param']){
+                    let data = effect['unknown proc param'].split(',');
+                    proc_85_effect = {
+                        'hp recover from dmg% low': data[0],
+                        'hp recover from dmg% high': data[1],
+                        'hp recover from dmg chance': data[2],
+                        'hp recover from dmg buff turns (133)': data[3],
+                        'target area': effect['target area'],
+                        'target type': effect['target type']
+                    };
+                    msg += proc_buffs['85'].func(proc_85_effect,other_data);
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+
+        },
+        '89': {
+            desc: "Stat Conversion (Self)",
+            type: ['buff', 'unknown'],
+            notes: ['Should stack with the normal stat conversion (24)', 'This is first found on BB 60097', 'Not too sure if I translated these values correcty'],
+            func: function(effect,other_data){
+                let msg = "";
+                if(effect['unknown proc param']){
+                    // 4,10,0,0,3,10
+                    let data = effect['unknown proc param'].split(",");
+                    let proc_24_effect = {
+                        'converted attribute': ((type) => {
+                            switch(type){
+                                case '1': return "ATK";
+                                case '2': return "DEF";
+                                case '3': return "REC";
+                                case '4': return "HP";
+                                default: return type;
+                            }
+                        })(data[0].toString()),
+                        'atk% buff (46)': (data[1] != 0) ? data[1] : undefined,
+                        'def% buff (47)': (data[2] != 0) ? data[2] : undefined,
+                        'rec% buff (48)': (data[3] != 0) ? data[3] : undefined,
+                        '% converted turns': data[4],
+                        'target area': effect['target area'],
+                        'target type': effect['target type']
+                    };
+                    // console.log(proc_24_effect);
+                    msg += proc_buffs['24'].func(proc_24_effect,other_data);
+                    if(data.slice(5).length > 0){
+                        msg += `, unknown proc effects {${data.slice(5).join(",")}}`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+        },
+        '95': {
+            desc: 'ES Lock',
+            type: ['debuff'],
+            notes: ['This can be found on BB 8470189'],
+            func: function(effect,other_data){
+                let msg = "";
+                let es_lock_turns;
+                if(effect['unknown proc param']){
+                    let data = effect['unknown proc param'].split(",");
+                    let es_lock_chance = parseInt(data[0]);
+                    es_lock_turns = parseInt(data[1]);
+                    if(!isNaN(es_lock_chance)){
+                        if(es_lock_chance === 100){
+                            msg += "Nullifies";
+                        }else{
+                            msg += `${es_lock_chance}% chance to nullify`;
+                        }
+                        msg += " ES effects";
+
+                        if (data.slice(2).length > 0) {
+                            msg += ` (unknown proc effects '${data.slice(2).join(",")}')`;
+                        }
+                    }
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "of "
+                });
+                msg += get_turns(es_lock_turns, msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '96': {
+            desc: 'Sphere Lock',
+            type: ['debuff'],
+            notes: ['This can be found on BB 8470189'],
+            func: function (effect, other_data) {
+                let msg = "";
+                let es_lock_turns;
+                if (effect['unknown proc param']) {
+                    let data = effect['unknown proc param'].split(",");
+                    let es_lock_chance = parseInt(data[0]);
+                    es_lock_turns = parseInt(data[1]);
+                    if (!isNaN(es_lock_chance)) {
+                        if (es_lock_chance === 100) {
+                            msg += "Nullifies";
+                        } else {
+                            msg += `${es_lock_chance}% chance to nullify`;
+                        }
+                        msg += " sphere effects";
+                    }
+
+                    if (data.slice(2).length > 0) {
+                        msg += ` (unknown proc effects '${data.slice(2).join(",")}')`;
+                    }
+                }
+
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "of "
+                });
+                msg += get_turns(es_lock_turns, msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '97': {
+            desc: "Attack to Specific Element (Opposing Type?)",
+            type: ['attack'],
+            notes: ['This can be found on unit 11047','Not sure what determines the targeted element','If the unit is a Fire type, then the weaker element would be Earth'],
+            func: function(effect,other_data){
+                other_data = other_data || {};
+                let damage_frames = other_data.damage_frames || {};
+                var numHits = damage_frames.hits || "NaN";
+                var msg = "";
+                if(effect['unknown proc param']){
+                    let data = effect['unknown proc param'].split(",");
+                    let translated_effect = {
+                        'bb atk%': +data[1],
+                        'bb flat atk': +data[2],
+                        'unknown params': ([data[0]] || []).concat(data.slice(3)),
+                        'target area': effect['target area'],
+                        'target type': effect['target type']
+                    };
+                    if (!other_data.sp) {
+                        msg += numHits.toString() + ((numHits === 1) ? " hit " : " hits ");
+                    }
+
+                    if (translated_effect["bb atk%"]) msg += `${translated_effect["bb atk%"]}%`;
+
+                    if (!other_data.sp) msg += " ";
+                    else msg += " to BB ATK%";
+
+                    if (!other_data.sp) {
+                        msg += (translated_effect["target area"].toUpperCase() === "SINGLE") ? "ST" : translated_effect["target area"].toUpperCase();
+                    }
+                    let extra = [];
+                    if (translated_effect["bb flat atk"]) extra.push("+" + translated_effect["bb flat atk"] + " flat ATK");
+                    if (damage_frames["hit dmg% distribution (total)"] !== undefined && damage_frames["hit dmg% distribution (total)"] !== 100)
+                        extra.push(`at ${damage_frames["hit dmg% distribution (total)"]}% power`);
+                    if(translated_effect['unknown params'].length > 0){
+                        extra.push( `unknown proc effects '${translated_effect['unknown params'].join(",")}'`);
+                    }
+                    if (extra.length > 0) msg += ` (${extra.join(", ")})`;
+
+                    msg += regular_atk_helper(translated_effect);
+
+                    if (!other_data.sp) msg += get_target(effect, other_data, {
+                        prefix: "on ",
+                        suffix: " of the weaker element"
+                    });
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+        },
+        '113': {
+            desc: "OD Fill per Turn",
+            type: ["buff"],
+            func: function (effect, other_data) {
+                var msg = "";
+                if(effect['unknown proc param']){
+                    let data = effect['unknown proc param'].split(",");
+                    let translated_effect = {
+                        'od fill gradual': +data[2],
+                        'od fill gradual turns': +data[3],
+                        'unknown params': data.slice(0,2).concat(data.slice(4)),
+                        'target area': effect['target area'],
+                        'target type': effect['target type']
+                    };
+                    if (translated_effect['od fill gradual']) msg += get_polarized_number(translated_effect["od fill gradual"]) + " OD fill/turn";
+
+                    if(translated_effect['unknown params'].length > 0){
+                        msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                    }
+                    if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                    if (!other_data.sp) msg += get_target(translated_effect, other_data);
+                    msg += get_turns(translated_effect['od fill gradual turns'], msg, other_data.sp, this.desc);
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+        },
+        '119': {
+            desc: 'Lose BC Per Turn',
+            type: ['debuff','unknown'],
+            notes: ['This can be found on BB 5001083 and 7500129'],
+            func: function(effect,other_data){
+                let msg = '';
+                if(effect['unknown proc param']){
+                    msg += `Lose BC per turn (unknown proc effects '${effect['unknown proc param']}')`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+        },
+        '126': {
+            desc: "Damage over Time (DoT) Mitigation",
+            type: ["buff"],
+            func: function (effect, other_data) {
+                var msg = "";
+                if(effect['unknown proc param']){
+                    let data = effect['unknown proc param'].split(",");
+                    let translated_effect = {
+                        'dot miti%': +data[0],
+                        'dot miti turns': +data[1],
+                        'unknown params': data.slice(2),
+                        'target area': effect['target area'],
+                        'target type': effect['target type']
+                    };
+
+                    if (translated_effect['dot miti%']) msg += `${translated_effect["dot miti%"]}% DoT mitigation`;
+                    if (translated_effect['unknown params'].length > 0) {
+                        msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                    }
+                    if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                    if (!other_data.sp) msg += get_target(translated_effect, other_data);
+                    msg += get_turns(translated_effect['dot miti turns'], msg, other_data.sp, this.desc);
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+        },
+        '127': {
+            desc: "Lock On to Unit (?)",
+            type: ['debuff', 'unknown'],
+            notes: ['This can be found on BB 5001089 and 5001088', 'The definition here is only a guess as to what it does'],
+            func: function(effect,other_data){
+                var msg = "";
+                if (effect['unknown proc param']) {
+                    let data = effect['unknown proc param'].split(",");
+                    let translated_effect = {
+                        'lock on turns': +data[0],
+                        'unknown params': data.slice(1),
+                        'target area': effect['target area'],
+                        'target type': effect['target type']
+                    };
+
+                    msg += `Mark a unit to be targeted`;
+                    if(translated_effect['lock on turns']) msg += get_turns(translated_effect['lock on turns'], msg, other_data.sp, this.desc);
+                    if (translated_effect['unknown params'].length > 0) {
+                        msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                    }
+                    if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                    if (!other_data.sp) msg += get_target(translated_effect, other_data,{
+                        prefix: "on the side of "
+                    });
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+        },
+        '130': {
+            desc: "ATK/DEF/REC Down Reflect",
+            type: ["debuff"],
+            notes: ['This can be found on BB 61137'],
+            func: function (effect, other_data) {
+                var msg = "";
+                let amount,chance,translated_effect = {};
+                if(effect['unknown proc param']){
+                    let data = effect['unknown proc param'].split(",").map((v) => {return +v});
+                    translated_effect = {
+                        'atk% debuff': data[0] || undefined,'def% debuff': data[1] || undefined,'rec% debuff': data[2] || undefined,
+                        'atk% chance': data[3] || undefined,'def% chance': data[4] || undefined,'rec% chance': data[5] || undefined,
+                        'debuff turns': data[6] || undefined,
+                        'reflect turns': data[7] || undefined,
+                        'unknown params': data.slice(8)
+                    }
+
+                    let [atk, def, rec] = [get_polarized_number(translated_effect['atk% debuff'] || 0),get_polarized_number(translated_effect['def% debuff'] || 0),get_polarized_number(translated_effect['rec% debuff'] || 0)]
+
+                    //used to check values for SP
+                    amount = (translated_effect['atk% debuff'] || 0) + (translated_effect['def% debuff'] || 0) + (translated_effect['rec% debuff'] || 0);
+                    chance = (translated_effect['atk% chance'] || 0) + (translated_effect['def% chance'] || 0) + ( translated_effect['rec% chance'] || 0);
+                    if (amount !== 0 || chance !== 0){
+                        msg += hp_adr_buff_handler(undefined, translated_effect['atk% chance'], translated_effect['def% chance'], translated_effect['rec% chance'],
+                        {
+                            numberFn: (v) => {return `${v}% chance to inflict ${translated_effect['debuff turns'] || 0} turn `;},
+                            // suffix: " reduction"
+                        });
+
+                        msg = msg.replace("ATK",`${atk}% ATK Down`).replace("DEF",`${def}% DEF Down`).replace("REC",`${rec}% REC Down`);
+
+                        if(translated_effect['unknown params'].length > 0){
+                            msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                        }
+                    }
+                }  
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!chance && !amount && other_data.sp) msg = "";
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "when hit to ",
+                });
+                if(translated_effect) msg += get_turns(translated_effect["reflect turns"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '132': {
+            desc: "Chance to Decrease Critical Damage/EWD Resistance",
+            type: ['debuff'],
+            notes: ['This can be found on BB 151147'],
+            func: function(effect,other_data){
+                var msg = "";
+                let amount, chance, translated_effect = {};
+                if (effect['unknown proc param']) {
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    translated_effect = {
+                        'crit resist decrease': data[0],
+                        'ewd resist decrease': data[1],
+                        'crit decrease chance': data[2],
+                        'ewd decrease chance': data[3],
+                        'buff turns': data[4],
+                        'unknown params': data.slice(5),
+                        // 'target area': effect['target area'],
+                        // 'target type': effect['target type']
+                    };
+
+                    let [crit,ewd] = [translated_effect['crit resist decrease'] || 0,translated_effect['ewd resist decrease'] || 0];
+                    amount = crit + ewd;
+                    chance = (translated_effect['crit decrease chance'] || 0) + (translated_effect['ewd decrease chance'] || 0);
+
+                    if(amount !== 0 || chance !== 0){
+                        let options = {
+                            all: [
+                                {name: `${crit}% Crit DMG Vulnerability`, value: translated_effect['crit decrease chance']},
+                                {name: `${ewd}% EWD Vulnerability`, value: translated_effect['ewd decrease chance']}
+                            ],
+                            special_case: {
+                                isSpecialCase: (value,names) => { return value == 0},
+                                func: (value,names_array) => {return "";}
+                            },
+                            numberFn: (v) => { return `${v}% chance to inflict `;}
+                        };
+                        msg += multi_param_buff_handler(options);
+
+                        if (translated_effect['unknown params'].length > 0) {
+                            msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                        }
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!chance && !amount && other_data.sp) msg = "";
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                if (translated_effect) msg += get_turns(translated_effect["reflect turns"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '901': {
+            desc: "Raid Heal (On Map)",
+            type: ['effect'],
+            notes: ['Found on item 70300', 'Not sure if the values here are raw HP, %HP, or something else'],
+            func: function(effect,other_data){
+                let msg = "";
+                if(effect['unknown proc param']){
+                    msg += `Heals`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data, {
+                    prefix: "",
+                    suffix: " in the surrounding area"
+                });
+                if(msg.length > 0){
+                    msg += ` (unknown proc effects '${effect['unknown proc param']}')`;
+                }
+                return msg;
+            }
+        },
+        '903': {
+            desc: "Show Boss Location (Raid)",
+            type: ['timed'],
+            notes: ['Found on item 70000'],
+            func: function (effect, other_data) {
+                var msg = "";
+                let amount, chance, translated_effect = {};
+                if (effect['unknown proc param']) {
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    translated_effect = {
+                        'buff timer (seconds)': data[1],
+                        'unknown params': [data[0]].concat(data.slice(2))
+                    };
+
+                    if(translated_effect['buff timer (seconds)']){
+                        msg += `Shows the location of bosses on the map`;
+                    }
+
+                    if (translated_effect['unknown params']) {
+                        msg += ` (unknown proc effects '${translated_effect['unknown params']}')`;
+                    }
+
+                    if(translated_effect['buff timer (seconds)']){
+                        msg += ` for ${translated_effect['buff timer (seconds)']} seconds`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;       
+            }
+        },
+        '905': {
+            desc: "Teleports Player to Camp (Raid)",
+            type: ['effect'],
+            notes: ['Found on item 70200'],
+            func: function(effect,other_data){
+                let msg = `Moves${get_target(effect, other_data, {
+                    prefix: "",
+                    suffix: " to Camp"
+                })} (unknown proc effects '${effect['unknown proc param']}')`;
+                return msg;
+            }
+        },
+        '906': {
+            desc: "Escape Current Battle (Raid)",
+            type: ['effect'],
+            notes: ['Found on item 70100', "There are no parameters with this proc, according to item 70100"],
+            func: function(effect,other_data){
+                return "Allows user to escape from battle (params?)";
+            }
+        },
+        '907': {
+            desc: "Timed DEF (Raid)",
+            type: ['buff', 'timed'],
+            notes: ['Found on item 70500'],
+            func: function (effect, other_data) {
+                let msg = "";
+                if (effect['unknown proc param']) {
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    translated_effect = {
+                        'reduction% buff': data[0],
+                        'buff timer (seconds)': data[1],
+                        'unknown params': [data[0]].concat(data.slice(2))
+                    };
+                    msg += `${get_polarized_number(translated_effect['reduction% buff'])}% damage reduction`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                if(translated_effect) msg += ` for ${translated_effect['buff timer (seconds)']} seconds`;
+                return msg;
+            }
+        },
+        '908': {
+            desc: "Increase Item Drop Rate (Raid)",
+            type: ['buff'],
+            func: function (effect, other_data) {
+                let msg = "";
+                let data = effect['unknown proc param'].split(",");
+                if (data.length > 0) {
+                    let boost = (100 + (+data[0])) / 100;
+                    msg += `Multiplies Raid Item drop rate by ${boost} for the current Raid quest when activated from the map`;
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                return msg;
+            }
+        },
+        '10004': {
+            desc: "Damage Immunity to BB/SBB/UBB/Normals",
+            type: ['buff'],
+            notes: ["Can be found on BB 8470117"],
+            func: function(effect,other_data){
+                let msg = "";
+                let translated_effect;
+                if (effect['unknown proc param']) {
+                    // chance,turns,unknown,bb,sbb,ubb,normal,unknown
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    translated_effect = {
+                        'immune chance': data[0],
+                        'immune turns': data[1],
+                        'immune to bb': data[3] == 1 || undefined,
+                        'immune to sbb': data[4] == 1 || undefined,
+                        'immune to ubb': data[5] == 1 || undefined,
+                        'immune to normals': data[6] == 1 || undefined,
+                        'unknown params': [data[2]].concat(data.slice(7))
+                    };
+                    let options = {
+                        all: [
+                            { name: "BB", value: translated_effect['immune to bb'] },
+                            { name: "SBB", value: translated_effect['immune to sbb'] },
+                            { name: "UBB", value: translated_effect['immune to ubb'] },
+                            { name: "Normal", value: translated_effect['immune to normals'] },
+                        ],
+                        numberFn: (v) => { return ""},
+                        special_case: {
+                            isSpecialCase: (value,names) => { return value === false; },
+                            func: (value,names) => { return ""; }
+                        },
+                        suffix: " attacks"
+                    };
+                    if(translated_effect['immune chance'] === 100){
+                        options.prefix = "Give full damage immunity from ";
+                    }else{
+                        options.prefix = `${translated_effect['immune chance']}% chance to ignore damage from `;
+                    }
+                    msg += multi_param_buff_handler(options);
+                    if (msg.length > 0 && translated_effect['unknown params'].length > 0) {
+                        msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                if (translated_effect) msg += get_turns(translated_effect["immune turns"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '10005': {
+            desc: "Turn Skip",
+            type: ['debuff'],
+            notes: ['Can be found on BB 8400911'],
+            func: function(effect,other_data){
+                let msg = "";
+                let translated_effect;
+                if (effect['unknown proc param']) {
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    translated_effect = {
+                        'turnskip chance': data[0],
+                        'number of turns skipped': data[1],
+                        'unknown params': data.slice(2)
+                    };
+
+                    if(translated_effect['turnskip chance'] || translated_effect['number of turns skipped']){
+                        if (translated_effect['turnskip chance'] == 100){
+                            msg += "Inflicts ";
+                        }else{
+                            msg += `${translated_effects['turnskip chance'] || 0}% chance to inflict`;
+                        }
+
+                        msg += `${translated_effect['number of turns skipped']} turn Turn Skip`;
+                    }
+                    
+                    if (msg.length > 0 && translated_effect['unknown params'].length > 0) {
+                        msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                return msg;
+            }
+        },
+        '10007': {
+            desc: 'Chance Evasion',
+            type: ['buff'],
+            notes: ['Can be found on BB 820397'],
+            func: function(effect,other_data){
+                let msg = "";
+                let translated_effect;
+                if (effect['unknown proc param']) {
+                    // unknown,turns,unknown,chance
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    translated_effect = {
+                        'evasion chance': data[3],
+                        'evasion turns': data[1],
+                        'unknown params': [data[0],data[2]].concat(data.slice(4))
+                    };
+                    
+                    if (translated_effect['evasion chance']) {
+                        if (translated_effect['evasion chance'] == 100) {
+                            msg += "Evades ";
+                        } else {
+                            msg += `${translated_effect['evasion chance']}% chance to evade `;
+                        }
+
+                        msg += `attacks`;
+                    }
+
+                    if (msg.length > 0 && translated_effect['unknown params'].length > 0) {
+                        msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                if (translated_effect) msg += get_turns(translated_effect["evasion turns"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '70001': {
+            desc: "Mana Bubble Shield (EU)",
+            type: ['buff'],
+            notes: ['This can be found on BB 720153'],
+            func: function(effect,other_data){
+                let msg = "";
+                let translated_effect;
+                if (effect['unknown proc param']) {
+                    // unknown,turns,unknown,chance
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    if(data.length === 2){
+                        data.unshift(3); //add missing value, 3 is based on other bursts that have this proc
+                    }
+                    translated_effect = {
+                        'rec convert': data[1],
+                        'unknown params': [data[0]].concat(data.slice(2))
+                    };
+
+                    if(translated_effect['rec convert']){
+                        msg += `Cast a Mana Bubble Shield (based on ${translated_effect['rec convert']}% REC)`;
+                    }
+
+                    if (msg.length > 0 && translated_effect['unknown params'].length > 0) {
+                        msg += ` (unknown proc effects '${translated_effect['unknown params'].join(",")}')`;
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                // if (translated_effect) msg += get_turns(translated_effect["evasion turns"], msg, other_data.sp, this.desc);
+                return msg;
+            }
+        },
+        '70002': {
+            desc: "Chance to Cast Double BB/SBB/UBB",
+            type: ['buff'],
+            notes: ['Can be found on BB 1750165', 'Any unit in the evolution line of listed units should work'],
+            func: function(effect,other_data){
+                //get the highest version of a given unit category
+                function get_unit_name(category){
+                    let name;
+                    let prefix = category - (category % 10); //remove last digit
+                    for(let i = 7; i >= 2; --i){
+                        if(unit_names[`${category+i}`]){
+                            name = unit_names[`${category + i}`];
+                            break;
+                        }
+                    }
+                    return name || category;
+                }
+                let msg = "";
+                let translated_effect;
+                if (effect['unknown proc param']) {
+                    // unknown,turns,unknown,chance
+                    let data = effect['unknown proc param'].split(",").map((v) => { return +v });
+                    translated_effect = {
+                        'base chance': data[0]*100,
+                        'buff turns': data[1],
+                        'chance added per special unit': data[2]*100,
+                        'special units': data.slice(3).filter((v) => { return v !== 0; })
+                    };
+
+                    if(translated_effect['base chance']){
+                        msg += `${translated_effect['base chance']}% chance`;
+                    }
+
+                    if (translated_effect['chance added per special unit'] || translated_effect['special units'].length > 0) {
+                        let names = translated_effect['special units'].map(get_unit_name);
+                        msg += ` (${get_polarized_number(translated_effect['chance added per special unit'])}% chance`;
+                        if(names.length > 0){
+                            if(names.length == 1){
+                                msg += ` if ${names[0]} is `;
+                            }else{
+                                msg += ` per unit in {${names.join(", ")}} `;
+                            }
+                            msg += "found in squad";
+                        }
+                        msg += ")";
+                    }
+
+                    if (msg.length > 0){
+                        msg += " to cast double BB/SBB/UBB";
+                    }
+                }
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                if (!other_data.sp) msg += get_target(effect, other_data);
+                if (translated_effect) msg += get_turns(translated_effect["buff turns"], msg, other_data.sp, this.desc);
+                return msg;
+            }
         }
     };
 
@@ -2205,6 +3361,21 @@ var BuffProcessor = function (unit_names, item_names, options) {
         }
     }
 
+    function getBuffsOfType(buff_type) {
+        let filtered_buffs = {};
+        for (let type in buff_list) {
+            filtered_buffs[type] = [];
+            let keys = Object.keys(buff_list[type]);
+            for (let id of keys) {
+                if (buff_list[type][id].type.indexOf(buff_type) > -1) {
+                    filtered_buffs[type].push(id);
+                }
+            }
+        }
+        return filtered_buffs;
+    }
+    this.getBuffsOfType = getBuffsOfType;
+
     //given an effects object, print get its effects
     function print_buff(effect, other_data) {
         var msg = "";
@@ -2228,6 +3399,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
 
     this.print_buff = print_buff;
     this.buff_list = buff_list;
+    this.buff_types = buff_types;
 };
 
 module.exports = BuffProcessor;

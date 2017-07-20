@@ -1,11 +1,15 @@
 var client = require('./data_tier_client.js');
 var fs = require('fs');
 let EffectPrinter = require('./effect_printer.js');
+let unitDB = require('./server_modules/unit.js');
+let itemDB = require('./server_modules/item.js');
+let esDB = require('./server_modules/es.js');
+let bbDB = require('./server_modules/bb.js');
 
 client.setAddress("http://127.0.0.1:8081");
 
 let ep = new EffectPrinter({},{
-    // verbose: true
+    verbose: true
 });
 
 //apply a function to all DBs
@@ -307,6 +311,7 @@ function doBurstTest(id){
     if(burst_object){
         let msg = printBurst(burst_object);
         console.log(burst_object.name);
+        console.log(burst_object.desc);
         console.log(msg);
     } else 
         console.log("No burst found with ID",id);
@@ -332,23 +337,84 @@ function doESTest(id){
     }
 }
 
+function analyzeObjectForValuesOf(target, field_name) {
+    let values = [];
+    if (typeof target !== "object") return values;
+    let fields = [target];
+    while (fields.length > 0) {
+        let curField = fields.shift();
+        //skip non-objects
+        if (typeof curField !== "object") {
+            continue;
+        }
+
+        for (let f in curField) {
+            if (typeof curField[f] === "object") {
+                fields.push(curField[f]);
+            }
+            if (f == field_name) {
+                let value;
+                if (typeof curField[f] !== "object")
+                    value = (curField[f]);
+                else
+                    value = (JSON.stringify(curField[f]));
+                
+                if(values.indexOf(value) === -1){
+                    values.push(value);
+                }
+            }
+        }
+    }
+
+    return values;
+}
+
 function sandbox_function(){
-    let db = JSON.parse(fs.readFileSync(`./sandbox_data/feskills-gl.json`, 'utf8'));
-    let unit = db['40897'];
-    let skill = unit.skills[8];
-    let msg = ep.printSingleSP(skill);
-    console.log(msg);
+    // let attacking_bursts = {};
+    let testDB = bbDB;
+    return testDB.init()
+    .then(() => {
+        // return testDB.update_statistics();
+        // return testDB.translate();
+        // return testDB.init();
+    }).then(() => {
+        console.log("Finished loading first time");    
+        // console.log(testDB.getByID("-1"));
+        // let results = testDB.search({ es_name_id: "aeterno",strict: "false", verbose: true});
+        let results = testDB.list({start: -1, end: -1, verbose: false});
+        if(results.length === 1){
+            // let item = testDB.getByID(results[0]);
+            // console.log(analyzeObjectForValuesOf(testDB.getByID(results[0]),'passive id'));
+            console.log(item);
+        }else{
+            for(let r of results){
+                // console.log(testDB.getByID(r)['name']);
+                console.log(r);
+            }
+        }
+        // console.log(JSON.stringify(itemDB.getByID('88700004'),null,2));
+        // console.log(JSON.stringify(itemDB.getByID('88700006'),null,2));
+        // testDB.reload();
+        
+    }).then(() => { 
+        // console.log("Finished loading second time");
+        // console.log(Object.keys(testDB.getDB())); 
+        console.log("done");
+    });
 }
 
 ep.init().then(function(){ 
     return (
-        // sandbox_function()
+        sandbox_function()
         // getBuffDataForAll()
-        // doItemTest({ item_name_id: "800508", verbose: true})
-        // doUnitTest({ unit_name_id: "vargas",strict: "false", verbose:true,burstType: "ubb", type: "es"})
-        // doBurstTest("2004238")
-        doESTest("740237")
+        // doItemTest({ item_name_id: "(800312)", verbose: true})
+        // doUnitTest({ unit_name_id: "holia",strict: "false", verbose:true,burstType: "ubb", type: "burst"})
+        // doBurstTest("1750165")
+        // doESTest("750216")
     );
 }).then(function(){
     console.log(" ")  
 }).catch(console.log);
+
+
+// unitDB.init();
