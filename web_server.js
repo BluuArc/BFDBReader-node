@@ -269,6 +269,12 @@ function send_updates() {
                 let name = (curES.translated_name) ? curES.translated_name : curES.name;
                 parsed_newest.push(`${name} (${curES.id})\n`);
             }
+        }else if(type === "BBs"){
+            for(let i of newest){
+                let curBB = db.bbs.getByID(i);
+                let name = curBB.translated_name || curBB.name || "No name found";
+                parsed_newest.push(`${name} (${curBB.id})\n`);
+            }
         } else {
             msg += "Error: Unknown type " + type;
             return [
@@ -280,7 +286,7 @@ function send_updates() {
         }
 
 
-        var msg_arr = create_sectional_messages(parsed_newest, 900, 5);
+        var msg_arr = create_sectional_messages(parsed_newest, 900, 3);
         var field_arr = [
             {
                 title: `${field_title} - 1`,
@@ -307,7 +313,7 @@ function send_updates() {
 
         let stats = get_stats();
 
-        var types = ["Units", "Items", "ES"];
+        var types = ["Units", "Items", "ES", "BBs"];
 
         var fields = [];
         for (let m in mapping) {
