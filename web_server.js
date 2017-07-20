@@ -463,7 +463,7 @@ loadPromise.then(() => {
 
             console.log("Finished loading database");
             console.log("Ready! Server listening at http://%s:%s", host, port);
-            
+
             fulfill(); //necessary to only enter test function after this message
         });
     });

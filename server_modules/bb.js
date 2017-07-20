@@ -85,7 +85,8 @@ let BraveBurstDB = function(){
         let results = [];
         for (let u in db) {
             if(verbose) console.log("Checking BB",u);
-            if (contains_query(query, db[u])) {
+            //hardcoded 2000 limit to avoid long searches
+            if (contains_query(query, db[u]) && results.length < 2000) {
                 results.push(u);
             }
         }
