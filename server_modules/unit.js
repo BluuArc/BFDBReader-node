@@ -281,7 +281,7 @@ let UnitDB = function(){
                         isEqual = (a[index] === b[index]) && (db[a[index].toString()].guide_id === db[b[index].toString()].guide_id);
                         index++;
                     }
-                    if(!isEqual){
+                    if(!isEqual && verbose){
                         console.log("mismatch",a,b);
                     }
                     return isEqual;

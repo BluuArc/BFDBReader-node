@@ -201,7 +201,14 @@ let DBModule = function(options){
                 }
 
                 Promise.all(file_promises).then(function(){
-                    return Promise.resolve(file_obj.setupFn(db,file_db,file_obj.name));
+                    return Promise.resolve(file_obj.setupFn(db,file_db,file_obj.name))
+                        .then(() => {
+                            let keys = Object.keys(file_db);
+                            for(let f of keys){
+                                console.log("Deleting",f);
+                                delete file_db[f];
+                            }
+                        });
                 }).then(fulfill).catch(reject);
             });
         }
