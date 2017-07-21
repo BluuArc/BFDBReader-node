@@ -37,19 +37,15 @@ let DBModule = function(options){
     let name = options.name || "Module";
 
     //attempt to rename a given file, if it exists
-    function rename_file_promisified(cur_name, new_name) {
+    function rename_file_promisified(cur_name,new_name){
         return new Promise(function (fulfill, reject) {
-            fs.readFile("./json/" + cur_name, 'utf8', function (err, data) {
+            fs.rename(`./json/${cur_name}`, `./json/${new_name}`, (err) => {
                 if (err) {
-                    console.log("Couldn't find " + cur_name + " to rename");
-                    fulfill(); //file doesn't exist, but that's okay
-                } else {
-                    fs.writeFile("./json/" + new_name, data, 'utf8', function (err) {
-                        if (err) console.log("Couldn't rename " + cur_name + " to " + new_name);
-                        else console.log("Renamed " + cur_name + " to " + new_name);
-                        fulfill(); //finished trying to rename file
-                    });
+                    console.log("Couldn't rename " + cur_name + " to " + new_name);
+                }else{
+                    console.log("Renamed " + cur_name + " to " + new_name);
                 }
+                fulfill();
             });
         });
     }

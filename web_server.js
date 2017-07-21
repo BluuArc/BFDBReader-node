@@ -461,7 +461,8 @@ loadPromise.then(() => {
     // console.log("Done loading");
     return new Promise(function(fulfill,reject){
         createListeners();
-        init_memory_fix();
+        if(!argv.reload)
+            init_memory_fix();
 
         var server = app.listen(argv.port, argv.ip, function () {
             let host = server.address().address;
