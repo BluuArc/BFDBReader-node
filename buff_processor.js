@@ -357,34 +357,33 @@ var BuffProcessor = function (unit_names, item_names, options) {
         return msg;
     }
 
-    function get_duration_and_target(turns, area, type) {
-        var msg = "";
-        //first param is an effects object
-        if ((typeof turns).toLowerCase() === 'object') {
-            area = turns["target area"];
-            type = turns["target type"];
-            turns = turns["buff turns"];
-        } else if ((typeof area).toLowerCase() === 'object') {
-            type = area["target type"];
-            area = area["target area"];
-        }
-        if (turns) msg += " for " + turns + (turns === 1 ? " turn" : " turns");
-        msg += " (" + area + "," + type + ")";
-        msg += " duration and target".toUpperCase(); //remove once all buffs stop using this function
-        return msg;
-    }
-
     function get_target(area, type, options) {
-        // debug_log("Received target data",area,type);
+        debug_log("Received target data",area,type, options);
+        options = options || {};
+        let isPassive = options.isPassive|| options.sp || false;
         if (typeof area === "object" && area["target type"] && area["target area"]) {
             type = area["target type"];
             area = area["target area"];
         } else if (typeof type === "object" && type["target type"] && type["target area"]) {
             area = type["target area"];
             type = type["target type"];
+        }else if (typeof area === "object" && area["passive target"]) {
+            type = area['passive target'];
+            isPassive = true;
+        } else if (typeof type === "object" && type["passive target"]) {
+            type = type['passive target'];
+            isPassive = true;
         }
 
-        options = options || {};
+        if(type !== 'party' && type !== 'self' && type !== 'enemy'){ //default to self
+            if(!options.isLS){
+                debug_log("Defaulting to self");
+                type = "self";
+            }else{
+                type = 'party';
+            }
+        }
+
         let prefix = options.prefix || "to ";
         let suffix = options.suffix || "";
 
@@ -392,18 +391,28 @@ var BuffProcessor = function (unit_names, item_names, options) {
         if (typeof options.prefix === "string" && options.prefix.length === 0)
             prefix = "";
 
-        if (area === "single" && type === "self") {
-            return ` ${prefix}self${suffix}`;
-        } else if (area === "aoe" && type === "party") {
-            return ` ${prefix}allies${suffix}`;
-        } else if (area === "aoe" && type === "enemy") {
-            return ` ${prefix}enemies${suffix}`;
-        } else if (area === "single" && type === "enemy") {
-            return ` ${prefix}an enemy${suffix}`;
-        } else if (area === "single" && type === "party") {
-            return ` ${prefix}an ally${suffix}`;
-        } else {
-            return ` (${area},${type})`;
+        if(!options.isPassive){
+            if (area === "single" && type === "self") {
+                return ` ${prefix}self${suffix}`;
+            } else if (area === "aoe" && type === "party") {
+                return ` ${prefix}allies${suffix}`;
+            } else if (area === "aoe" && type === "enemy") {
+                return ` ${prefix}enemies${suffix}`;
+            } else if (area === "single" && type === "enemy") {
+                return ` ${prefix}an enemy${suffix}`;
+            } else if (area === "single" && type === "party") {
+                return ` ${prefix}an ally${suffix}`;
+            } else {
+                return ` (${area},${type})`;
+            }
+        }else{
+            if(type === 'self'){
+                return ` ${prefix}self${suffix}`;
+            }else if(type === 'party'){
+                return ` ${prefix}allies${suffix}`;
+            }else{
+                return ` (${type})`;
+            }
         }
     }
 
@@ -996,7 +1005,6 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data);
                 msg += get_turns(effect["% converted turns"], msg, other_data.sp, this.desc);
-                // msg += get_duration_and_target(effect["% converted turns"], effect["target area"], effect["target type"]);
                 return msg;
             }
         },
@@ -1250,7 +1258,6 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (!other_data.sp) msg += get_target(effect, other_data, {
                     prefix: "inflicted on "
                 });
-                // msg += get_duration_and_target(undefined,effect["target area"], effect["target type"]);
                 return msg;
             }
         },
@@ -3221,9 +3228,30 @@ var BuffProcessor = function (unit_names, item_names, options) {
         let names = [];
         if (type === 'unit') {
             for (let val of arr) {
-                val = val.toString();
-                // debug_log(val,unit_names[val]);
-                names.push(unit_names[val] || val);
+                if(val.name){
+                    if(val.id === undefined)
+                        names.push(val.name);
+                    else
+                        names.push(`${val.name} (${val.id})`);
+                }else{
+                    val = (val.id !== undefined) ? val.id.toString() : val.toString();
+                    if(+val % 10 === 0){ //specify a range of units
+                        //get highest rarity unit in set
+                        let highest_name;
+                        for(let i = 0; i <= 9; ++i){
+                            let index = `${+val + i}`;
+                            // console.log("checking index",index, unit_names[index]);
+                            if(unit_names[index] !== undefined){
+                                // names.push(unit_names[index]);
+                                highest_name = unit_names[index];
+                            }
+                        }
+                        names.push(`any evolution of ${highest_name || val}`);
+                    }else{//specify a specific unit
+                        // debug_log(val,unit_names[val]);
+                        names.push(unit_names[val] || val);
+                    }
+                }
             }
         } else if (type === 'item') {
             for (let val of arr) {
@@ -3235,7 +3263,102 @@ var BuffProcessor = function (unit_names, item_names, options) {
         return names;
     }
 
+    function get_conditions(effect){
+        let conditions = {
+            unit: [],
+            item: []
+        };
+        debug_log(JSON.stringify(effect.conditions,null,2));
+        let vowels = 'aeiou';
+        if (effect['conditions'] && effect['conditions'].length > 0) {
+            for (let condition of effect['conditions']) {
+                if(condition['sphere category required'] !== undefined){
+                    conditions.item.push(`${vowels.indexOf(condition['sphere category required'][0].toLowerCase()) > -1 ? 'an' : 'a'} ${condition['sphere category required']} sphere`);
+                } else if(condition['item required'] !== undefined){
+                    if (condition['item required'] instanceof Array && condition['item required'].length > 0) {
+                        for (let item of condition['item required']) {
+                            if (conditions.item.indexOf(item) === -1) {
+                                conditions.item.push(item);
+                            }
+                        }
+                    }else{
+                        conditions.item.push(condition['item required']);
+                    }
+                } else if(condition['unit required'] !== undefined){
+                    if (condition['unit required'] instanceof Array && condition['unit required'].length > 0) {
+                        for (let unit of condition['unit required']) {
+                            if (conditions.unit.indexOf(unit) === -1) {
+                                conditions.unit.push(unit);
+                            }
+                        }
+                    }else{
+                        conditions.unit.push(condition['unit required']);
+                    }
+                } else if(condition.unknown !== undefined){
+                    if(condition.unknown === '6,3'){ //special case for zelnite
+                        conditions.item.push(`a Drop sphere`);
+                    }else{
+                        conditions.item.push(`unknown sphere type ${condition['unknown']}`);
+                    }
+                }
+            }
+        }
+        console.log("conditions", conditions);
+        return conditions;
+    }
+
+    function print_conditions(effect){
+        let conditions = get_conditions(effect);
+        let cond_msg = [], msg = "";
+        if (conditions.unit.length > 0) {
+            let names = get_names(conditions.unit, 'unit');
+            if (conditions.unit.length === 1 && names.length === 1) {
+                cond_msg.push(`${names[0]} is in squad`);
+            } else {
+                cond_msg.push(`${names.join(" or ")} are in squad`);
+            }
+        }
+        if (conditions.item.length > 0) {
+            let names = get_names(conditions.item, 'item');
+            if (conditions.item.length === 1) {
+                cond_msg.push(`${names[0]} is equipped`);
+            } else {
+                cond_msg.push(`${names.join(" or ")} are equipped`);
+            }
+        }
+        if (cond_msg.length > 0) {
+            msg += `If ${cond_msg.join(" or ")}, then `;
+        }
+        return msg;
+    }
+
     var passive_buffs = {
+        '1': {
+            desc: "Regular HP/ATK/DEF/REC/Crit Rate Boost",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                // console.log("other_data",other_data);
+                other_data = other_data || {};
+                let msg = print_conditions(effect);
+                if (effect["hp% buff"] || effect["atk% buff"] || effect["def% buff"] || effect["rec% buff"]) { //regular tri-stat
+                    msg += hp_adr_buff_handler(effect["hp% buff"], effect["atk% buff"], effect["def% buff"], effect["rec% buff"]);
+                }
+
+                if(effect['crit% buff']){
+                    if(msg.length > 0) msg += ", ";
+                    msg += `${get_polarized_number(effect['crit% buff'])}% Crit Rate`;
+                }
+               
+                if (msg.length === 0) throw no_buff_data_msg;
+
+                if(!other_data.sp){
+                    msg += get_target(effect,other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
         '66': {
             desc: "Add effect to BB/SBB",
             type: ["passive"],
@@ -3253,59 +3376,17 @@ var BuffProcessor = function (unit_names, item_names, options) {
                     return multi_param_buff_handler(options);
                 })(effect["trigger on bb"], effect["trigger on sbb"], effect["trigger on ubb"]);
 
-                let conditions = {
-                    unit: [],
-                    item: []
-                };
-                if (effect['conditions'] && effect['conditions'].length > 0) {
-                    for (let condition of effect['conditions']) {
-                        if (condition['item required'] && condition['item required'].length > 0) {
-                            for (let item of condition['item required']) {
-                                if (conditions.item.indexOf(item) === -1) {
-                                    conditions.item.push(item);
-                                }
-                            }
-                        } else if (condition['unit required'] && condition['unit required'].length > 0) {
-                            // conditions.push({ type: 'unit', value: condition['unit required'] });
-                            for (let unit of condition['unit required']) {
-                                if (conditions.unit.indexOf(unit) === -1) {
-                                    conditions.unit.push(unit);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // debug_log(conditions);
+                let msg = print_conditions(effect);
 
                 let buff = [];
                 for (let e of effect['triggered effect']) {
-                    buff.push(print_buff(e));
+                    buff.push(print_buff(e, {
+                        isPassive: false,
+                        sp: false
+                    }));
                 }
 
-                let msg = "";
-                let cond_msg = [];
-                if (conditions.unit.length > 0) {
-                    let names = get_names(conditions.unit, 'unit');
-                    if (conditions.unit.length === 1) {
-                        cond_msg.push(`${names[0]} is in squad`);
-                    } else {
-                        cond_msg.push(`${names.join(" or ")} are in squad`);
-                    }
-                }
-                if (conditions.item.length > 0) {
-                    let names = get_names(conditions.item, 'item');
-                    if (conditions.item.length === 1) {
-                        cond_msg.push(`${names[0]} is equipped`);
-                    } else {
-                        cond_msg.push(`${names.join(" or ")} are equipped`);
-                    }
-                }
-                if (cond_msg.length > 0) {
-                    msg += `If ${cond_msg.join(" or ")}, then `;
-                }
-
-                msg += `${msg.length > 0 ? "add" : "Add"} "${buff.join(" / ").trim()}" to ${burst_type}`;
+                msg += `${msg.length > 0 ? "add" : "Add"} effect to ${burst_type} {${buff.join(" / ").trim()}}`;
                 if (effect['passive target'] !== undefined && effect['passive target'] !== 'self')
                     msg += ` to ${effect['passive target']}`;
                 return msg;

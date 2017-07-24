@@ -1,10 +1,6 @@
 var client = require('./data_tier_client.js');
 var fs = require('fs');
 let EffectPrinter = require('./effect_printer.js');
-let unitDB = require('./server_modules/unit.js');
-let itemDB = require('./server_modules/item.js');
-let esDB = require('./server_modules/es.js');
-let bbDB = require('./server_modules/bb.js');
 
 client.setAddress("http://127.0.0.1:8081");
 
@@ -258,12 +254,17 @@ function doUnitTest(unitQuery){
                     let unit_printer = ep;
                     ep.setTarget(unit);
                     let msg;
-                    if(type === "burst")
+                    if(type === "burst"){
                         msg = unit_printer.printBurst(burstType);
-                    else if(type === "sp")
-                        msg = unit_printer.printSP();
-                    else if(type === "es")
+                    }else if(type === "sp"){
+                        msg = unit_printer.printSP();   
+                    }else if(type === "es"){
                         msg = unit_printer.printES();
+                    }else if(type === 'ls'){
+                        msg = unit_printer.printLS();
+                        // console.log(unit['leader skill'].desc);
+                        console.log(JSON.stringify(unit['leader skill'], null, 2));
+                    }
 
                     if (unit.translated_name) console.log(unit.translated_name);
                     console.log(unit.name, unit.id);
@@ -337,6 +338,25 @@ function doESTest(id){
     }
 }
 
+function doLSTest(id){
+    var ls_db = {};
+    let servers = ['gl', 'eu', 'jp'];
+    while (!ls_db[id] && servers.length > 0) {
+        let server = servers.shift();
+        console.log(`checking ${server}`);
+        ls_db = JSON.parse(fs.readFileSync(`./sandbox_data/ls-${server}.json`, 'utf8'));
+    }
+    let ls_object = ls_db[id];
+    console.log(JSON.stringify(ls_object,null,2));
+    if(ls_object){
+        let msg = ep.printLS(ls_object);
+        console.log(ls_object.name, "-", ls_object.desc);
+        console.log(msg);
+    }else{
+        console.log("No LS found with ID", id);
+    }
+}
+
 function analyzeObjectForValuesOf(target, field_name) {
     let values = [];
     if (typeof target !== "object") return values;
@@ -407,10 +427,11 @@ ep.init().then(function(){
     return (
         // sandbox_function()
         // getBuffDataForAll()
-        // doItemTest({ name_id: "(800312)", verbose: true})
-        doUnitTest({ name_id: "holia",strict: "false", verbose:true,burstType: "ubb", type: "burst"})
+        // doItemTest({ name_id: "30307", verbose: true})
+        // doUnitTest({ name_id: "10016" ,strict: "false", verbose:true,burstType: "ubb", type: "es"})
         // doBurstTest("1750165")
-        // doESTest("750216")
+        // doESTest("2")
+        doLSTest('10145')
     );
 }).then(function(){
     console.log(" ")  

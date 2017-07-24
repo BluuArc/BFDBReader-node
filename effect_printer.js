@@ -19,9 +19,6 @@ function EffectPrinter(target, options) {
     this.init = init;
 
     function setTarget(target_new){
-        if(target){
-            delete target;
-        }
         target = target_new;
     }
     this.setTarget = setTarget;
@@ -31,15 +28,43 @@ function EffectPrinter(target, options) {
     //returns a string of translated buffs
     function process_effects(effects, other_data_function) {
         let translated_buffs = [];
+        let conditions = [];
         let other_data;
         debug_log("EffectPrinter.process_effects: Received effects =>", effects);
         if (other_data_function) debug_log("EffectPrinter.process_effects: Other data looks like =>", other_data_function(0))
         for (let e = 0; e < effects.length; ++e) {
             if (other_data_function) other_data = other_data_function(e);
             let msg = buff_processor.print_buff(effects[e], other_data);
-            if (translated_buffs.indexOf(msg) === -1) translated_buffs.push(msg);
-            else console.log("ignored duplicate msg:", msg);
+
+            if(msg.indexOf(', then ') > -1){
+                let buff = msg.split(', then ');
+                conditions.push({
+                    condition: buff[0],
+                    buff: buff.slice(1)
+                });
+            }else{
+                if (translated_buffs.indexOf(msg) === -1) translated_buffs.push(msg);
+                else console.log("ignored duplicate msg:", msg);
+            }
         }
+
+        if(conditions.length > 0){
+            let unique_conditions = {};
+            for(let c of conditions){
+                if(unique_conditions[c.condition] === undefined){
+                    unique_conditions[c.condition] = [];
+                }
+                unique_conditions[c.condition].push(c.buff);
+            }
+
+            //convert grouped conditions into a buff message
+            let keys = Object.keys(unique_conditions);
+            for(let k of keys){
+                let buff_msg = `${k}, then ${unique_conditions[k].join(" and ")}`;
+                translated_buffs.push(buff_msg);
+            }
+        }
+
         return translated_buffs.join(" / ");
     }
     this.process_effects = process_effects;
@@ -66,11 +91,17 @@ function EffectPrinter(target, options) {
     }
     this.printBurst = printBurst;
 
-    function printLS() {
+    function printLS(ls_object) {
         if (!target) throw "No target specified";
-        let ls_object = target["leader skill"];
+        if(!ls_object){
+            ls_object = target["leader skill"];
+        }
         if (!ls_object) return `No Leader Skill data found`;
-        return process_effects(ls_object.effects);
+        return process_effects(ls_object.effects, function(){
+            return {
+                isLS: true
+            };
+        });
     }
     this.printLS = printLS;
 
@@ -139,7 +170,7 @@ function EffectPrinter(target, options) {
         //concatenate similar strings
         let msg = buff_processor.multi_param_buff_handler({
             values: [sp_effects['add to bb'], sp_effects['add to sbb'], sp_effects['add to ubb'], sp_effects['add to passive']],
-            names: ['BB', 'SBB', 'UBB', 'ES'],
+            names: ['BB', 'SBB', 'UBB', 'LS or ES'],
             prefix: function (arr) {
                 return `Enhances ${arr.join("/")} with additional "`
             },
