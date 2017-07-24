@@ -1,5 +1,6 @@
 let bdfb_module = require('./bfdb_module.js');
 let bfdb_common = require('./bfdb_common.js');
+let _ = require('lodash');
 
 let ExtraSkillDB = function(){
     let options = {};
@@ -7,24 +8,35 @@ let ExtraSkillDB = function(){
 
     let servers = ['gl', 'eu', 'jp'];
     let files = ['es'];
-    let setupFn = function (db, loaded_files, server) {
+    let setupFn = function (db, loaded_files, server, setup_options) {
+        let existing_ids = setup_options.existing_ids || [];
         //add in anything in db_sub and not in db_main to db_main
         function merge_databases(db_main, db_sub, server) {
             let keys = Object.keys(db_sub);
+            let mainKeys = Object.keys(db_main).map((d) => { return +d; }).sort((a,b) => { return a-b; });
             for (var es of keys) { //iterate through everything in object
-                var id = es;
-                if (db_main[es] !== undefined) { //exists, so just add date add time
+                var id = +es;
+                if(_.sortedIndexOf(mainKeys,id) > -1){
                     if (db_main[es].server.indexOf(server) == -1) {
                         db_main[es].server.push(server);
                     }
                 } else { //doesn't exist, so add it
-                    db_main[id] = db_sub[es];
-                    db_main[id].server = [server];
+                    db_main[es] = db_sub[es];
+                    db_main[es].server = [server];
                 }
                 delete db_sub[es];
             }
         }
         console.log(`Loaded file for ES in ${server}. Begin processing...`);
+
+        let es = loaded_files.es;
+        let keys = Object.keys(es);
+        for(let k of keys){
+            if(_.sortedIndexOf(existing_ids,+k) > -1){
+                // console.log("Deleting",k)
+                delete es[k];
+            }
+        }
 
         merge_databases(db, loaded_files.es, server);
 

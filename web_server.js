@@ -138,17 +138,71 @@ function init_db(isReload){
     let loadRequests = Object.keys(db);
 
     return common.do_n_at_a_time(loadRequests,1,(r) => {
-        if(!isReload){
-            return db[r].init();
-        }else{
-            return db[r].reload();
+        let loadPromise;
+        let options = {};
+        if(r === 'bbs'){
+            let presentIDs = [];
+            let unit_db = db.units.getDB();
+            for(let u in unit_db){
+                let curUnit = unit_db[u];
+                if(curUnit.bb){
+                    presentIDs.push(parseInt(curUnit.bb.id));
+                }
+                if(curUnit.sbb){
+                    presentIDs.push(parseInt(curUnit.sbb.id));
+                }
+                if(curUnit.ubb){
+                    presentIDs.push(parseInt(curUnit.ubb.id));
+                }
+            }
+
+            //sort in ascending order
+            presentIDs.sort(function(a,b){
+                return a - b;
+            });
+            options.existing_ids = presentIDs;
+        }else if(r === 'es'){
+            let presentIDs = ((unit_db) => {
+                var ids = [];
+                //get all ES IDs
+                for (let u in unit_db) {
+                    if (unit_db[u]["extra skill"])
+                        ids.push(parseInt(unit_db[u]["extra skill"].id));
+                }
+
+                //sort for easier searching
+                ids.sort(function (a, b) {
+                    return a - b;
+                });
+                return ids;
+            })(db.units.getDB());
+            options.existing_ids = presentIDs;
         }
+
+        if(!isReload){
+            loadPromise = db[r].init(options);
+        }else{
+            loadPromise = db[r].reload(options);
+        }
+
+        return loadPromise.then(() => {
+            console.log("Doing some post processing for",r);
+            if(r === 'items'){
+                translate_evo_mats(db.units.getDB(),db.items.getDB());
+            }else if(r === 'es'){
+                // trim_es_db(db.units.getDB(),db.es.getDB());
+                // init_memory_fix();
+            }else if(r === 'bbs'){
+                // trim_bbs_db(db.units.getDB(),db.bbs.getDB());
+                // init_memory_fix();
+            }
+        })
     }).then(() => {
             //post processing
-            console.log("Doing some post processing of DBs...");
-            translate_evo_mats(db.units.getDB(),db.items.getDB());
-            trim_es_db(db.units.getDB(),db.es.getDB());
-            trim_bbs_db(db.units.getDB(),db.bbs.getDB());
+            // console.log("Doing some post processing of DBs...");
+            // translate_evo_mats(db.units.getDB(),db.items.getDB());
+            // trim_es_db(db.units.getDB(),db.es.getDB());
+            // trim_bbs_db(db.units.getDB(),db.bbs.getDB());
             return;
         }).then(() => {
             let translations = [];
@@ -181,7 +235,7 @@ function reload_db(){
     },true).then(() => {
         return init_db(true).then(send_updates);
     }).then(() => {
-        init_memory_fix();
+        // init_memory_fix();
         return;  
     });
 }
@@ -461,8 +515,8 @@ loadPromise.then(() => {
     // console.log("Done loading");
     return new Promise(function(fulfill,reject){
         createListeners();
-        if(!argv.reload)
-            init_memory_fix();
+        // if(!argv.reload)
+        //     init_memory_fix();
 
         var server = app.listen(argv.port, argv.ip, function () {
             let host = server.address().address;

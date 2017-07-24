@@ -113,7 +113,7 @@ let DBModule = function(options){
     }
 
     //delete db data then re-initialize db; does NOT download anything
-    function reload(){
+    function reload(setup_options){
         //delete first level of DB
         if(db){
             console.log(`Deleting old db for ${name}...`);
@@ -123,7 +123,7 @@ let DBModule = function(options){
             }
         }
         console.log("Begin reloading files for",name);
-        return init();
+        return init(setup_options);
     }
     this.reload = reload;
 
@@ -186,7 +186,7 @@ let DBModule = function(options){
         ]
     */
     //load each set of files and merge into db one by one
-    function init(){
+    function init(setup_options){
         function single_load(file_obj){
             return new Promise(function(fulfill,reject){
                 let file_db = {};
@@ -201,7 +201,7 @@ let DBModule = function(options){
                 }
 
                 Promise.all(file_promises).then(function(){
-                    return Promise.resolve(file_obj.setupFn(db,file_db,file_obj.name))
+                    return Promise.resolve(file_obj.setupFn(db,file_db,file_obj.name,setup_options))
                         .then(() => {
                             let keys = Object.keys(file_db);
                             for(let f of keys){

@@ -1,5 +1,6 @@
 let bdfb_module = require('./bfdb_module.js');
 let bfdb_common = require('./bfdb_common.js');
+let _ = require('lodash');
 
 let ItemDB = function(){
     let options = {};
@@ -12,15 +13,17 @@ let ItemDB = function(){
         //add in anything in db_sub and not in db_main to db_main
         function merge_databases(db_main, db_sub, server) {
             let keys = Object.keys(db_sub);
+            let mainKeys = Object.keys(db_main).map((d) => { return +d; }).sort((a,b) => { return a-b; });
             for (var item of keys) { //iterate through everything in object
-                var id = item;
-                if (db_main[item] !== undefined) { //exists, so just add date add time
+                var id = +item;
+                // if (db_main[item] !== undefined) { //exists, so just add date add time
+                if(_.sortedIndexOf(mainKeys,id) > -1){
                     if (db_main[item].server.indexOf(server) == -1) {
                         db_main[item].server.push(server);
                     }
                 } else { //doesn't exist, so add it
-                    db_main[id] = db_sub[item];
-                    db_main[id].server = [server];
+                    db_main[item] = db_sub[item];
+                    db_main[item].server = [server];
                 }
                 delete db_sub[item];
             }

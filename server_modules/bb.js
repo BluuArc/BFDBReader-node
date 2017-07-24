@@ -1,5 +1,6 @@
 let bdfb_module = require('./bfdb_module.js');
 let bfdb_common = require('./bfdb_common.js');
+let _ = require('lodash');
 
 let BraveBurstDB = function(){
     let options = {};
@@ -7,28 +8,38 @@ let BraveBurstDB = function(){
 
     let servers = ['gl','eu','jp'];
     let files = ['bbs'];
-    let setupFn = function (db, loaded_files, server) {
+    let setupFn = function (db, loaded_files, server,setup_options) {
+        let existing_ids = setup_options.existing_ids || [];
         //add in anything in db_sub and not in db_main to db_main
         function merge_databases(db_main, db_sub, server) {
             let keys = Object.keys(db_sub);
+            let mainKeys = Object.keys(db_main).map((d) => { return +d; }).sort((a,b) => { return a-b; });
             for (var bb of keys) { //iterate through everything in object
-                var id = bb;
-                if (db_main[bb] !== undefined) { //exists, so just add date add time
+                var id = +bb;
+                if(_.sortedIndexOf(mainKeys,id) > -1){
                     if (db_main[bb].server.indexOf(server) == -1) {
                         db_main[bb].server.push(server);
                     }
-                } else { //doesn't exist, so add it
-                    db_main[id] = db_sub[bb];
-                    db_main[id].server = [server];
+                }else{
+                    db_main[bb] = db_sub[bb];
+                    db_main[bb].server = [server];
                 }
                 delete db_sub[bb];
             }
         }
+        console.log("Received options",setup_options.existing_ids.length);
         console.log(`Loaded file for BBs in ${server}. Begin processing...`);
 
-        merge_databases(db, loaded_files.bbs, server);
+        let bbs = loaded_files.bbs;
+        let keys = Object.keys(bbs);
+        for(let k of keys){
+            if(_.sortedIndexOf(existing_ids,+k) > -1){
+                // console.log("Deleting",k)
+                delete bbs[k];
+            }
+        }
 
-        delete loaded_files.bbs;
+        merge_databases(db, loaded_files.bbs, server);
 
         console.log(`Finished processing for BBs in ${server}`);
     };

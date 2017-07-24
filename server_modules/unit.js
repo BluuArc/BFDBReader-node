@@ -1,5 +1,6 @@
 let bdfb_module = require('./bfdb_module.js');
 let bfdb_common = require('./bfdb_common.js');
+let _ = require('lodash');
 
 let UnitDB = function(){
     let options = {};
@@ -37,11 +38,13 @@ let UnitDB = function(){
         function merge_databases(db_main, db_sub, server) {
             var previous_evos = [];
             let keys = Object.keys(db_sub);
+            let mainKeys = Object.keys(db_main).map((d) => { return +d; }).sort((a,b) => { return a-b; });
             for (var unit of keys) { //iterate through everything in object
                 var id = get_server_id(unit, server);
-                if (db_main[unit] !== undefined) { //exists, so just add date add time
-                    if (db_main[unit].server.indexOf(server) == -1) {
-                        db_main[unit].server.push(server);
+                // if (db_main[unit] !== undefined) { //exists, so just add date add time
+                if(_.sortedIndexOf(mainKeys,+id) > -1){
+                    if (db_main[id].server.indexOf(server) == -1) {
+                        db_main[id].server.push(server);
                     }
 
                     //save evo mats
@@ -57,7 +60,6 @@ let UnitDB = function(){
                 } else { //doesn't exist, so add it
                     db_main[id] = db_sub[unit];
                     db_main[id].server = [server];
-
                 }
                 delete db_sub[unit];
             }

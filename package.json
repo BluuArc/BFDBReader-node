@@ -20,7 +20,8 @@
   "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "legacy_start": "node server.js",
+    "pi": "node --max-old-space-size=750 web_server.js"
   },
   "repository": {
     "type": "git",
