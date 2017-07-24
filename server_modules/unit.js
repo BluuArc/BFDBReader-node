@@ -300,6 +300,8 @@ let UnitDB = function(){
             return [first_unit_evo.pop()];
         }
 
+        query = query || {};
+
         if(query.verbose === true || query.verbose == 'true'){
             console.log("Query:",query);
         }
@@ -314,7 +316,8 @@ let UnitDB = function(){
         //if not using strict mode, try to shorten list
         var notStrict = (query.strict === false || query.strict == 'false');
         var noRarity = (query.rarity === undefined || query.rarity == "*" || query.rarity.length == 0);
-        var notGuide = (query.unit_name_id === undefined || (!isNaN(query.unit_name_id) && parseInt(query.unit_name_id) >= 10011) || (isNaN(query.unit_name_id) && query.unit_name_id.indexOf(":") === -1));
+        var notGuide = (query.name_id === undefined || (!isNaN(query.name_id) && parseInt(query.name_id) < 10011) || (isNaN(query.name_id) && query.name_id.indexOf(":") === -1));
+        console.log(notGuide);
         if (notStrict && noRarity && notGuide && results.length > 0) {
             if (query.verbose == true || query.verbose == 'true') {
                 console.log("Results before shorten", results);
