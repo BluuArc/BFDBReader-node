@@ -255,9 +255,9 @@ var BuffProcessor = function (unit_names, item_names, options) {
         return multi_param_buff_handler(options);
     }
 
-    function variable_elemental_mitigation_handler(effect) {
+    function variable_elemental_mitigation_handler(effect,buff_keys) {
         let elements = ['Fire', 'Water', 'Earth', 'Thunder', 'Light', 'Dark'];
-        let buffs = ['mitigate fire attacks (21)', 'mitigate water attacks (22)', 'mitigate earth attacks (23)', 'mitigate thunder attacks (24)', 'mitigate light attacks (25)', 'mitigate dark attacks (26)'];
+        let buffs = buff_keys || ['mitigate fire attacks (21)', 'mitigate water attacks (22)', 'mitigate earth attacks (23)', 'mitigate thunder attacks (24)', 'mitigate light attacks (25)', 'mitigate dark attacks (26)'];
         let values = [];
         for (let b of buffs) {
             values.push(effect[b]);
@@ -877,8 +877,8 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 };
 
                 options.numberFn = function (value) {
-                    if (value === 100)
-                        return "full resistance to";
+                    if (value == 100)
+                        return "Negates";
                     else
                         return `${value}% resistance to`;
                 };
@@ -1847,8 +1847,8 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 };
 
                 options.numberFn = function (value) {
-                    if (value === 100)
-                        return "full resistance to";
+                    if (value == 100)
+                        return "Negates";
                     else
                         return `${value}% resistance to`;
                 };
@@ -3332,6 +3332,11 @@ var BuffProcessor = function (unit_names, item_names, options) {
         return msg;
     }
 
+    //checks if we need to get the target data
+    function needTarget(effect,other_data){
+        return (!other_data.isLS && !other_data.sp && (effect['passive target'] !== undefined && effect['passive target'] !== 'self'));
+    }
+
     var passive_buffs = {
         '1': {
             desc: "Regular HP/ATK/DEF/REC/Crit Rate Boost",
@@ -3351,9 +3356,140 @@ var BuffProcessor = function (unit_names, item_names, options) {
                
                 if (msg.length === 0) throw no_buff_data_msg;
 
-                if(!other_data.sp){
+                if (needTarget(effect,other_data)){
                     msg += get_target(effect,other_data, {
                         isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '2': {
+            desc: "Elemental HP/ATK/DEF/REC/Crit Rate Boost",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                // console.log("other_data",other_data);
+                other_data = other_data || {};
+                let msg = print_conditions(effect);
+                if (effect["hp% buff"] || effect["atk% buff"] || effect["def% buff"] || effect["rec% buff"]) { //regular tri-stat
+                    msg += hp_adr_buff_handler(effect["hp% buff"], effect["atk% buff"], effect["def% buff"], effect["rec% buff"]);
+                }
+
+                if (effect['crit% buff']) {
+                    if (msg.length > 0) msg += ", ";
+                    msg += `${get_polarized_number(effect['crit% buff'])}% Crit Rate`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+
+                if(effect['elements buffed']){
+                    let elements = effect['elements buffed'].map((s) => { return to_proper_case(s); }).join("/");
+                    msg += ` of ${elements} types`;
+                }
+
+
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '3': {
+            desc: "Type-Based HP/ATK/DEF/REC Boost",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                // console.log("other_data",other_data);
+                other_data = other_data || {};
+                let msg = print_conditions(effect);
+                if (effect["hp% buff"] || effect["atk% buff"] || effect["def% buff"] || effect["rec% buff"]) { //regular tri-stat
+                    msg += hp_adr_buff_handler(effect["hp% buff"], effect["atk% buff"], effect["def% buff"], effect["rec% buff"]);
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+
+                if (effect['unit type buffed'] !== undefined) {
+                    msg += ` of ${to_proper_case((effect['unit type buffed'] || "null"))} types`;
+                }
+
+
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '4': {
+            desc: "Status Negation/Resistance",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let options = {};
+                options.values = [
+                    effect["injury resist%"],
+                    effect["poison resist%"],
+                    effect["sick resist%"],
+                    effect["weaken resist%"],
+                    effect["curse resist%"],
+                    effect["paralysis resist%"]
+                ];
+
+                options.suffix = function (names) {
+                    if (names.length === 6) {
+                        return " all status ailments";
+                    } else {
+                        return ` ${names.join("/")}`;
+                    }
+                };
+
+                options.numberFn = function (value) {
+                    if (value == 100)
+                        return "Negates";
+                    else
+                        return `${value}% resistance to`;
+                };
+
+                options.special_case = {
+                    isSpecialCase: function (value, names) {
+                        // debug_log("Received:", value, names.length, value == 100, names.length === 6);
+                        return value == 0 || names.length === 6;
+                    },
+                    func: function (value, names) {
+                        if (value == 0) return "";
+                        if (value == 100)
+                            return "Negates all status ailments";
+                        else
+                            return `${value}% resistance to all status ailments`;
+                    }
+                };
+
+                let msg = "";
+                if (effect["injury resist%"] || effect["poison resist%"] || effect["sick resist%"] ||
+                    effect["weaken resist%"] || effect["curse resist%"] || effect["paralysis resist%"])
+                    msg += ailment_handler(options);
+                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                        prefix: 'for'
+                    });
+                }
+                return msg;
+            }
+        },
+        '5': {
+            desc: "Elemental Mitigation",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let msg = variable_elemental_mitigation_handler(effect, ['fire resist%', 'water resist%', 'earth resist%', 'thunder resist%', 'light resist%', 'dark resist%']);
+                
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                        prefix: 'for'
                     });
                 }
                 return msg;

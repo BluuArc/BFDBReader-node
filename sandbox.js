@@ -427,11 +427,11 @@ ep.init().then(function(){
     return (
         // sandbox_function()
         // getBuffDataForAll()
-        // doItemTest({ name_id: "30307", verbose: true})
-        // doUnitTest({ name_id: "10016" ,strict: "false", verbose:true,burstType: "ubb", type: "es"})
+        // doItemTest({ name_id: "41404", verbose: true})
+        // doUnitTest({ name_id: "rain", rarity:8 ,strict: "false", verbose:true,burstType: "ubb", type: "sp"})
         // doBurstTest("1750165")
-        // doESTest("2")
-        doLSTest('10145')
+        // doESTest("7")
+        doLSTest('6500')
     );
 }).then(function(){
     console.log(" ")  
