@@ -404,13 +404,13 @@ function sandbox_function(){
 
 ep.init().then(function(){ 
     return (
-        sandbox_function()
+        // sandbox_function()
         // getBuffDataForAll()
-        // doItemTest({ name_id: "41404", verbose: true})
-        // doUnitTest({ name_id: "serge",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
+        // doItemTest({ name_id: "(39201)", verbose: true})
+        // doUnitTest({ name_id: "30927",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
         // doBurstTest("1750165")
-        // doESTest("7")
-        // doLSTest('6500')
+        // doESTest("1007804")
+        doLSTest('1113')
     );
 }).then(function(){
     console.log(" ")  

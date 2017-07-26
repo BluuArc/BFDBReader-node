@@ -11,9 +11,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
 
     function debug_log() {
         if (options.verbose) {
-            for (let m of arguments) {
-                console.log(m);
-            }
+            console.log(...arguments);
         }
     }
 
@@ -3268,7 +3266,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
             unit: [],
             item: []
         };
-        debug_log(JSON.stringify(effect.conditions,null,2));
+        debug_log('raw conditions',JSON.stringify(effect.conditions,null,2));
         let vowels = 'aeiou';
         if (effect['conditions'] && effect['conditions'].length > 0) {
             for (let condition of effect['conditions']) {
@@ -3303,7 +3301,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 }
             }
         }
-        console.log("conditions", conditions);
+        debug_log("conditions", conditions);
         return conditions;
     }
 
@@ -3465,11 +3463,12 @@ var BuffProcessor = function (unit_names, item_names, options) {
                     }
                 };
 
-                let msg = "";
+                let msg = print_conditions(effect);
                 if (effect["injury resist%"] || effect["poison resist%"] || effect["sick resist%"] ||
                     effect["weaken resist%"] || effect["curse resist%"] || effect["paralysis resist%"])
                     msg += ailment_handler(options);
-                if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
+                
+                if (msg.length === 0) throw no_buff_data_msg;
 
                 if (needTarget(effect, other_data)) {
                     msg += get_target(effect, other_data, {
@@ -3484,8 +3483,72 @@ var BuffProcessor = function (unit_names, item_names, options) {
             desc: "Elemental Mitigation",
             type: ["passive"],
             func: function (effect, other_data) {
-                let msg = variable_elemental_mitigation_handler(effect, ['fire resist%', 'water resist%', 'earth resist%', 'thunder resist%', 'light resist%', 'dark resist%']);
+                let msg = print_conditions(effect);
+                msg += variable_elemental_mitigation_handler(effect, ['fire resist%', 'water resist%', 'earth resist%', 'thunder resist%', 'light resist%', 'dark resist%']);
                 
+                if (msg.length === 0) throw no_buff_data_msg;
+
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                        prefix: 'for'
+                    });
+                }
+                return msg;
+            }
+        },
+        '8': {
+            desc: "Mitigation",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if(effect['dmg% mitigation'] !== undefined){
+                    msg += `${effect['dmg% mitigation']}% mitigation`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                        prefix: 'for'
+                    });
+                }
+                return msg;
+            }
+        },
+        '9': {
+            desc: "BC Fill per Turn",
+            type: ['passive'],
+            func: function(effect,other_data){
+                let msg = print_conditions(effect);
+
+                if(effect['bc fill per turn']){
+                    msg += `${effect['bc fill per turn']} BC/turn`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                        prefix: 'for'
+                    });
+                }
+                return msg;
+            }
+        },
+        '10': {
+            desc: 'HC Efficacy',
+            type: ['passive'],
+            func: function(effect,other_data){
+                let msg = print_conditions(effect);
+                if(effect['hc effectiveness%']){
+                    msg += `${effect['hc effectiveness%']}% HC efficacy`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+
                 if (needTarget(effect, other_data)) {
                     msg += get_target(effect, other_data, {
                         isPassive: true,
@@ -3530,8 +3593,38 @@ var BuffProcessor = function (unit_names, item_names, options) {
         },
     };
 
-    var unknown_passive_buffs = {
+    //general handler for all unknown passives
+    function unknown_passive_handler(effect, other_data) {
+        let msg = "";
+        if (effect['unknown passive params']) msg += `Unknown passive effects {${effect['unknown passive params']}}`;
+        if (msg.length === 0) throw no_buff_data_msg;
+        if (needTarget(effect, other_data)) {
+            msg += get_target(effect, other_data, {
+                isPassive: true,
+                prefix: 'for'
+            });
+        }
+        return msg;
+    }
 
+
+    var unknown_passive_buffs = {
+        '6': {
+            desc: "Unknown values",
+            type: ['unknown'],
+            notes: ['Found on ES 8'],
+            func: function(effect,other_data){
+                return unknown_passive_handler(effect,other_data);
+            }
+        },
+        '7': {
+            desc: "Unknown values",
+            type: ['unknown'],
+            notes: ['Found on LS 9'],
+            func: function (effect, other_data) {
+                return unknown_passive_handler(effect, other_data);
+            }
+        },
     };
 
     var unknown_buffs = {
