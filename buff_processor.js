@@ -2013,8 +2013,11 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 let msg = "";
 
                 if (effect["hp drain chance%"] || effect["hp drain% low"] || effect["hp drain% high"]) {
-                    msg += `${effect["hp drain chance%"] || 0}% chance of `;
-                    msg += `${get_formatted_minmax(effect["hp drain% low"] || 0, effect["hp drain% high"] || 0)}% HP absorption`;
+                    if(effect['hp drain chance%'] != 100)
+                        msg += `${effect["hp drain chance%"] || 0}% chance of healing `;
+                    else
+                        msg += "Heals "
+                    msg += `${get_formatted_minmax(effect["hp drain% low"] || 0, effect["hp drain% high"] || 0)}% of damage dealt`;
                 }
 
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
@@ -3679,7 +3682,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
             }
         },
         '15': {
-            desc: '%HP Heal on Victory',
+            desc: '%HP Heal on Enemy Defeat',
             type: ['effect'],
             func: function (effect, other_data) {
                 let msg = print_conditions(effect);
@@ -3687,6 +3690,106 @@ var BuffProcessor = function (unit_names, item_names, options) {
                     msg += `Recover ${get_formatted_minmax(effect['hp% recover on enemy defeat low'] || 0, effect['hp% recover on enemy defeat high'] || 0)}% HP when an enemy is defeated`;
                 }
 
+                if (msg.length === 0) throw no_buff_data_msg;
+
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '16': {
+            desc: '%HP Heal on Victory',
+            type: ['effect'],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect['hp% recover on battle win low'] || effect['hp% recover on battle win high']) {
+                    msg += `Recover ${get_formatted_minmax(effect['hp% recover on battle win low'] || 0, effect['hp% recover on battle win high'] || 0)}% HP when winning a battle`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '17': {
+            desc: "Chance HP Drain/Absorption When Attacking",
+            type: ['effect'],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+
+                if (effect["hp drain chance%"] || effect["hp drain% low"] || effect["hp drain% high"]) {
+                    if(effect['hp drain chance%'] != 100)
+                        msg += `${effect["hp drain chance%"] || 0}% chance of healing `;
+                    else
+                        msg += "Heals "
+                    msg += `${get_formatted_minmax(effect["hp drain% low"] || 0, effect["hp drain% high"] || 0)}% of damage dealt`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '19': {
+            desc: "BC/HC/Item/Zel/Karma Drop Rate",
+            type: ['passive'],
+            func: function (effect, other_data) {
+                var msg = print_conditions(effect);
+                if (effect["bc drop rate% buff"] || effect["hc drop rate% buff"] || effect["item drop rate% buff"] ||
+                    effect["zel drop rate% buff"] || effect["karma drop rate% buff"])
+                    msg += bc_hc_items_handler(effect["bc drop rate% buff"], effect["hc drop rate% buff"], effect["item drop rate% buff"], {
+                        extra_values: {
+                            zel: effect["zel drop rate% buff"],
+                            karma: effect["karma drop rate% buff"]
+                        }
+                    }) + " droprate";
+
+                if (msg.length === 0) throw no_buff_data_msg;
+
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '20': {
+            desc: "Inflict Status Ailment",
+            type: ["debuff"],
+            func: function (effect, other_data) {
+                let options = {};
+                options.values = [
+                    effect["injury%"],
+                    effect["poison%"],
+                    effect["sick%"],
+                    effect["weaken%"],
+                    effect["curse%"],
+                    effect["paralysis%"]
+                ];
+
+                options.suffix = function (names) {
+                    if (names.length === 6) {
+                        return " chance to inflict any status ailment";
+                    } else {
+                        return ` chance to inflict ${names.join("/")}`;
+                    }
+                }
+
+                let msg = print_conditions(effect) + ailment_handler(options);
                 if (msg.length === 0) throw no_buff_data_msg;
 
                 if (needTarget(effect, other_data)) {

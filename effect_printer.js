@@ -29,25 +29,39 @@ function EffectPrinter(target, options) {
     function process_effects(effects, other_data_function) {
         let translated_buffs = [];
         let conditions = [];
+        let turn_extensions = {};
         let other_data;
         debug_log("EffectPrinter.process_effects: Received effects =>", effects);
         if (other_data_function) debug_log("EffectPrinter.process_effects: Other data looks like =>", other_data_function(0))
         for (let e = 0; e < effects.length; ++e) {
-            if (other_data_function) other_data = other_data_function(e);
-            let msg = buff_processor.print_buff(effects[e], other_data);
-
-            if(msg.indexOf(', then ') > -1){
-                let buff = msg.split(', then ');
-                conditions.push({
-                    condition: buff[0],
-                    buff: buff.slice(1)
-                });
-            }else{
-                if (translated_buffs.indexOf(msg) === -1) translated_buffs.push(msg);
-                else console.log("ignored duplicate msg:", msg);
+            try{
+                if (other_data_function) other_data = other_data_function(e);
+                let msg = buff_processor.print_buff(effects[e], other_data);
+                
+                if(other_data && other_data.sp && msg.indexOf("Allows current ") === 0){
+                    let buff = msg.slice("Allows current ".length).split(" to last for additional ");
+                    let buff_proc = buff[1].slice(buff[1].indexOf("[") + 1, buff[1].indexOf("]"));
+                    buff[1] = buff[1].slice(0,buff[1].indexOf(" [")); //turn counter
+                    if(!turn_extensions[buff[1]]){
+                        turn_extensions[buff[1]] = [];
+                    }
+                    turn_extensions[buff[1]].push(`${buff[0]} [${buff_proc}]`);
+                }else if(msg.indexOf(', then ') > -1){
+                    let buff = msg.split(', then ');
+                    conditions.push({
+                        condition: buff[0],
+                        buff: buff.slice(1)
+                    });
+                }else{
+                    if (translated_buffs.indexOf(msg) === -1) translated_buffs.push(msg);
+                    else console.log("ignored duplicate msg:", msg);
+                }
+            }catch(err) {
+                console.log(err);
+                translated_buffs.push("Error has occurred while processing this effect");
             }
         }
-
+        
         if(conditions.length > 0){
             let unique_conditions = {};
             for(let c of conditions){
@@ -56,7 +70,7 @@ function EffectPrinter(target, options) {
                 }
                 unique_conditions[c.condition].push(c.buff);
             }
-
+            
             //convert grouped conditions into a buff message
             let keys = Object.keys(unique_conditions);
             for(let k of keys){
@@ -64,7 +78,15 @@ function EffectPrinter(target, options) {
                 translated_buffs.push(buff_msg);
             }
         }
-
+        
+        let turnKeys = Object.keys(turn_extensions);
+        if(turnKeys.length > 0){
+            debug_log(turn_extensions);
+            for(let duration of turnKeys){
+                translated_buffs.push(`Allows for current ${turn_extensions[duration].join(", ")} to last for additional ${duration}`);
+            }
+        }
+        
         return translated_buffs.join(" / ");
     }
     this.process_effects = process_effects;
