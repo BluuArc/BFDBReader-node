@@ -371,6 +371,21 @@ let UnitDB = function(){
         }
     };
 
+    //custom function as units have multiple fields with different buffs
+    options.analyzeTarget = function(unit,fields,analyze_options){
+        let buff_fields = ['leader skill', 'extra skill', 'bb', 'sbb', 'ubb', 'skills'];
+        for(let b of buff_fields){
+            if(unit[b] !== undefined){
+                let buffs = bfdb_common.analyzeObjectForValuesOf(unit[b], fields, analyze_options);
+                if(b !== 'skills'){
+                    unit[b].buffs = buffs;
+                }else{
+                    unit.skills_buffs = buffs;
+                }
+            }
+        }
+    }
+
     return new bdfb_module(options);
 };
 

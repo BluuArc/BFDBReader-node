@@ -31,8 +31,13 @@ let bfdb_common = function(){
     this.generateSetupFiles = generateSetupFiles;
 
     //search through an entire object for values of a given field_name
-    function analyzeObjectForValuesOf(target, field_name) {
-        let values = [];
+    function analyzeObjectForValuesOf(target, field_names, options) {
+        let values = {};
+        options = options || {};
+        let uniqueOnly = options.unique || false;
+        // for(let f of field_names){
+        //     values[f] = [];
+        // }
         if (typeof target !== "object") return values;
         let fields = [target];
         while (fields.length > 0) {
@@ -45,12 +50,24 @@ let bfdb_common = function(){
                 if (typeof curField[f] === "object") {
                     fields.push(curField[f]);
                 }
-                if (f == field_name) {
-                    if (typeof curField[f] !== "object")
-                        values.push(curField[f]);
-                    else
-                        values.push(JSON.stringify(curField[f]));
+                if (field_names.indexOf(f) > -1) {
+                    if(!values[f]){ //create array on demand
+                        values[f] = [];
+                    }
+                    //push based on unique parameter
+                    if((!uniqueOnly) || (uniqueOnly && values[f].indexOf(curField[f]) == -1)){
+                        if (typeof curField[f] !== "object")
+                            values[f].push(curField[f]);
+                        else
+                            values[f].push(JSON.stringify(curField[f]));
+                    }
                 }
+            }
+        }
+
+        if(typeof options.sort === 'function'){
+            for(let b in values){
+                values[b].sort(options.sort);
             }
         }
 

@@ -1,6 +1,7 @@
 var client = require('./data_tier_client.js');
 var fs = require('fs');
 let EffectPrinter = require('./effect_printer.js');
+let common = require('./server_modules/bfdb_common.js');
 
 client.setAddress("http://127.0.0.1:8081");
 
@@ -391,47 +392,25 @@ function analyzeObjectForValuesOf(target, field_name) {
 
 function sandbox_function(){
     // let attacking_bursts = {};
-    let testDB = bbDB;
-    return testDB.init()
-    .then(() => {
-        // return testDB.update_statistics();
-        // return testDB.translate();
-        // return testDB.init();
-    }).then(() => {
-        console.log("Finished loading first time");    
-        // console.log(testDB.getByID("-1"));
-        // let results = testDB.search({ es_name_id: "aeterno",strict: "false", verbose: true});
-        let results = testDB.list({start: -1, end: -1, verbose: false});
-        if(results.length === 1){
-            // let item = testDB.getByID(results[0]);
-            // console.log(analyzeObjectForValuesOf(testDB.getByID(results[0]),'passive id'));
-            console.log(item);
-        }else{
-            for(let r of results){
-                // console.log(testDB.getByID(r)['name']);
-                console.log(r);
-            }
-        }
-        // console.log(JSON.stringify(itemDB.getByID('88700004'),null,2));
-        // console.log(JSON.stringify(itemDB.getByID('88700006'),null,2));
-        // testDB.reload();
-        
-    }).then(() => { 
-        // console.log("Finished loading second time");
-        // console.log(Object.keys(testDB.getDB())); 
-        console.log("done");
-    });
+    return client.searchExtraSkill({name_id: 'lux aeterno'}).then((results) => { return client.getExtraSkill(results[0]); })
+        .then((unit) => {
+            let values = common.analyzeObjectForValuesOf(unit,['proc id', 'unknown proc id', 'passive id', 'unknown passive id', 'unknown buff id'], {
+                unique: true,
+            });
+            // console.log(values);
+            console.log(JSON.stringify(unit,null,2));
+        })
 }
 
 ep.init().then(function(){ 
     return (
-        // sandbox_function()
+        sandbox_function()
         // getBuffDataForAll()
         // doItemTest({ name_id: "41404", verbose: true})
-        // doUnitTest({ name_id: "rain", rarity:8 ,strict: "false", verbose:true,burstType: "ubb", type: "sp"})
+        // doUnitTest({ name_id: "serge",strict: "false", verbose:true,burstType: "ubb", type: "sp"})
         // doBurstTest("1750165")
         // doESTest("7")
-        doLSTest('6500')
+        // doLSTest('6500')
     );
 }).then(function(){
     console.log(" ")  

@@ -199,10 +199,10 @@ function init_db(isReload){
         })
     }).then(() => {
             //post processing
-            // console.log("Doing some post processing of DBs...");
-            // translate_evo_mats(db.units.getDB(),db.items.getDB());
-            // trim_es_db(db.units.getDB(),db.es.getDB());
-            // trim_bbs_db(db.units.getDB(),db.bbs.getDB());
+            console.log("Doing some post processing of DBs...");
+            for(let d in db){
+                db[d].analyze_buffs();
+            }
             return;
         }).then(() => {
             let translations = [];

@@ -325,6 +325,22 @@ let DBModule = function(options){
         return filterFn(query,list);
     }
     this.list = list;
+
+    //generate a list of buff ids for every entry
+    function analyze_buffs(){
+        let analyze_options = {
+            unique: true, //get only unique entries
+            sort: (a,b) => { return +a - +b; } //sort in ascending order
+        }
+        for(let e in db){
+            if(typeof options.analyzeTarget !== 'function'){
+                db[e].buffs = common.analyzeObjectForValuesOf(db[e], ['proc id', 'unknown proc id', 'passive id', 'unknown passive id', 'unknown buff id'],analyze_options);
+            }else{
+                options.analyzeTarget(db[e], ['proc id', 'unknown proc id', 'passive id', 'unknown passive id', 'unknown buff id'],analyze_options);
+            }
+        }
+    }
+    this.analyze_buffs = analyze_buffs;
 };
 
 module.exports = DBModule;
