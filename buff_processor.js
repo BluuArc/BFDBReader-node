@@ -3800,6 +3800,99 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
         },
+        '21': {
+            desc: "First X Turns HP/ATK/DEF/REC/Crit Rate Boost",
+            type: ["timed","buff"],
+            notes: ["These buffs are active at start of battle for a set amount of turns"],
+            func: function (effect, other_data) {
+                // console.log("other_data",other_data);
+                other_data = other_data || {};
+                let msg = print_conditions(effect);
+                if (effect["first x turns atk% (1)"] || effect["first x turns def% (3)"] || effect["first x turns rec% (5)"]) { //regular tri-stat
+                    msg += hp_adr_buff_handler(undefined, effect["first x turns atk% (1)"], effect["first x turns def% (3)"], effect["first x turns rec% (5)"]);
+                }
+
+                if (effect['first x turns crit% (7)']) {
+                    if (msg.length > 0) msg += ", ";
+                    msg += `${get_polarized_number(effect['first x turns crit% (7)'])}% Crit Rate`;
+                }
+
+                if(effect['first x turns'] !== undefined){
+                    msg += ` for first ${effect['first x turns']} turns`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '23': {
+            desc: "BC Fill on Victory",
+            type: ['effect'],
+            func: function(effect,other_data){
+                let msg = print_conditions(effect);
+                if (effect['battle end bc fill low'] || effect['battle end bc fill high']) {
+                    msg += `${get_formatted_minmax(effect['battle end bc fill low'] || 0, effect['battle end bc fill high'] || 0)} BC fill when winning a battle`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '24': {
+            desc: "Heal on Hit",
+            type: ["effect"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+
+                if (effect["dmg% to hp% when attacked chance%"] || effect["dmg% to hp% when attacked low"] || effect["dmg% to hp% when attacked high"]) {
+                    msg += `${effect["dmg% to hp% when attacked chance%"] || 0}% chance to heal `;
+                    msg += `${get_formatted_minmax(effect["dmg% to hp% when attacked low"] || 0, effect["dmg% to hp% when attacked high"] || 0)}% DMG when hit`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '25': {
+            desc: "BC Fill on Hit",
+            type: ["buff"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect["bc fill when attacked%"] || effect["bc fill when attacked low"] || effect["bc fill when attacked high"]) {
+                    if (effect["bc fill when attacked%"] !== undefined && effect["bc fill when attacked%"] != 100) {
+                        msg += `${effect["bc fill when attacked%"]}% chance to fill `;
+                    } else if (effect["bc fill when attacked%"] !== undefined && effect["bc fill when attacked%"] == 100) {
+                        msg += "Fill ";
+                    }
+                    msg += `${get_formatted_minmax(effect["bc fill when attacked low"] || 0, effect["bc fill when attacked high"] || 0)} BC when hit`;
+                }
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
         '66': {
             desc: "Add effect to BB/SBB",
             type: ["passive"],
