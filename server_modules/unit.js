@@ -167,14 +167,19 @@ let UnitDB = function(){
                     case 'es_effect': return JSON.stringify(unit["extra skill"].effects);
                     case 'sp_name':
                         result = "";
-                        for (sp in unit.skills) {
-                            result += unit.skills[sp].skill.desc + "\n";
+                        if(unit.skills){
+                            for (sp in unit.skills) {
+                                result += unit.skills[sp].skill.desc.toLowerCase() + "\n";
+                                // console.log(result);
+                            }
                         }
                         return result;
                     case 'sp_effect':
                         result = "";
-                        for (sp in unit.skills) {
-                            result += JSON.stringify(unit.skills[sp].skill.effects) + "\n";
+                        if(unit.skills){
+                            for (sp in unit.skills) {
+                                result += JSON.stringify(unit.skills[sp].skill.effects) + "\n";
+                            }
                         }
                         return result;
                     case 'evo_mats': return JSON.stringify(unit.evo_mats);
@@ -216,7 +221,7 @@ let UnitDB = function(){
                     default: return "";
                 }
             } catch (err) {
-                // console.log(err);
+                console.log(err);
                 return "";
             }
         }
@@ -234,7 +239,7 @@ let UnitDB = function(){
                 try {
                     var unitValue = get_query_value(q, unit).toString();
                     if (unitValue.indexOf(curQuery) === -1) {
-                        // if(query.verbose == true || query.verbose == 'true') console.log("Failed on",unit.id,q,curQuery);
+                        if(query.verbose == true || query.verbose == 'true') console.log("Failed on",unit.id,q,curQuery);
                         return false; //stop if any part of query is not in unit
                     }
                 } catch (err) { //only occurs if requested field is empty in unit

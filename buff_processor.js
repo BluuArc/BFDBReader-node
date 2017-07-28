@@ -4028,6 +4028,114 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
         },
+        '31': {
+            desc: "Spark Damage and BC/HC/Zel/Karma Increase on Spark",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                let buffs = [];
+                if (effect["damage% for spark"]) 
+                    buffs.push(get_polarized_number(effect["damage% for spark"]) + "% spark DMG");
+
+                if (effect['bc drop% for spark'] || effect['hc drop% for spark'] || 
+                    effect['zel drop% for spark'] || effect['karma drop% for spark'] || effect["item drop% for spark"]){
+                    buffs.push(bc_hc_items_handler(effect["bc drop% for spark"], effect["hc drop% for spark"], effect["item drop% for spark"], {
+                        extra_values: {
+                            zel: effect["zel drop% for spark"],
+                            karma: effect["karma drop% for spark"]
+                        }
+                    }) + " droprate on spark");
+                }
+
+                msg += buffs.join(" and ");
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '32': {
+            desc: "BB Fill Rate Increase/BC Efficacy",
+            type: ['passive'],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect['bb gauge fill rate%']) {
+                    msg += `${get_polarized_number(effect['bb gauge fill rate%'])}% BB gauge fill rate`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '33': {
+            desc: "HP per Turn/Heal over Time (HoT)",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect["turn heal low"] || effect['turn heal high']) {
+                    msg = `${get_formatted_minmax(effect["turn heal low"], effect["turn heal high"])} HP/turn`;
+                    msg += ` (${get_polarized_number(effect["rec% added (turn heal)"])}% target REC)`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '34': {
+            desc: "Critical Hit Damage",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect['crit multiplier%'])
+                    msg += `${get_polarized_number(effect["crit multiplier%"])}% crit DMG`;
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '35': {
+            desc: "BC Fill when Attacking",
+            type: ['effect'],
+            notes: ['This only applies to normal attacks'],
+            func: function(effect,other_data){
+                let msg = print_conditions(effect);
+                if (effect['bc fill when attacking%'] || effect['bc fill when attacking low'] || effect['bc fill when attacking high']){
+                    if (effect['bc fill when attacking%'] != 100){
+                        msg += `${effect['bc fill when attacking%']}% chance to fill `;
+                    }else{
+                        msg += "Fill ";
+                    }
+
+                    msg += `${get_formatted_minmax(effect['bc fill when attacking low'] || 0,effect['bc fill when attacking high'] || 0)} BC when attacking`;
+                }
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
         '66': {
             desc: "Add effect to BB/SBB",
             type: ["passive"],

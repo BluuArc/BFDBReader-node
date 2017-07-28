@@ -192,9 +192,9 @@ function EffectPrinter(target, options) {
         //concatenate similar strings
         let msg = buff_processor.multi_param_buff_handler({
             values: [sp_effects['add to bb'], sp_effects['add to sbb'], sp_effects['add to ubb'], sp_effects['add to passive']],
-            names: ['BB', 'SBB', 'UBB', 'LS or ES'],
+            names: ['BB', 'SBB', 'UBB', 'LS'],
             prefix: function (arr) {
-                return `Enhances ${arr.join("/")} with additional "`
+                return `Enhances ${arr.join("/")} with additional "`;
             },
             suffix: function (arr) {
                 return '"';
