@@ -3350,9 +3350,42 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 hp_conditions.push(` when HP > ${effect['hp above % buff requirement']}%`);
             else
                 hp_conditions.push(' when HP is full');
+        } else if (effect['hp above % passive requirement'] !== undefined) {
+            if (effect['hp above % passive requirement'] != 100)
+                hp_conditions.push(` when HP > ${effect['hp above % passive requirement']}%`);
+            else
+                hp_conditions.push(' when HP is full');
         }
         if (effect['hp below % buff requirement'] !== undefined) {
             hp_conditions.push(` when HP < ${effect['hp below % buff requirement']}%`);
+        }else if (effect['hp below % passive requirement'] !== undefined) {
+            hp_conditions.push(` when HP < ${effect['hp below % passive requirement']}%`);
+        }
+
+        if (hp_conditions.length > 0) {
+            msg += hp_conditions.join(' &');
+        }
+        return msg;
+    }
+
+    function print_bb_gauge_conditions(effect) {
+        let hp_conditions = [];
+        let msg = "";
+        if (effect['bb gauge above % buff requirement'] !== undefined) {
+            if (effect['bb gauge above % buff requirement'] != 100)
+                hp_conditions.push(` when BB Gauge > ${effect['bb gauge above % buff requirement']}%`);
+            else
+                hp_conditions.push(' when BB Gauge is full');
+        } else if (effect['bb gauge above % passive requirement'] !== undefined) {
+            if (effect['bb gauge above % passive requirement'] != 100)
+                hp_conditions.push(` when BB Gauge > ${effect['bb gauge above % passive requirement']}%`);
+            else
+                hp_conditions.push(' when BB Gauge is full');
+        }
+        if (effect['bb gauge below % buff requirement'] !== undefined) {
+            hp_conditions.push(` when BB Gauge < ${effect['bb gauge below % buff requirement']}%`);
+        } else if (effect['bb gauge below % passive requirement'] !== undefined) {
+            hp_conditions.push(` when BB Gauge < ${effect['bb gauge below % passive requirement']}%`);
         }
 
         if (hp_conditions.length > 0) {
@@ -3873,7 +3906,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
         },
         '25': {
             desc: "BC Fill on Hit",
-            type: ["buff"],
+            type: ["effect"],
             func: function (effect, other_data) {
                 let msg = print_conditions(effect);
                 if (effect["bc fill when attacked%"] || effect["bc fill when attacked low"] || effect["bc fill when attacked high"]) {
@@ -3885,6 +3918,108 @@ var BuffProcessor = function (unit_names, item_names, options) {
                     msg += `${get_formatted_minmax(effect["bc fill when attacked low"] || 0, effect["bc fill when attacked high"] || 0)} BC when hit`;
                 }
                 if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '26': {
+            desc: "Damage Reflect",
+            type: ['effect'],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if(effect['dmg% reflect chance%'] || effect['dmg% reflect high'] || effect['dmg% reflect low']){
+                    if (effect['dmg% reflect chance%'] != 100){
+                        msg += `${effect['dmg% reflect chance%']}% chance to reflect `;
+                    }else{
+                        msg += `Reflect `;
+                    }
+                    msg += `${get_formatted_minmax(effect['dmg% reflect low'] || 0, effect['dmg% reflect high'] || 0)}% damage when hit `;
+                }
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '27': {
+            desc: "Increase/Decrease Chance of Being Targeted",
+            type: ['passive'],
+            func: function(effect,other_data){
+                let msg = print_conditions(effect);
+                if(effect['target% chance'] !== undefined){
+                    msg += `${get_polarized_number(effect['target% chance'])}% chance of being targeted`;
+                }
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '28': {
+            desc: 'HP Conditional Increase/Decrease Chance of Being Targeted',
+            type: ['conditional', 'effect'],
+            func: function(effect,other_data){
+                let msg = print_conditions(effect);
+                if (effect['target% chance'] !== undefined) {
+                    msg += `${get_polarized_number(effect['target% chance'])}% chance of being targeted`;
+                }
+                
+                msg += print_hp_conditions(effect);
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '29': {
+            desc: "Defense Ignore",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                var msg = print_conditions(effect);
+                if (effect['ignore def%'])
+                    msg += `${effect['ignore def%']}% change to ignore target's defense`;
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '30': {
+            desc: "BB Gauge Conditional ATK/DEF/REC/Crit Rate Boost",
+            type: ['conditional', 'buff'],
+            func: function (effect, other_data) {
+                other_data = other_data || {};
+                let msg = print_conditions(effect);
+                if (effect["atk% buff"] || effect["def% buff"] || effect["rec% buff"]) { //regular tri-stat
+                    msg += hp_adr_buff_handler(undefined, effect["atk% buff"], effect["def% buff"], effect["rec% buff"]);
+                }
+
+                if (effect['crit% buff']) {
+                    if (msg.length > 0) msg += ", ";
+                    msg += `${get_polarized_number(effect['crit% buff'])}% Crit Rate`;
+                }
+
+                msg += print_bb_gauge_conditions(effect);
+
+                if (msg.length === 0) throw no_buff_data_msg;
+
                 if (needTarget(effect, other_data)) {
                     msg += get_target(effect, other_data, {
                         isPassive: true,
