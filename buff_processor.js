@@ -4136,6 +4136,68 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
         },
+        '36': {
+            desc: "Perform Additional Actions",
+            type: ['effect'],
+            notes: ['This seems to be the passive variant of Rahotep\'s buff (proc 76)'],
+            func: function(effect,other_data){
+                let msg = print_conditions(effect);
+                if(effect['additional actions']){
+                    msg += `Perform ${effect['additional actions']} extra ${effect['additional actions'] == 1 ? "action" : "actions"}`;
+                }
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '37': {
+            desc: "Hit Count Increase",
+            type: ['passive'],
+            notes: ['Add the damage noted in this buff to 100% to get the actual damage of normal attacks', `+# means that the unit has # additional more hits, so +2 means that each hit has 2 more hits following it, effectively tripling the original hit count`],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect['hit increase/hit'] || effect['extra hits dmg%'])
+                    msg += `${get_polarized_number(effect['hit increase/hit'] || 0)} ${(effect['hit increase/hit'] === 1) ? "hit" : "hits"} to normal attacks (at ${(get_polarized_number(effect['extra hits dmg%'] || 0))}% damage)`;
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '40': {
+            desc: "Stat Conversion",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect['converted attribute'] || effect['atk% buff'] || effect['def% buff'] || effect['rec% buff']) {
+                    let source_buff = (effect['converted attribute'] !== undefined) ? (effect['converted attribute'] || "null").toUpperCase().slice(0, 3) : undefined;
+                    if (source_buff === "ATT") source_buff = "ATK";
+                    let options = {
+                        suffix: " conversion",
+                    };
+                    if (source_buff) {
+                        options.numberFn = function (value) { return `${value}% ${source_buff}->` };
+                    }
+                    msg += hp_adr_buff_handler(undefined, effect['atk% buff'], effect['def% buff'], effect['rec% buff'], options);
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
         '66': {
             desc: "Add effect to BB/SBB",
             type: ["passive"],
@@ -4199,6 +4261,22 @@ var BuffProcessor = function (unit_names, item_names, options) {
             desc: "Unknown values",
             type: ['unknown'],
             notes: ['Found on LS 9'],
+            func: function (effect, other_data) {
+                return unknown_passive_handler(effect, other_data);
+            }
+        },
+        '38': {
+            desc: "Unknown values",
+            type: ['unknown'],
+            notes: ['Found on LS 14 and ES 14'],
+            func: function (effect, other_data) {
+                return unknown_passive_handler(effect, other_data);
+            }
+        },
+        '39': {
+            desc: "Unknown values",
+            type: ['unknown'],
+            notes: ['Found on LS 15 and ES 15'],
             func: function (effect, other_data) {
                 return unknown_passive_handler(effect, other_data);
             }
