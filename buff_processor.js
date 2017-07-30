@@ -4007,8 +4007,8 @@ var BuffProcessor = function (unit_names, item_names, options) {
             func: function (effect, other_data) {
                 other_data = other_data || {};
                 let msg = print_conditions(effect);
-                if (effect["atk% buff"] || effect["def% buff"] || effect["rec% buff"]) { //regular tri-stat
-                    msg += hp_adr_buff_handler(undefined, effect["atk% buff"], effect["def% buff"], effect["rec% buff"]);
+                if (effect['hp% buff'] || effect["atk% buff"] || effect["def% buff"] || effect["rec% buff"]) { //regular tri-stat
+                    msg += hp_adr_buff_handler(effect['hp% buff'], effect["atk% buff"], effect["def% buff"], effect["rec% buff"]);
                 }
 
                 if (effect['crit% buff']) {
@@ -4177,7 +4177,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
             type: ["passive"],
             func: function (effect, other_data) {
                 let msg = print_conditions(effect);
-                if (effect['converted attribute'] || effect['atk% buff'] || effect['def% buff'] || effect['rec% buff']) {
+                if (effect['converted attribute'] || effect['hp% buff'] || effect['atk% buff'] || effect['def% buff'] || effect['rec% buff']) {
                     let source_buff = (effect['converted attribute'] !== undefined) ? (effect['converted attribute'] || "null").toUpperCase().slice(0, 3) : undefined;
                     if (source_buff === "ATT") source_buff = "ATK";
                     let options = {
@@ -4186,9 +4186,130 @@ var BuffProcessor = function (unit_names, item_names, options) {
                     if (source_buff) {
                         options.numberFn = function (value) { return `${value}% ${source_buff}->` };
                     }
-                    msg += hp_adr_buff_handler(undefined, effect['atk% buff'], effect['def% buff'], effect['rec% buff'], options);
+                    msg += hp_adr_buff_handler(effect['hp% buff'], effect['atk% buff'], effect['def% buff'], effect['rec% buff'], options);
                 }
 
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '41': {
+            desc: "Unique Element Conditional ATK/DEF/REC/Crit Rate Boost",
+            type: ['conditional', 'passive'],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect['hp% buff'] || effect["atk% buff"] || effect["def% buff"] || effect["rec% buff"]) { //regular tri-stat
+                    msg += hp_adr_buff_handler(effect['hp% buff'], effect["atk% buff"], effect["def% buff"], effect["rec% buff"]);
+                }
+
+                if (effect['crit% buff']) {
+                    if (msg.length > 0) msg += ", ";
+                    msg += `${get_polarized_number(effect['crit% buff'])}% Crit Rate`;
+                }
+
+                if(effect['unique elements required']){
+                    msg += ` when ${effect['unique elements required']} or more unique elements are in squad`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '42': {
+            desc: "Gender Conditional HP/ATK/DEF/REC/Crit Rate Boost",
+            type: ['conditional', 'passive'],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect['hp% buff'] || effect["atk% buff"] || effect["def% buff"] || effect["rec% buff"]) { //regular tri-stat
+                    msg += hp_adr_buff_handler(effect['hp% buff'], effect["atk% buff"], effect["def% buff"], effect["rec% buff"]);
+                }
+
+                if (effect['crit% buff']) {
+                    if (msg.length > 0) msg += ", ";
+                    msg += `${get_polarized_number(effect['crit% buff'])}% Crit Rate`;
+                }
+
+                if (effect['gender required']) {
+                    msg += ` for ${effect['gender required']} units`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '43': {
+            desc: "Chance to Take 1 Damage",
+            type: ['effect'],
+            func: function(effect,other_data){
+                let msg = print_conditions(effect);
+                if(effect['take 1 dmg%'] !== undefined){
+                    msg += `${effect['take 1 dmg%']}% chance to take 1 damage`;
+                }
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '44': {
+            desc: "Flat HP/ATK/DEF/REC/Crit Rate Boost",
+            type: ['passive'],
+            notes: ['Flat as in the values here are not percentages but rather values directly added to stats'],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect['hp buff'] || effect["atk buff"] || effect["def buff"] || effect["rec buff"]) { //regular tri-stat
+                    msg += hp_adr_buff_handler(effect['hp buff'], effect["atk buff"], effect["def buff"], effect["rec buff"], {
+                        numberFn: function (number) {
+                            return `${get_polarized_number(number)} `;
+                        }
+                    });
+                }
+
+                if (effect['crit buff']) {
+                    if (msg.length > 0) msg += ", ";
+                    msg += `${get_polarized_number(effect['crit buff'])} Crit Rate`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '45': {
+            desc: "Critical Hit Resistance",
+            type: ['passive'],
+            func: function(effect,other_data){
+                let msg = print_conditions(effect);
+                if(effect['base crit% resist'] || effect['buff crit% resist']){
+                    if(effect['base crit% resist'] == 100 && effect['buff crit% resist'] == 100){
+                        msg += "Negates ";
+                    }else{
+                        msg += `${effect['base crit% resist'] || 0}%/${effect['buff crit% resist'] || 0}% base/buffed resistance to `;
+                    }
+                    msg += "critical hits";
+                }
                 if (msg.length === 0) throw no_buff_data_msg;
                 if (needTarget(effect, other_data)) {
                     msg += get_target(effect, other_data, {
