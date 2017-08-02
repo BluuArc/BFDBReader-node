@@ -322,7 +322,6 @@ let UnitDB = function(){
         var notStrict = (query.strict === false || query.strict == 'false');
         var noRarity = (query.rarity === undefined || query.rarity == "*" || query.rarity.length == 0);
         var notGuide = (query.name_id === undefined || (!isNaN(query.name_id) && parseInt(query.name_id) < 10011) || (isNaN(query.name_id) && query.name_id.indexOf(":") === -1));
-        console.log(notGuide);
         if (notStrict && noRarity && notGuide && results.length > 0) {
             if (query.verbose == true || query.verbose == 'true') {
                 console.log("Results before shorten", results);

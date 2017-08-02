@@ -292,8 +292,8 @@ function send_updates() {
         var newest = stats[`newest_${type.toLowerCase()}`];
         var field_title = `${server_name} Server - ${type}`;
         var msg = `${server_name} has ` + stats[`num_${type.toLowerCase()}`] + ` ${type}. `;
-        if (newest.length > 0 && newest.length !== stats[`num_${type.toLowerCase()}`]) {
-            msg += `The ${newest.length} new ${type.toLowerCase()} are:\n`;
+        if (newest.length > 0) {
+            msg += `The ${newest.length < 5 ? newest.length : `first 5 of ${newest.length}`} new ${type.toLowerCase()} are:\n`;
         } else {
             msg += `There are ${newest.length} new ${type.toLowerCase()}.`;
             return [
@@ -305,27 +305,29 @@ function send_updates() {
         }
 
         var parsed_newest = [];
+        let max = (newest.length < 5 ? newest.length : 5);
         if (type === "Units") {
-            for (let u = 0; u < newest.length; ++u) {
+            for (let u = 0; u < max; ++u) {
                 let curUnit = db.units.getByID([newest[u]]);
                 let name = (curUnit.translated_name) ? curUnit.translated_name : curUnit.name;
                 parsed_newest.push(`${name} (${curUnit.id})\n`);
             }
         } else if (type === "Items") {
-            for (let i = 0; i < newest.length; ++i) {
+            for (let i = 0; i < max; ++i) {
                 let curItem = db.items.getByID([newest[i]]);
                 let name = (curItem.translated_name) ? curItem.translated_name : curItem.name;
-                parsed_newest.push(`${name} (${curItem.id})\n`);
+                let entry = `${name} (${curItem.id}) - ${curItem.rarity}* ${curItem.type === 'sphere' ? `${curItem['sphere type text']} ` : ""}${curItem.type}\n`;
+                parsed_newest.push(entry);
             }
         } else if (type === "ES") {
-            for (let i = 0; i < newest.length; ++i) {
+            for (let i = 0; i < max; ++i) {
                 let curES = db.es.getByID([newest[i]]);
                 let name = (curES.translated_name) ? curES.translated_name : curES.name;
                 parsed_newest.push(`${name} (${curES.id})\n`);
             }
         }else if(type === "BBs"){
-            for(let i of newest){
-                let curBB = db.bbs.getByID(i);
+            for(let i = 0; i < max; ++i){
+                let curBB = db.bbs.getByID(newest[i]);
                 let name = curBB.translated_name || curBB.name || "No name found";
                 parsed_newest.push(`${name} (${curBB.id})\n`);
             }
@@ -343,7 +345,7 @@ function send_updates() {
         var msg_arr = create_sectional_messages(parsed_newest, 900, 3);
         var field_arr = [
             {
-                title: `${field_title} - 1`,
+                title: `${field_title}${msg_arr.length > 1 ? " - 1" : ""}`,
                 value: msg + msg_arr[0]
             }
         ];
@@ -394,6 +396,20 @@ function send_updates() {
             }
         }
 
+        //add message about individual printing
+        let msg = "To see more info about each update, you can use any of the following commands with `|bb bfdb`: ";
+        let commands = [];
+        for (let d in db) {
+            commands.push(`\`--p_${d}\``);
+        }
+        commands.push(`\`--server <gl, eu, jp, or all>\``);
+        msg += commands.join(", ");
+
+        payload.attachments[0].fields.push({
+            title: "Note",
+            value: msg
+        });
+
         console.log(JSON.stringify(payload, null, 2));
         return payload;
     }
@@ -441,6 +457,7 @@ function send_updates() {
 }
 
 //this somehow cleans up the extra memory after the first init
+//deprecated
 function init_memory_fix(){
     console.log("Starting heapdump");
     heapdump.writeSnapshot(function (err, filename) {
@@ -489,7 +506,12 @@ let create_db_accessors = {
         app.get(`/list/${url_name}`,function(request,response){
             let query = request.query;
             response.end(JSON.stringify(db[db_name].list(query)));
-        })
+        });
+    },
+    stats: (url_name, db_name) => {
+        app.get(`/stats/${url_name}`,function(request,response){
+            response.end(JSON.stringify(db[db_name].getStats()));
+        });
     }
 }
 
@@ -501,6 +523,7 @@ function createListeners(){
         create_db_accessors.getByID(target,d);
         create_db_accessors.search(target,d);
         create_db_accessors.list(d,d);
+        create_db_accessors.stats(d,d);
     }
 }
 
@@ -540,8 +563,6 @@ loadPromise.then(() => {
 function test_function() {
     console.log("Entered test function");
 
-    heapdump.writeSnapshot(function (err, filename) {
-        console.log('dump written to', filename);
-    });
+    send_updates();
     console.log("Done");
 }

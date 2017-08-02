@@ -363,16 +363,22 @@ function bfdb_client(){
         });
     };
 
-    this.getStatus = function(){
+    this.getStatus = function(type){
         return new Promise(function (fulfill, reject) {
+            let valid_types = ['units','items','bbs','es'];
             //check if all parameters are properly set
             if (address === undefined || address.length === 0) {
                 reject("Error: No URL specified. Use .setAddress(url) to fix.");
+            } else if (type && valid_types.indexOf(type) === -1){
+                reject(`Error: Please choose a valid type: ${valid_types.join(", ")}`);
             } else {
                 var options = {
                     method: 'GET',
                     uri: address + "/status"
                 };
+                if(type){
+                    options.uri = `${address}/stats/${type}`;
+                }
 
                 return request(options)
                     .then(function (response) {
