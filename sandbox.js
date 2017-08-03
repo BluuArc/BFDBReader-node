@@ -406,11 +406,11 @@ ep.init().then(function(){
     return (
         // sandbox_function()
         // getBuffDataForAll()
-        // doItemTest({ name_id: "admonition crown", verbose: true})
-        doUnitTest({ name_id: "30166",server:'gl',strict: "false", verbose:true,burstType: "ubb", type: "ls"})
+        // doItemTest({ name_id: "34840", verbose: true})
+        doUnitTest({ name_id: "lyonesse",server:'gl',strict: "false", verbose:true,burstType: "ubb", type: "ls"})
         // doBurstTest("1750165")
-        // doESTest("1002200")
-        // doLSTest('18')
+        // doESTest("750247")
+        // doLSTest('8300')
     );
 }).then(function(){
     console.log(" ")  

@@ -3991,7 +3991,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
             func: function (effect, other_data) {
                 var msg = print_conditions(effect);
                 if (effect['ignore def%'])
-                    msg += `${effect['ignore def%']}% change to ignore target's defense`;
+                    msg += `${effect['ignore def%']}% chance to ignore target's defense`;
                 if (msg.length === 0) throw no_buff_data_msg;
                 if (needTarget(effect, other_data)) {
                     msg += get_target(effect, other_data, {
@@ -4314,6 +4314,134 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (needTarget(effect, other_data)) {
                     msg += get_target(effect, other_data, {
                         isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '46': {
+            desc: "HP Scaling ATK/DEF/REC Boost",
+            type: ['passive'],
+            func: function(effect,other_data){
+                let msg = print_conditions(effect);
+                let present_buffs = {};
+                let possible_buffs = ['atk','def','rec'];
+                for(let p of possible_buffs){
+                    if(effect[`${p}% base buff`] !== undefined || effect[`${p}% extra buff based on hp`] !== undefined){
+                        let base = effect[`${p}% base buff`] || 0, max = (+effect[`${p}% base buff`] || 0) + (+effect[`${p}% extra buff based on hp`] || 0);
+                        if(base >= 0 && max >= 0){
+                            present_buffs[p] =`${base}-${max}`;
+                        }else{ //special case for cleaner formatting of negative values
+                            present_buffs[p] =`${get_polarized_number(base)}% to ${get_polarized_number(max)}`;
+                        }
+                    }
+                }
+
+                msg += hp_adr_buff_handler(undefined,present_buffs.atk, present_buffs.def,present_buffs.rec, {
+                    numberFn: (number) => { return `${number}% `; }
+                });
+                msg += ` relative to ${effect['buff proportional to hp']} HP`;
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '47': {
+            desc: "BC Fill on Spark",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect["bc fill on spark%"] || effect["bc fill on spark high"] || effect["bc fill on spark low"]) {
+                    if (effect["bc fill on spark%"] && effect["bc fill on spark%"] === 100)
+                        msg += "Fills ";
+                    else
+                        msg += `${effect["bc fill on spark%"] || 0}% chance to fill `;
+                    msg += `${get_formatted_minmax(effect["bc fill on spark low"] || 0, effect["bc fill on spark high"] || 0)} BC on spark`;
+                }
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '48': {
+            desc: "Reduced BC/BB Gauge Cost",
+            type: ['passive'],
+            func: function(effect,other_data){
+                let msg = print_conditions(effect);
+                if(effect['reduced bb bc cost%'] !== undefined){
+                    msg += `${get_polarized_number(+effect['reduced bb bc cost%']*-1)}% BC cost`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '49': {
+            desc: 'BC/BB Gauge Cashback',
+            type: ['passive'],
+            notes: ['The percent represent how much of your BB gauge gets refilled upon use.'],
+            func: function(effect,other_data){
+                let msg = print_conditions(effect);
+                if (effect['reduced bb bc use chance%'] !== undefined && effect['reduced bb bc use chance%'] !== 100){
+                    msg += `${effect['reduced bb bc use chance%']}% chance of `;
+                }
+
+                if (effect['reduced bb bc use% low'] || effect['reduced bb bc use% high']){
+                    msg += `${get_formatted_minmax(effect['reduced bb bc use% low'], effect['reduced bb bc use% high'])}% BC cashback`;
+                }
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '50': {
+            desc: "Elemental Weakness Damage (EWD)",
+            notes: ["FWETLD corresponds to fire, water, earth, thunder, light, and dark, respectively"],
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                let options = {
+                    values: [
+                        effect['fire units do extra elemental weakness dmg'],
+                        effect['water units do extra elemental weakness dmg'],
+                        effect['earth units do extra elemental weakness dmg'],
+                        effect['thunder units do extra elemental weakness dmg'],
+                        effect['light units do extra elemental weakness dmg'],
+                        effect['dark units do extra elemental weakness dmg'],
+                    ]
+                };
+
+                let any_element = (effect['fire units do extra elemental weakness damage'] || effect['water units do extra elemental weakness damage'] ||
+                    effect['earth units do extra elemental weakness damage'] || effect['thunder units do extra elemental weakness damage'] ||
+                    effect['light units do extra elemental weakness damage'] || effect['dark units do extra elemental weakness damage']);
+
+                let elements = elemental_bool_handler(options);
+                if (effect['elemental weakness multiplier%'] || any_element) {
+                    msg += `${get_polarized_number(effect['elemental weakness multiplier%'] || 0)}%${(elements.length > 0 ? ` ${elements} ` : " ")}EWD to attacks`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                        prefix: 'of '
                     });
                 }
                 return msg;
