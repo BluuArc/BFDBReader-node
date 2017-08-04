@@ -127,14 +127,19 @@ let DBModule = function(options){
     }
     this.reload = reload;
 
-    function download(){
+    function download(servers){
         if(!options.files){
             throw new Error("No files specified");
         }
+        console.log("servers",servers)
         let downloadLimit = options.downloadLimit || 1;
         let files = [];
         let toRename = [];
         for(let file_obj of options.files){
+            if(servers && servers.indexOf(file_obj.name) === -1){
+                continue;
+            }
+            // console.log("Getting files for",file_obj.name);
             for(let file of file_obj.files){
                 files.push({
                     filename: file.main,
@@ -150,6 +155,7 @@ let DBModule = function(options){
         }
 
         console.log("Renaming files");
+        // console.log("Would've downloaded",files);
         let renamedPromise = common.do_n_at_a_time(toRename,1,(f) => {
             return rename_file_promisified(f.old_name,f.new_name);
         },true);

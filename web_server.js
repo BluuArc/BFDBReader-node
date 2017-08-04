@@ -6,9 +6,6 @@ var rp = require('request-promise');
 var _ = require('lodash'); //for search functions
 // var translate = require('google-translate-api');
 
-//for memory management
-var heapdump = require('heapdump');
-
 //for server setup 
 var compression = require('compression');
 var bodyParser = require('body-parser');
@@ -226,16 +223,26 @@ function init_db(isReload){
         });
 }
 
-function reload_db(){
+function reload_db(query){
     let reloadRequests = Object.keys(db);
     isReloading = true;
 
+    query = query || {};
+
+    console.log("Query",query);
+
+    let servers;
+    if(query.servers){
+        servers = query.servers.toLowerCase().split(",");
+    }
+
     return common.do_n_at_a_time(reloadRequests,1,(db_name) => {
-        return db[db_name].download();
+        return db[db_name].download(servers);
     },true).then(() => {
         return init_db(true).then(send_updates);
     }).then(() => {
         // init_memory_fix();
+        isReloading = false;
         return;  
     });
 }
@@ -246,7 +253,7 @@ function get_stats(){
         jp: {},
         eu: {}
     };
-    let servers = ['gl','jp','eu'];
+    let servers = ['gl', 'eu', 'jp'];
     for(let d in db){
         let curStats = db[d].getStats();
         for(let s of servers){
@@ -293,7 +300,7 @@ function send_updates() {
         var field_title = `${server_name} Server - ${type}`;
         var msg = `${server_name} has ` + stats[`num_${type.toLowerCase()}`] + ` ${type}. `;
         if (newest.length > 0) {
-            msg += `The ${newest.length < 5 ? newest.length : `first 5 of ${newest.length}`} new ${type.toLowerCase()} are:\n`;
+            msg += `The ${newest.length <= 5 ? newest.length : `first 5 of ${newest.length}`} new ${type.toLowerCase()} are:\n`;
         } else {
             msg += `There are ${newest.length} new ${type.toLowerCase()}.`;
             return [
@@ -363,8 +370,8 @@ function send_updates() {
     function create_update_payload() {
         var mapping = {
             gl: "Global",
-            jp: "Japan",
-            eu: "Europe"
+            eu: "Europe",
+            jp: "Japan"
         }
 
         let stats = get_stats();
@@ -459,19 +466,19 @@ function send_updates() {
 //this somehow cleans up the extra memory after the first init
 //deprecated
 function init_memory_fix(){
-    console.log("Starting heapdump");
-    heapdump.writeSnapshot(function (err, filename) {
-        console.log('dump written to', filename);
-        fs.unlinkSync(`./${filename}`);
-        console.log("deleted",filename);
-    });
+    // console.log("Starting heapdump");
+    // heapdump.writeSnapshot(function (err, filename) {
+    //     console.log('dump written to', filename);
+    //     fs.unlinkSync(`./${filename}`);
+    //     console.log("deleted",filename);
+    // });
 }
 
 app.get('/', function (request, response) {
     response.end("<h1>Hello World</h1>");
 
     //manual trigger
-    init_memory_fix();
+    // init_memory_fix();
 });
 
 //show the statistics of the server
@@ -480,9 +487,9 @@ app.get('/status', function (request, response) {
 });
 
 app.get('/reload',function(request,response){
-    // let query = request.query; //TODO: password protect this function
+    let query = request.query; //TODO: password protect this function
     if(!isReloading){
-        reload_db();
+        reload_db(query);
         response.end("Started reloading process");
     }else{
         response.end("Reload is already in progress");
