@@ -1794,7 +1794,6 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += get_turns(effect['guard increase mitigation buff turns (113)'], msg, other_data.sp, this.desc);
                 return msg;
             }
-
         },
         '69': {
             desc: "BC Fill on Guard",
@@ -4536,9 +4535,42 @@ var BuffProcessor = function (unit_names, item_names, options) {
                     }
                 }
 
-
                 msg += print_hp_conditions(effect);
 
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '58': {
+            desc: "Guard Mitigation",
+            type: ['passive'],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect['guard increase mitigation%']) {
+                    msg += `${get_polarized_number(effect['guard increase mitigation%'])}% guard mitigation`;
+                }
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '59': {
+            desc: "BC Fill when Hit while Guarding",
+            type: ["conditional"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect["bc filled when attacked while guarded"]) {
+                    msg += `Fill ${effect["bc filled when attacked while guarded"]} BC when hit while guarding`;
+                }
                 if (msg.length === 0) throw no_buff_data_msg;
                 if (needTarget(effect, other_data)) {
                     msg += get_target(effect, other_data, {
