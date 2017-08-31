@@ -2364,7 +2364,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
 
                 // }
                 let [min_heal, max_heal, def, rec, turns] = [params[0], params[1], params[5], params[6], params[8]];
-                let msg = `${get_formatted_minmax(min_heal, max_heal)} HP burst heal and ${adr_buff_handler(undefined, def, rec)} for ${turns} turns`;
+                let msg = `${get_formatted_minmax(min_heal, max_heal)} HP burst heal and ${adr_buff_handler(undefined, def, rec)} for ${turns} turn(s)`;
                 msg += get_target(other_data);
                 return msg;
             }
@@ -2568,7 +2568,6 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 return msg;
             }
-
         },
         '89': {
             desc: "Stat Conversion (Self)",
@@ -3345,21 +3344,24 @@ var BuffProcessor = function (unit_names, item_names, options) {
     function print_hp_conditions(effect){
         let hp_conditions = [];
         let msg = "";
-        if (effect['hp above % buff requirement'] !== undefined) {
-            if (effect['hp above % buff requirement'] != 100)
-                hp_conditions.push(` when HP > ${effect['hp above % buff requirement']}%`);
-            else
-                hp_conditions.push(' when HP is full');
-        } else if (effect['hp above % passive requirement'] !== undefined) {
-            if (effect['hp above % passive requirement'] != 100)
-                hp_conditions.push(` when HP > ${effect['hp above % passive requirement']}%`);
-            else
-                hp_conditions.push(' when HP is full');
+        let above_keys = ['hp above % buff requirement', 'hp above % passive requirement', 'hp above % buff activation'];
+        for(let k of above_keys){
+            if(effect[k] !== undefined){
+                if(effect[k] != 100){
+                    hp_conditions.push(` when HP > ${effect[k]}%`);
+                }else{
+                    hp_conditions.push(` when HP is full`);
+                }
+                break;
+            }
         }
-        if (effect['hp below % buff requirement'] !== undefined) {
-            hp_conditions.push(` when HP < ${effect['hp below % buff requirement']}%`);
-        }else if (effect['hp below % passive requirement'] !== undefined) {
-            hp_conditions.push(` when HP < ${effect['hp below % passive requirement']}%`);
+
+        let below_keys = ['hp below % buff requirement', 'hp below % passive requirement', 'hp below % buff activation'];
+        for(let k of below_keys){
+            if (effect[k] !== undefined) {
+                hp_conditions.push(` when HP < ${effect[k]}%`);
+                break;
+            }
         }
 
         if (hp_conditions.length > 0) {
@@ -3851,7 +3853,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 }
 
                 if(effect['first x turns'] !== undefined){
-                    msg += ` for first ${effect['first x turns']} turns`;
+                    msg += ` for first ${effect['first x turns']} turn(s)`;
                 }
 
                 if (msg.length === 0) throw no_buff_data_msg;
@@ -4447,6 +4449,105 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
         },
+        '53': {
+            desc: "Critical Hit/Critical DMG/EWD/BC Drop Resistance",
+            type: ['passive'],
+            notes: ['The values for BC drop rate resistance can be found on ES 730196'],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                let resistances = [], negations = [], buffs = [];
+                let curResist, critChanceIsPresent = false;
+                
+                //check for available resistances/negations
+                curResist = base_buffed_resistance_handler(effect['crit chance base resist%'], effect['crit chance buffed resist%'],"Critical Hit");
+                if(curResist.length > 0){
+                    if(curResist.indexOf("%") === -1){ //100% resistance -> negations
+                        negations.push(`${curResist}s`);
+                    }else{
+                        buffs.push(`${curResist}`);
+                    }
+                }
+
+                curResist = base_buffed_resistance_handler(effect['crit dmg base damage resist%'], effect['crit dmg buffed damage resist%'], "Critical Damage");
+                if (curResist.length > 0) {
+                    if (curResist.indexOf("%") === -1) { //100% resistance -> negation
+                        negations.push(curResist);
+                    } else {
+                        resistances.push(curResist);
+                    }
+                }
+
+                curResist = base_buffed_resistance_handler(effect['strong base element damage resist%'], effect['strong buffed element damage resist%'], "Elemental Damage");
+                if (curResist.length > 0) {
+                    if (curResist.indexOf("%") === -1) { //100% resistance -> negation
+                        negations.push(curResist);
+                    } else {
+                        resistances.push(curResist);
+                    }
+                }
+
+                curResist = base_buffed_resistance_handler(effect['bc base drop rate resist%'], effect['bc buffed drop rate resist%'], "Enemy BC Drop");
+                if (curResist.length > 0) {
+                    if (curResist.indexOf("%") === -1) { //100% resistance -> negations
+                        negations.push(`${curResist}s`);
+                    } else {
+                        resistances.push(`${curResist}`);
+                    }
+                }
+
+                //join together in a string
+                if (negations.length > 0) {
+                    buffs.push(`Negates ${negations.join(", ")}`);
+                }
+                if (resistances.length > 0) {
+                    buffs.push(`${resistances.join(", ")} resistance`);
+                }
+
+                if(buffs.length > 0){
+                    msg += buffs.join(" & ");
+                }
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '55': {
+            desc: "Conditional Buff Based on HP Threshold",
+            type: ['conditional'],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+
+                //get buff description
+                for(let k of Object.keys(effect.buff)){
+                    if(k.indexOf('buff turns (') > -1){
+                        let id = k.split('buff turns (')[1].split(')')[0];
+                        if(conditional_buffs[id]){
+                            msg += `"${conditional_buffs[id].func(effect.buff,other_data)}"`;
+                        }else if(unknown_buffs[id]){
+                            msg += `"${unknown_buffs[id].func(effect.buff, other_data)}"`;
+                        }else{
+                            msg += `Buff ${id} not supported yet`;
+                        }
+                        break;
+                    }
+                }
+
+
+                msg += print_hp_conditions(effect);
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
         '66': {
             desc: "Add effect to BB/SBB",
             type: ["passive"],
@@ -4530,10 +4631,114 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return unknown_passive_handler(effect, other_data);
             }
         },
+        '52': {
+            desc: "Unknown values",
+            type: ['unknown'],
+            notes: ['Found on item 700014'],
+            func: function (effect, other_data) {
+                return unknown_passive_handler(effect, other_data);
+            }
+        },
     };
 
     var unknown_buffs = {
+        '133': {
+            desc: "Heal on Hit",
+            type: ["buff"],
+            notes: ["Found on item 47214", 'In the datamine, turn values are offset by one', 'So a turn value of 1 represents a 2 turn buff, for example'],
+            func: function(effect,other_data){
+                let msg = "";
+                let data = effect['unknown buff params'].split('&');
+                let [heal_low, heal_high, heal_chance] = [+data[0],+data[1],+data[2]];
 
+                if (heal_chance || heal_low || heal_high) {
+                    msg += `${heal_chance || 0}% chance to heal `;
+                    msg += `${get_formatted_minmax(heal_low || 0, heal_high || 0)}% DMG when hit`;
+                }
+                msg += ` for ${+effect['buff turns (133)']+1} turn(s)`;
+                return msg;
+            }
+        },
+        '153': {
+            desc: "ATK Down Reflect",
+            type: ["debuff"],
+            notes: ['This can be found on item 47214', 'In the datamine, turn values are offset by one', 'So a turn value of 1 represents a 2 turn buff, for example'],
+            func: function (effect, other_data) {
+                var msg = "";
+                let data = effect['unknown buff params'].split("&").map((v) => { return +v });
+                let [amount, chance, turns] = [data[0],data[1],data[2]];
+                
+                msg += `${chance}% chance to inflict ${turns} turn ${amount}% ATK Down when hit`;
+                msg += ` for ${+effect['buff turns (153)'] + 1} turn(s)`;
+                return msg;
+            }
+        }
+    }
+
+    //first used in passive 55
+    var conditional_buffs = {
+        '8': {
+            desc: "HP per Turn/Heal over Time (HoT)",
+            type: ["buff"],
+            func: function (effect, other_data) {
+                let msg = "";
+                if (effect["gradual heal low"] || effect['gradual heal high']) {
+                    msg = `${get_formatted_minmax(effect["gradual heal low"], effect["gradual heal high"])} HP/turn`;
+                }
+
+                msg += ` for ${effect['buff turns (8)']} turn(s)`;
+                return msg;
+            }
+        },
+        '12': {
+            desc: "Guaranteed Angel Idol (AI)",
+            type: ['buff'],
+            func: function(effect,other_data){
+                let info_arr = [];
+                if (effect['buff turns (12)'] != -1 && effect['buff turns (12)'] !== undefined){
+                    info_arr.push(`for ${effect['buff turns (12)']} turn(s)`);
+                }
+                info_arr.push(`recover ${effect["angel idol recover hp%"] || 100}% HP on use`);
+
+                let msg = `gives Angel Idol (${info_arr.join(", ")})`;
+                return msg;
+            }
+        },
+        '36': {
+            desc: "Mitigation",
+            type: ["buff"],
+            notes: ['In the datamine, turn values are offset by one', 'So a turn value of 1 represents a 2 turn buff, for example'],
+            func: function (effect, other_data) {
+                let msg = "";
+                msg += `${effect["dmg reduction% buff"]}% mitigation`;
+                msg += ` for ${+effect['buff turns (36)'] + 1} turn(s)`;
+                return msg;
+            }
+        },
+        '37': {
+            desc: "BC Fill per Turn",
+            type: ["buff"],
+            func: function (effect, other_data) {
+                var msg = "";
+                msg += get_polarized_number(effect["increase bb gauge gradual buff"]) + " BC/turn";
+                msg += ` for ${effect['buff turns (37)']} turn(s)`;
+                return msg;
+            }
+        },
+        '72': {
+            desc: "BB/SBB/UBB ATK",
+            type: ["buff"],
+            func: function (effect, other_data) {
+                let msg = "";
+                if (effect["bb atk% buff"] || effect["sbb atk% buff"] || effect["ubb atk% buff"])
+                    msg += bb_atk_buff_handler(effect["bb atk% buff"], effect["sbb atk% buff"], effect["ubb atk% buff"], {
+                        suffix: " ATK"
+                    });
+
+                msg += ` for ${effect['buff turns (72)']} turn(s)`;
+                return msg;
+            }
+        },
     }
 
     var buff_list = {
