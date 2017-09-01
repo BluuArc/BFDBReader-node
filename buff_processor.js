@@ -1734,7 +1734,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
             func: function (effect, other_data) {
                 var msg = "";
                 if (effect["atk% buff when enemy has ailment"])
-                    msg += `${get_polarized_number(effect["atk% buff when enemy has ailment"])}% ATK to status afflicted foes to attacks`;
+                    msg += `${get_polarized_number(effect["atk% buff when enemy has ailment"])}% ATK against status afflicted foes to attacks`;
                 
                 if (msg.length === 0 && !other_data.sp) throw no_buff_data_msg;
                 if (!other_data.sp) msg += get_target(effect, other_data,{
@@ -4161,10 +4161,13 @@ var BuffProcessor = function (unit_names, item_names, options) {
             notes: ['Add the damage noted in this buff to 100% to get the actual damage of normal attacks', `+# means that the unit has # additional more hits, so +2 means that each hit has 2 more hits following it, effectively tripling the original hit count`],
             func: function (effect, other_data) {
                 let msg = print_conditions(effect);
-                if (effect['hit increase/hit'] || effect['extra hits dmg%'])
+                let buff = false;
+                if (effect['hit increase/hit'] || effect['extra hits dmg%']){
+                    buff = true;
                     msg += `${get_polarized_number(effect['hit increase/hit'] || 0)} ${(effect['hit increase/hit'] === 1) ? "hit" : "hits"} to normal attacks (at ${(get_polarized_number(effect['extra hits dmg%'] || 0))}% damage)`;
+                }
 
-                if (msg.length === 0) throw no_buff_data_msg;
+                if (msg.length === 0 || !buff) throw no_buff_data_msg;
                 if (needTarget(effect, other_data)) {
                     msg += get_target(effect, other_data, {
                         isPassive: true,
@@ -4791,6 +4794,188 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 return msg;
             }
         },
+        '71': {
+            desc: "Ailment Reflect",
+            type: ["buff"],
+            func: function (effect, other_data) {
+                let msg = "";
+                let options = {};
+                options.values = [
+                    effect["counter inflict injury%"],
+                    effect["counter inflict poison%"],
+                    effect["counter inflict sick%"],
+                    effect["counter inflict weaken%"],
+                    effect["counter inflict curse%"],
+                    effect["counter inflict paralysis%"]
+                ];
+
+                options.suffix = function (names) {
+                    if (names.length === 6) {
+                        return " chance to inflict any status ailment";
+                    } else {
+                        return ` chance to inflict ${names.join("/")}`;
+                    }
+                }
+
+                let ails = ailment_handler(options);
+                if (ails.length > 0) msg += `${ails} when hit`;
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '73': {
+            desc: "Stat Down/Reduction Negation/Resistance",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let adr_resist_msg = (function () {
+                    let options = {};
+                    options.values = [
+                        effect["atk down resist%"],
+                        effect["def down resist%"],
+                        effect["rec down resist%"],
+                    ];
+
+                    options.suffix = function (names) {
+                        if (names.length === 6) {
+                            return " all stat reductions";
+                        } else {
+                            return ` ${names.join("/")}`;
+                        }
+                    };
+
+                    options.numberFn = function (value) {
+                        if (value == 100)
+                            return "Negates";
+                        else
+                            return `${value}% resistance to`;
+                    };
+
+                    options.special_case = {
+                        isSpecialCase: function (value, names) {
+                            // debug_log("Received:", value, names.length, value == 100, names.length === 6);
+                            return value == 0 || names.length === 3;
+                        },
+                        func: function (value, names) {
+                            if (value == 0) return "";
+                            if (value == 100)
+                                return "Negates all stat reductions";
+                            else
+                                return `${value}% resistance to all stat reductions`;
+                        }
+                    };
+
+                    let msg = "";
+                    if (effect["atk down resist%"] || effect["def down resist%"] || effect["rec down resist%"])
+                        msg += ailment_handler(options);
+
+                    return msg;
+                })();
+
+                let ail_resist_msg = (function () {
+                    let options = {};
+                    options.values = [
+                        effect["injury resist%"],
+                        effect["poison resist%"],
+                        effect["sick resist%"],
+                        effect["weaken resist%"],
+                        effect["curse resist%"],
+                        effect["paralysis resist%"]
+                    ];
+
+                    options.suffix = function (names) {
+                        if (names.length === 6) {
+                            return " all status ailments";
+                        } else {
+                            return ` ${names.join("/")}`;
+                        }
+                    };
+
+                    options.numberFn = function (value) {
+                        if (value == 100)
+                            return "Negates";
+                        else
+                            return `${value}% resistance to`;
+                    };
+
+                    options.special_case = {
+                        isSpecialCase: function (value, names) {
+                            // debug_log("Received:", value, names.length, value == 100, names.length === 6);
+                            return value == 0 || names.length === 6;
+                        },
+                        func: function (value, names) {
+                            if (value == 0) return "";
+                            if (value == 100)
+                                return "Negates all status ailments";
+                            else
+                                return `${value}% resistance to all status ailments`;
+                        }
+                    };
+
+                    let msg = "";
+                    if (effect["injury resist%"] || effect["poison resist%"] || effect["sick resist%"] ||
+                        effect["weaken resist%"] || effect["curse resist%"] || effect["paralysis resist%"])
+                        msg += ailment_handler(options);
+                    
+                    return msg;
+                })();
+
+                let msg = print_conditions(effect);
+                if (adr_resist_msg.length > 0) {
+                    msg += adr_resist_msg;
+                }
+                if(ail_resist_msg.length > 0){
+                    if(adr_resist_msg.length > 0) msg += ", ";
+                    msg += ail_resist_msg;
+                }
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '74': {
+            desc: "Damage Boost to Status Afflicted Foes",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect["atk% buff when enemy has ailment"])
+                    msg += `${get_polarized_number(effect["atk% buff when enemy has ailment"])}% ATK against status afflicted foes`;
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '75': {
+            desc: "Spark Vulnerability to Enemy",
+            type: ["debuff"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect["spark debuff chance%"] || effect["spark debuff%"]) {
+                    msg += `${effect["spark debuff chance%"] || 0}% chance to inflict ${+(effect["spark debuff turns"] || 0) + 1} turn ${get_polarized_number(effect["spark debuff%"] || 0)}% Spark vulnerability debuff`;
+                }
+                
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
     };
 
     //general handler for all unknown passives
@@ -4847,6 +5032,34 @@ var BuffProcessor = function (unit_names, item_names, options) {
             notes: ['Found on item 700014'],
             func: function (effect, other_data) {
                 return unknown_passive_handler(effect, other_data);
+            }
+        },
+        '72': {
+            desc: "Turn End Effects Occur at Start of Turn",
+            type: ["passive"],
+            notes: ["HP related end-of-turn buffs include HoT and DoT", "BB related end-of-turn buffs include BC/turn"],
+            func: function(effect,other_data){
+                let msg = print_conditions(effect);
+                let params = effect["unknown passive params"].split(",");
+                let [hp,bb] = [params[0],params[1]];
+                let buffs = [];
+                if(hp == 1){
+                    buffs.push("HP related");
+                }
+                if(bb == 1){
+                    buffs.push("BB gauge related");
+                }
+                if(buffs.length > 0){
+                    msg += `Activate turn's end ${buffs.join(" and ")} effects at turn's start instead`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
             }
         },
     };

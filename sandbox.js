@@ -406,11 +406,11 @@ ep.init().then(function(){
     return (
         // sandbox_function()
         // getBuffDataForAll()
-        // doItemTest({ name_id: "47410", verbose: true})
-        // doUnitTest({ name_id: "20677",server:'gl',strict: "false", verbose:true,burstType: "ubb", type: "sp"})
+        // doItemTest({ name_id: "47210", verbose: true})
+        // doUnitTest({ name_id: "30017",server:'gl',strict: "false", verbose:true,burstType: "ubb", type: "sp"})
         // doBurstTest("1750165")
-        // doESTest("8000005")
-        doLSTest('810005')
+        // doESTest("13200")
+        doLSTest('117')
     );
 }).then(function(){
     console.log(" ")  
