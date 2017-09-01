@@ -4565,11 +4565,138 @@ var BuffProcessor = function (unit_names, item_names, options) {
         },
         '59': {
             desc: "BC Fill when Hit while Guarding",
-            type: ["conditional"],
+            type: ["passive"],
             func: function (effect, other_data) {
                 let msg = print_conditions(effect);
                 if (effect["bc filled when attacked while guarded"]) {
                     msg += `Fill ${effect["bc filled when attacked while guarded"]} BC when hit while guarding`;
+                }
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '61': {
+            desc: "BC Fill on Guard",
+            type: ["effect"],
+            notes: ['The BC fill mentioned here is an instant increase, not gradual'],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                
+                if (effect["bc filled on guard"] !== undefined)
+                    msg += `${get_polarized_number(effect["bc filled on guard"])} BC fill when guarding`;
+                
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '62': {
+            desc: "Elemental Mitigation",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                let options = {
+                    values: [
+                        effect['mitigate fire attacks'],
+                        effect['mitigate water attacks'],
+                        effect['mitigate earth attacks'],
+                        effect['mitigate thunder attacks'],
+                        effect['mitigate light attacks'],
+                        effect['mitigate dark attacks'],
+                    ]
+                };
+
+                let any_element = effect['mitigate fire attacks'] || effect['mitigate water attacks'] || effect['mitigate earth attacks'] || effect['mitigate thunder attacks'] || effect['mitigate light attacks'] || effect['mitigate dark attacks'];
+                if (effect['dmg% mitigation for elemental attacks'])
+                    msg += `${effect['dmg% mitigation for elemental attacks']}% elemental mitigation`;
+                if (any_element) {
+                    msg += ` from ${elemental_bool_handler(options)} attacks`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '63': {
+            desc: "First X Turns Elemental Mitigation",
+            type: ["timed", "buff"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                let options = {
+                    values: [
+                        effect['mitigate fire attacks'],
+                        effect['mitigate water attacks'],
+                        effect['mitigate earth attacks'],
+                        effect['mitigate thunder attacks'],
+                        effect['mitigate light attacks'],
+                        effect['mitigate dark attacks'],
+                    ]
+                };
+
+                let any_element = effect['mitigate fire attacks'] || effect['mitigate water attacks'] || effect['mitigate earth attacks'] || effect['mitigate thunder attacks'] || effect['mitigate light attacks'] || effect['mitigate dark attacks'];
+                if (effect['dmg% mitigation for elemental attacks'])
+                    msg += `${effect['dmg% mitigation for elemental attacks']}% elemental mitigation`;
+                if (any_element) {
+                    msg += ` from ${elemental_bool_handler(options)} attacks`;
+                }
+
+                if (effect["dmg% mitigation for elemental attacks buff for first x turns"] !== undefined){
+                    msg += ` for first ${effect["dmg% mitigation for elemental attacks buff for first x turns"]} turn(s)`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '64': {
+            desc: "BB/SBB/UBB ATK",
+            type: ["buff"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect["bb atk% buff"] || effect["sbb atk% buff"] || effect["ubb atk% buff"])
+                    msg += bb_atk_buff_handler(effect["bb atk% buff"], effect["sbb atk% buff"], effect["ubb atk% buff"], {
+                        suffix: " ATK"
+                    });
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '65': {
+            desc: "BC Fill on Critical",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect["bc fill on crit%"] || effect["bc fill on crit max"] || effect["bc fill on crit min"]) {
+                    if (effect["bc fill on crit%"] && effect["bc fill on crit%"] === 100)
+                        msg += "Fills ";
+                    else
+                        msg += `${effect["bc fill on crit%"] || 0}% chance to fill `;
+                    msg += `${get_formatted_minmax(effect["bc fill on crit min"] || 0, effect["bc fill on crit max"] || 0)} BC on landing a critical hit`;
                 }
                 if (msg.length === 0) throw no_buff_data_msg;
                 if (needTarget(effect, other_data)) {
