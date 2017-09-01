@@ -4689,6 +4689,7 @@ var BuffProcessor = function (unit_names, item_names, options) {
         '65': {
             desc: "BC Fill on Critical",
             type: ["passive"],
+            notes: ["Unit 720186 has erroneous data with this buff"],
             func: function (effect, other_data) {
                 let msg = print_conditions(effect);
                 if (effect["bc fill on crit%"] || effect["bc fill on crit max"] || effect["bc fill on crit min"]) {
@@ -4737,6 +4738,56 @@ var BuffProcessor = function (unit_names, item_names, options) {
                 msg += `${msg.length > 0 ? "add" : "Add"} effect to ${burst_type} {${buff.join(" / ").trim()}}`;
                 if (effect['passive target'] !== undefined && effect['passive target'] !== 'self')
                     msg += ` to ${effect['passive target']}`;
+                return msg;
+            }
+        },
+        '69': {
+            desc: "Chance Angel Idol (AI)",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+
+                let effects = [];
+
+                if (effect["angel idol recover chance% low"] || effect["angel idol recover chance% high"])
+                    msg += `${get_formatted_minmax(effect["angel idol recover chance% low"], effect["angel idol recover chance% high"])}% chance Angel Idol`;
+                if (effect["angel idol recover hp%"])
+                    effects.push("recovers " + effect["angel idol recover hp%"] + "% HP on proc");
+                if (effect["angel idol recover counts"]){
+                    if (effect["angel idol recover counts"] == 1){
+                        effects.push("1 time");
+                    }else{
+                        effects.push(`up to ${effect["angel idol recover counts"]} times`);
+                    }
+                }
+
+                if(effects.length > 0){
+                    msg += ` (${effects.join(", ")})`;
+                }
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
+                return msg;
+            }
+        },
+        '70': {
+            desc: "OD Fill Rate",
+            type: ["passive"],
+            func: function (effect, other_data) {
+                let msg = print_conditions(effect);
+                if (effect["od fill rate%"])
+                    msg += `${get_polarized_number(effect["od fill rate%"])}% OD gauge fill rate`;
+
+                if (msg.length === 0) throw no_buff_data_msg;
+                if (needTarget(effect, other_data)) {
+                    msg += get_target(effect, other_data, {
+                        isPassive: true,
+                    });
+                }
                 return msg;
             }
         },
