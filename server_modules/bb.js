@@ -44,7 +44,43 @@ let BraveBurstDB = function(){
         console.log(`Finished processing for BBs in ${server}`);
     };
 
-    options.files = bfdb_common.generateSetupFiles(files, setupFn);
+    // options.files = bfdb_common.generateSetupFiles(files, setupFn);
+
+    options.files = (function(files, setupFn) {
+        let setupArr = [];
+        let servers = ['gl', 'eu', 'jp'];
+        let main_url = "https://raw.githubusercontent.com/Deathmax/bravefrontier_data/master/";
+        for (let s of servers) {
+            let curObj = {
+                name: s,
+                files: [],
+                setupFn: setupFn
+            }
+
+            for (let f of files) {
+                if (f === 'bbs' && s !== 'eu') { //new format is multiple bbs_n.json files where n = 0..9
+                    for (let i = 0; i < 10; ++i) {
+                        curObj.files.push({
+                            name: `${f}`,
+                            main: `${f}-${s}_${i}.json`,
+                            alternatives: [`${f}-${s}_${i}-old.json`],
+                            main_url: `${main_url}${(s === 'gl') ? `${f}_${i}.json` : `${s}/${f}_${i}.json`}`
+                        });
+                    }
+                }else{   
+                    curObj.files.push({
+                        name: `${f}`,
+                        main: `${f}-${s}.json`,
+                        alternatives: [`${f}-${s}-old.json`],
+                        main_url: `${main_url}${(s === 'gl') ? `${f}.json` : `${s}/${f}.json`}`
+                    });
+                }
+            }
+            setupArr.push(curObj);
+        }
+
+        return setupArr;
+    })(files,setupFn);
 
     options.getByID = bfdb_common.getByID;
 

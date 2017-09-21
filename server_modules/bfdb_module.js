@@ -50,7 +50,7 @@ let DBModule = function(options){
         });
     }
 
-    function load_json_promisified(file, alternative_files) {
+    function load_json_promisified(file, alternative_files, noRename) {
         return new Promise(function (fulfill, reject) {
             //try to load first file
             fs.readFile("./json/" + file, 'utf8', function (err, data) {
@@ -59,7 +59,7 @@ let DBModule = function(options){
                     if (alternative_files !== undefined && alternative_files.length > 0) {
                         var new_file = alternative_files.pop();
                         console.log("Couldn't load " + file + ". Trying " + new_file);
-                        load_json_promisified(new_file, alternative_files).then(fulfill).catch(reject);
+                        load_json_promisified(new_file, alternative_files, noRename).then(fulfill).catch(reject);
                         return;
                     } else {
                         reject("Error: cannot open " + file + " or its alternatives");
@@ -75,20 +75,28 @@ let DBModule = function(options){
                     if (alternative_files !== undefined && alternative_files.length > 0) {
                         var new_file = alternative_files.pop();
                         console.log(parseError, "Couldn't load " + file + ". Trying " + new_file);
-                        load_json_promisified(new_file, alternative_files).then(fulfill).catch(reject);
+                        load_json_promisified(new_file, alternative_files, noRename).then(fulfill).catch(reject);
                         return;
                     } else {
                         reject(`${parseError}` + "\nError: cannot open " + file + " or its alternatives");
                         return;
                     }
                 }
-                if (file.indexOf("-old.json") > -1) {
+                if (file.indexOf("-old.json") > -1 && (!noRename || alternative_files.length === 0)) {
                     // console.log(file.indexOf("-old.json"));
-                    rename_file_promisified(file, file.replace("-old.json", ".json"))
-                        .then(function () {
-                            console.log("Successfully loaded old file. Renamed old file to current file");
-                            fulfill(result);
-                        }).catch(reject);
+                    if(!noRename){
+                        rename_file_promisified(file, file.replace("-old.json", ".json"))
+                            .then(function () {
+                                console.log("Successfully loaded old file. Renamed old file to current file");
+                                fulfill(result);
+                            }).catch(reject);
+                    }else{ //copy instead
+                        try{
+                            fs.writeFileSync(data,file);
+                        }catch(err){
+                            console.log(err);
+                        }
+                    }
                 } else {
                     fulfill(result);
                 }
